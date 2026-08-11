@@ -1,0 +1,65 @@
+/* App2Class — Stage 12 Polish */
+
+/* Remove Vite default styles */
+#root {
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: start;
+}
+
+/* Ensure RTL for entire app */
+html,
+body,
+#root {
+  direction: rtl;
+}
+
+/* Smooth page transitions */
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: fadeSlideIn 200ms ease-out;
+}
+
+/* Dashboard layout fill */
+.dashboard-main {
+  min-height: calc(100vh - 3.5rem);
+}
+
+/* Prevent content jump on sidebar toggle */
+[data-radix-sidebar-content] {
+  will-change: transform;
+}
+
+/* Better table borders */
+table {
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border-color: hsl(var(--border));
+}
+
+/* Focus visible only for keyboard nav */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* No select on UI elements */
+button,
+[role="button"],
+.select-none {
+  -webkit-tap-highlight-color: transparent;
+}

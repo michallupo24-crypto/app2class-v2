@@ -1,0 +1,156 @@
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import LandingPage from "./pages/LandingPage";
+import LoginPage from "./pages/LoginPage";
+import StudentRegistration from "./pages/register/StudentRegistration";
+import ParentRegistration from "./pages/register/ParentRegistration";
+import StaffRegistration from "./pages/register/StaffRegistration";
+import DashboardLayout from "./components/layout/DashboardLayout";
+import DashboardHome from "./pages/dashboard/DashboardHome";
+import ApprovalsPage from "./pages/dashboard/ApprovalsPage";
+import PlaceholderPage from "./pages/dashboard/PlaceholderPage";
+import SubjectDetailPage from "./pages/dashboard/SubjectDetailPage";
+import StudentDashboard from "./pages/dashboard/StudentDashboard";
+import SubjectHubsPage from "./pages/dashboard/SubjectHubsPage";
+import TasksPage from "./pages/dashboard/TasksPage";
+import TeacherDashboard from "./pages/dashboard/TeacherDashboard";
+import RollCallPage from "./pages/dashboard/RollCallPage";
+import AbsenceJustificationsPage from "./pages/dashboard/AbsenceJustificationsPage";
+import MeetingSlotsPage from "./pages/dashboard/MeetingSlotsPage";
+import TeacherAssignmentsPage from "./pages/dashboard/TeacherAssignmentsPage";
+import TeacherGradesPage from "./pages/dashboard/TeacherGradesPage";
+import TaskStudioPage from "./pages/dashboard/TaskStudioPage";
+import SyllabusPlannerPage from "./pages/dashboard/SyllabusPlannerPage";
+import StudentReportPage from "./pages/dashboard/StudentReportPage";
+import BadgesPage from "./pages/dashboard/BadgesPage";
+import NotFound from "./pages/NotFound";
+import ParentDashboardPage from "./pages/dashboard/ParentDashboardPage";
+import StudentGradesPage from "./pages/dashboard/StudentGradesPage";
+import AITutorPage from "./pages/dashboard/AITutorPage";
+import StudentPracticePage from "./pages/dashboard/StudentPracticePage";
+import StudentLiveLessonPage from "./pages/dashboard/StudentLiveLessonPage";
+import StudentRightsPage from "./pages/dashboard/StudentRightsPage";
+import SnakesLaddersGamePage from "./pages/dashboard/SnakesLaddersGamePage";
+import TeacherLiveLessonPage from "./pages/dashboard/TeacherLiveLessonPage";
+import TeacherAssignmentPage from "./pages/dashboard/TeacherAssignmentPage";
+import GradeCoordinatorDashboard from "./pages/dashboard/GradeCoordinatorDashboard";
+import MasterSchedulerPage from "./pages/dashboard/MasterSchedulerPage";
+import GradeProgressPage from "./pages/dashboard/GradeProgressPage";
+import TutoringManagementPage from "./pages/dashboard/TutoringManagementPage";
+import StaffMeetingsPage from "./pages/dashboard/StaffMeetingsPage";
+import GradeAnnouncementsPage from "./pages/dashboard/GradeAnnouncementsPage";
+import AvatarEditPage from "./pages/dashboard/AvatarEditPage";
+import ChatPage from "./pages/dashboard/ChatPage";
+import SystemAdminPage from "./pages/dashboard/SystemAdminPage";
+import PrincipalDashboardPage from "./pages/dashboard/PrincipalDashboardPage";
+import SchoolOrgTreePage from "./pages/dashboard/SchoolOrgTreePage";
+import SystemAdminOrgTreePage from "./pages/dashboard/SystemAdminOrgTreePage";
+import SchedulePage from "./pages/dashboard/SchedulePage";
+import CommunityPage from "./pages/dashboard/CommunityPage";
+import StudentAttendancePage from "./pages/dashboard/StudentAttendancePage";
+import StudentSeatingPage from "./pages/dashboard/StudentSeatingPage";
+import SeatingMapPage from "./pages/dashboard/SeatingMapPage";
+import CounselorDashboard from "./pages/dashboard/CounselorDashboard";
+import CounselorCasesPage from "./pages/dashboard/CounselorCasesPage";
+import CouncilPage from "./pages/dashboard/CouncilPage";
+import NewspaperPage from "./pages/dashboard/NewspaperPage";
+import BellVotePage from "./pages/dashboard/BellVotePage";
+import EventApprovalsPage from "./pages/dashboard/EventApprovalsPage";
+import SubjectCoordinatorDashboard from "./pages/dashboard/SubjectCoordinatorDashboard";
+import SupportPage from "./pages/dashboard/SupportPage";
+import FinanceHubPage from "./pages/dashboard/FinanceHubPage";
+import ExamArchivePage from "./pages/dashboard/ExamArchivePage";
+import MyClassesPage from "./pages/dashboard/MyClassesPage";
+
+const queryClient = new QueryClient();
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register/student" element={<StudentRegistration />} />
+          <Route path="/register/parent" element={<ParentRegistration />} />
+          <Route path="/register/staff" element={<StaffRegistration />} />
+          <Route path="/dashboard" element={<DashboardLayout />}>
+            <Route index element={<DashboardHome />} />
+            <Route path="approvals" element={<ApprovalsPage />} />
+            <Route path="students" element={<PlaceholderPage title="תלמידים" description="ניהול תלמידים ומעקב אחר התקדמות" icon="🎓" />} />
+            <Route path="classes" element={<PlaceholderPage title="כיתות" description="ניהול כיתות, מערכת שעות ושיוכים" icon="📚" />} />
+            <Route path="my-child" element={<ParentDashboardPage />} />
+            <Route path="stats" element={<PlaceholderPage title="סטטיסטיקות" description="נתונים, גרפים ודוחות" icon="📊" />} />
+            <Route path="admin" element={<SystemAdminPage />} />
+            <Route path="principal" element={<PrincipalDashboardPage />} />
+            <Route path="org-tree" element={<SchoolOrgTreePage />} />
+            <Route path="system-org-tree" element={<SystemAdminOrgTreePage />} />
+            <Route path="schedule" element={<SchedulePage />} />
+            <Route path="timetable" element={<SchedulePage />} />
+            <Route path="calendar" element={<SchedulePage />} />
+            <Route path="community" element={<CommunityPage />} />
+            {/* Student routes */}
+            <Route path="student-home" element={<StudentDashboard />} />
+            <Route path="subjects" element={<SubjectHubsPage />} />
+            <Route path="subjects/:subjectName" element={<SubjectDetailPage />} />
+            <Route path="tasks" element={<TasksPage />} />
+            <Route path="ai-tutor" element={<AITutorPage />} />
+            <Route path="grades" element={<StudentGradesPage />} />
+            <Route path="grades/:studentId" element={<StudentGradesPage />} />
+            <Route path="report/:studentId" element={<StudentReportPage />} />
+            <Route path="badges" element={<BadgesPage />} />
+            <Route path="practice/:assignmentId" element={<StudentPracticePage />} />
+            <Route path="live-student" element={<StudentLiveLessonPage />} />
+            <Route path="rights" element={<StudentRightsPage />} />
+            <Route path="game/snakes/:assignmentId" element={<SnakesLaddersGamePage />} />
+            <Route path="attendance" element={<StudentAttendancePage />} />
+            <Route path="attendance/:studentId" element={<StudentAttendancePage />} />
+            <Route path="student-seating" element={<StudentSeatingPage />} />
+            {/* Teacher routes */}
+            <Route path="teacher-home" element={<TeacherDashboard />} />
+            <Route path="roll-call" element={<RollCallPage />} />
+            <Route path="absence-justifications" element={<AbsenceJustificationsPage />} />
+            <Route path="meetings" element={<MeetingSlotsPage />} />
+            <Route path="seating" element={<SeatingMapPage />} />
+            <Route path="live-lesson" element={<TeacherLiveLessonPage />} />
+            <Route path="teacher-assignments" element={<TeacherAssignmentsPage />} />
+            <Route path="task-studio" element={<TaskStudioPage />} />
+            <Route path="teacher-grades" element={<TeacherGradesPage />} />
+            <Route path="my-classes" element={<MyClassesPage />} />
+            <Route path="assign-teachers" element={<TeacherAssignmentPage />} />
+            <Route path="subject-coordinator-home" element={<SubjectCoordinatorDashboard />} />
+            <Route path="support" element={<SupportPage />} />
+            <Route path="finance-hub" element={<FinanceHubPage />} />
+            <Route path="exam-archive" element={<ExamArchivePage />} />
+            {/* Grade Coordinator routes */}
+            <Route path="grade-coordinator-home" element={<GradeCoordinatorDashboard />} />
+            <Route path="master-scheduler" element={<MasterSchedulerPage />} />
+            <Route path="grade-progress" element={<GradeProgressPage />} />
+            <Route path="tutoring" element={<TutoringManagementPage />} />
+            <Route path="staff-meetings" element={<StaffMeetingsPage />} />
+            <Route path="grade-announcements" element={<GradeAnnouncementsPage />} />
+            <Route path="syllabus-planner" element={<SyllabusPlannerPage />} />
+            <Route path="avatar-edit" element={<AvatarEditPage />} />
+            <Route path="chat" element={<ChatPage />} />
+            <Route path="event-approvals" element={<EventApprovalsPage />} />
+            {/* Counselor routes */}
+            <Route path="counselor-home" element={<CounselorDashboard />} />
+            <Route path="counselor-cases" element={<CounselorCasesPage />} />
+            {/* Student Life Hub */}
+            <Route path="council" element={<CouncilPage />} />
+            <Route path="newspaper" element={<NewspaperPage />} />
+            <Route path="bell-vote" element={<BellVotePage />} />
+          </Route>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
+
+export default App;
