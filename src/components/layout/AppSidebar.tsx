@@ -31,6 +31,7 @@ import {
   Archive,
   FileCheck2,
   CalendarClock,
+  LayoutGrid,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
@@ -74,7 +75,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
   const roles = profile.roles;
 
   const isStudent = roles.includes("student");
-  const isTeacher = roles.includes("professional_teacher");
+  const isTeacher = roles.includes("professional_teacher") || roles.includes("educator");
   const isGradeCoordinator = roles.includes("grade_coordinator");
   const isSubjectCoordinator = roles.includes("subject_coordinator");
   const isCounselor = roles.includes("counselor");
@@ -115,9 +116,11 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
     { title: "פגישות הורים", url: "/dashboard/meetings", icon: CalendarClock },
     { title: "משימות", url: "/dashboard/teacher-assignments", icon: FileText },
     { title: "סטודיו משימות", url: "/dashboard/task-studio", icon: Settings },
-    { title: "דוחות", url: "/dashboard/grades", icon: BarChart3 },
+    { title: "דוחות", url: "/dashboard/teacher-grades", icon: BarChart3 },
+    { title: "מפת הושבה", url: "/dashboard/seating", icon: LayoutGrid },
     { title: "לוח זמנים", url: "/dashboard/schedule", icon: Calendar },
     { title: "הכיתות שלי", url: "/dashboard/my-classes", icon: Users },
+    { title: "אישורי טיולים", url: "/dashboard/event-approvals", icon: FileSignature },
     { title: "ארכיון מבחנים", url: "/dashboard/exam-archive", icon: Archive },
     { title: "שיחות", url: "/dashboard/chat", icon: MessageCircle },
   ];
@@ -137,6 +140,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
     { title: "דאשבורד", url: "/dashboard/grade-coordinator-home", icon: LayoutDashboard },
     { title: "לוח מבחנים", url: "/dashboard/master-scheduler", icon: Calendar },
     { title: "דופק שכבתי", url: "/dashboard/grade-progress", icon: BarChart3 },
+    { title: "אישורי טיולים", url: "/dashboard/event-approvals", icon: FileSignature },
     { title: "לוח זמנים", url: "/dashboard/schedule", icon: Calendar },
     { title: "שיחות", url: "/dashboard/chat", icon: MessageCircle },
   ];
@@ -145,6 +149,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
   const counselorItems: { title: string; url: string; icon: any }[] = [
     { title: "דאשבורד", url: "/dashboard/counselor-home", icon: LayoutDashboard },
     { title: "תיקי מעקב", url: "/dashboard/counselor-cases", icon: HeartPulse },
+    { title: "מפת הושבה", url: "/dashboard/seating", icon: LayoutGrid },
     { title: "לוח זמנים", url: "/dashboard/schedule", icon: Calendar },
     { title: "שיחות", url: "/dashboard/chat", icon: MessageCircle },
   ];
@@ -175,6 +180,10 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
   if (isManagement || isAdmin) {
     adminItems.push({ title: "דאשבורד מנהלת", url: "/dashboard/principal", icon: User });
     adminItems.push({ title: "סטטיסטיקות", url: "/dashboard/stats", icon: BarChart3 });
+  }
+  if (isAdmin) {
+    adminItems.push({ title: "ניהול מערכת", url: "/dashboard/admin", icon: Shield });
+    adminItems.push({ title: "עץ ארגוני - כלל המערכת", url: "/dashboard/system-org-tree", icon: Building2 });
   }
   adminItems.push({ title: "שיחות", url: "/dashboard/chat", icon: MessageCircle });
   adminItems.push({ title: "לוח זמנים", url: "/dashboard/schedule", icon: Calendar });

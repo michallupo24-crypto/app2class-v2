@@ -117,7 +117,18 @@
       "Bash(grep -A5 \"StudentGradesPage.tsx\\\\|StudentDashboard.tsx\\\\|StudentRightsPage.tsx\\\\|StudentPracticePage.tsx\\\\|StudentLiveLessonPage.tsx\\\\|SeatingMapPage.tsx\\\\|RollCallPage.tsx\\\\|MasterSchedulerPage.tsx\\\\|ExamArchivePage.tsx\\\\|EventApprovalsPage.tsx\\\\|ManualQuestionEditor.tsx\\\\|ClassLoadMeter.tsx\" /tmp/tscout5.txt)",
       "Bash(grep -A6 \"ClassroomGrid.tsx\\\\|StudentRightsPage.tsx\\\\|StudentPracticePage.tsx\\\\|StudentLiveLessonPage.tsx\\\\|RollCallPage.tsx\\\\|MasterSchedulerPage.tsx\\\\|ExamArchivePage.tsx\\\\|EventApprovalsPage.tsx\\\\|useSmartSeat.ts\\\\|ClassLoadMeter.tsx\" /tmp/tscout6.txt)",
       "Bash(grep -o \"@typescript-eslint/[a-z-]*\\\\|prefer-const\\\\|no-empty\\\\|no-case-declarations\\\\|react-hooks/[a-z-]*\\\\|no-require-imports\\\\|no-constant\" /tmp/lintout.txt | sort | uniq -c | sort -rn | head -20)",
-      "Bash(npx vite *)"
+      "Bash(npx vite *)",
+      "Bash(git -C \"C:\\\\Users\\\\micha\\\\OneDrive\\\\Desktop\\\\A\" log --oneline -20)",
+      "Bash(git -C \"C:\\\\Users\\\\micha\\\\OneDrive\\\\Desktop\\\\A\" status)",
+      "Bash(git check-ignore *)",
+      "Bash(grep -E \"^C:\\\\\\\\\\\\\\\\\")",
+      "Read(//c/Users/micha/AppData/Local/Temp/claude/**)",
+      "Bash(npx vitest *)",
+      "Bash(grep -i \"\\\\.env$\")",
+      "Bash(git count-objects *)",
+      "Bash(git rm *)",
+      "Bash(curl -s -X POST https://pnfxysxxmqznwoorgene.supabase.co/functions/v1/dev-skip-registration -H 'apikey: sb_publishable_rggr7jxyC2YztnmkT2hVbg_serKSNKO' -H 'Authorization: Bearer sb_publishable_rggr7jxyC2YztnmkT2hVbg_serKSNKO' -H 'Content-Type: application/json' -d '{\"role\":\"staff\"}')",
+      "Bash(echo \"tsc exit:$?\")"
     ]
   }
 }

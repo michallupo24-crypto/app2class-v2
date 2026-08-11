@@ -15,6 +15,8 @@ import {
   GraduationCap,
   Menu,
   MessageCircle,
+  LayoutGrid,
+  FileSignature,
 } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +38,7 @@ function getNavItems(profile: UserProfile): { primary: NavItem[]; overflow: NavI
   const roles = profile.roles;
   const isStudent = roles.includes("student");
   const isTeacher = roles.some((r) =>
-    ["professional_teacher", "subject_coordinator"].includes(r)
+    ["professional_teacher", "subject_coordinator", "educator"].includes(r)
   );
   const isEducator = roles.includes("educator");
   const isGradeCoordinator = roles.includes("grade_coordinator");
@@ -101,6 +103,8 @@ function getNavItems(profile: UserProfile): { primary: NavItem[]; overflow: NavI
       ],
       overflow: [
         { title: "כיתות", url: "/dashboard/my-classes", icon: Users },
+        { title: "מפת הושבה", url: "/dashboard/seating", icon: LayoutGrid },
+        { title: "אישורי טיולים", url: "/dashboard/event-approvals", icon: FileSignature },
         { title: "אישורים", url: "/dashboard/approvals", icon: UserCheck },
         { title: "שיחות", url: "/dashboard/chat", icon: MessageCircle },
       ],
