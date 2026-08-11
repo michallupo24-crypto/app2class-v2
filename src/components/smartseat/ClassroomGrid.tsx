@@ -98,11 +98,11 @@ export function ClassroomGrid({ config, students, mode, highlightedId, getStuden
                                 onDragLeave={handleDragLeave}
                                 onDrop={mode === 'edit' && !student ? (e) => handleDrop(e, r, c) : undefined}
                                 draggable={mode === 'edit' && !!student}
-                                onDragStart={student ? (e) => {
+                                onDragStart={(student ? ((e: React.DragEvent<HTMLDivElement>) => {
                                     e.dataTransfer.setData('studentId', student.id);
                                     e.dataTransfer.setData('text/plain', student.id);
                                     e.dataTransfer.effectAllowed = 'move';
-                                } : undefined}
+                                }) : undefined) as any}
                             >
                                 <AnimatePresence mode="wait">
                                     {student ? (

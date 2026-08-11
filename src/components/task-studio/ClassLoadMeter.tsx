@@ -50,11 +50,13 @@ const ClassLoadMeter = ({ profile, classId }: Props) => {
         .gte("due_date", weekAgo.toISOString())
         .lte("due_date", nextWeek.toISOString());
 
-      // Get exams from grade_events table
+      // grade_events is scoped by grade level (not class_id), so pull exams for
+      // the grades these classes belong to and fan them back out below.
+      const grades = Array.from(new Set(tc.map((t: any) => t.classes?.grade).filter(Boolean)));
       const { data: exams } = await supabase
         .from("grade_events")
-        .select("class_id, event_date, event_type")
-        .in("class_id", classIds)
+        .select("grade, event_date, event_type")
+        .in("grade", grades as any)
         .eq("event_type", "exam")
         .gte("event_date", weekAgo.toISOString())
         .lte("event_date", nextWeek.toISOString());
@@ -79,10 +81,12 @@ const ClassLoadMeter = ({ profile, classId }: Props) => {
       });
 
       exams?.forEach((e: any) => {
-        if (map[e.class_id]) {
-          map[e.class_id].examsThisWeek++;
-          map[e.class_id].total++;
-        }
+        classIds.forEach((id: string) => {
+          if (map[id] && tc.find((t: any) => t.classes.id === id)?.classes?.grade === e.grade) {
+            map[id].examsThisWeek++;
+            map[id].total++;
+          }
+        });
       });
 
       setLoadData(Object.values(map));

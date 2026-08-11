@@ -1553,6 +1553,144 @@ export type Database = {
           },
         ]
       }
+      interactive_task_progress: {
+        Row: {
+          id: string
+          last_active_at: string
+          score: number | null
+          state: Json | null
+          status: string
+          student_id: string
+          submitted_at: string | null
+          task_id: string
+          time_spent_seconds: number
+          total: number | null
+        }
+        Insert: {
+          id?: string
+          last_active_at?: string
+          score?: number | null
+          state?: Json | null
+          status?: string
+          student_id: string
+          submitted_at?: string | null
+          task_id: string
+          time_spent_seconds?: number
+          total?: number | null
+        }
+        Update: {
+          id?: string
+          last_active_at?: string
+          score?: number | null
+          state?: Json | null
+          status?: string
+          student_id?: string
+          submitted_at?: string | null
+          task_id?: string
+          time_spent_seconds?: number
+          total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interactive_task_progress_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "interactive_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interactive_tasks: {
+        Row: {
+          assignment_id: string | null
+          author_id: string
+          created_at: string
+          css_code: string
+          description: string | null
+          forked_from: string | null
+          grade_level: string | null
+          grading_schema: Json | null
+          html_code: string
+          id: string
+          is_public_template: boolean
+          js_code: string
+          language: string
+          libraries: string[]
+          mode: string
+          python_code: string
+          school_id: string | null
+          subject: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assignment_id?: string | null
+          author_id: string
+          created_at?: string
+          css_code?: string
+          description?: string | null
+          forked_from?: string | null
+          grade_level?: string | null
+          grading_schema?: Json | null
+          html_code?: string
+          id?: string
+          is_public_template?: boolean
+          js_code?: string
+          language?: string
+          libraries?: string[]
+          mode?: string
+          python_code?: string
+          school_id?: string | null
+          subject?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          assignment_id?: string | null
+          author_id?: string
+          created_at?: string
+          css_code?: string
+          description?: string | null
+          forked_from?: string | null
+          grade_level?: string | null
+          grading_schema?: Json | null
+          html_code?: string
+          id?: string
+          is_public_template?: boolean
+          js_code?: string
+          language?: string
+          libraries?: string[]
+          mode?: string
+          python_code?: string
+          school_id?: string | null
+          subject?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interactive_tasks_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interactive_tasks_forked_from_fkey"
+            columns: ["forked_from"]
+            isOneToOne: false
+            referencedRelation: "interactive_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interactive_tasks_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lesson_notes: {
         Row: {
           category: Database["public"]["Enums"]["note_category"]
@@ -2461,6 +2599,44 @@ export type Database = {
           },
         ]
       }
+      student_seats: {
+        Row: {
+          class_id: string
+          col_index: number
+          created_at: string
+          id: string
+          row_index: number
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          class_id: string
+          col_index: number
+          created_at?: string
+          id?: string
+          row_index: number
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          class_id?: string
+          col_index?: number
+          created_at?: string
+          id?: string
+          row_index?: number
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_seats_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_tracks: {
         Row: {
           approved: boolean | null
@@ -3167,6 +3343,17 @@ export type Database = {
         Returns: {
           full_name: string
           id: string
+        }[]
+      }
+      flag_student_for_counselor: {
+        Args: { p_reason?: string; p_student_id: string }
+        Returns: number
+      }
+      get_assignment_averages: {
+        Args: { p_assignment_ids: string[] }
+        Returns: {
+          assignment_id: string
+          avg_grade: number
         }[]
       }
       get_class_average: { Args: { p_class_id: string }; Returns: number }

@@ -94,7 +94,7 @@ const SnakesLaddersGamePage = () => {
         supabase.from("task_questions").select("*").eq("assignment_id", assignmentId).order("order_num"),
       ]);
       setAssignment(aRes.data);
-      setQuestions(qRes.data || []);
+      setQuestions((qRes.data || []).map((q: any) => ({ ...q, options: Array.isArray(q.options) ? q.options : [] })));
       setLoading(false);
     };
     load();

@@ -77,7 +77,7 @@ const EventApprovalsPage = () => {
         .select("id, title, description, event_date, grade, school_id")
         .eq("requires_parent_approval", true)
         .eq("status", "approved")
-        .in("grade", grades as string[])
+        .in("grade", grades as any)
         .in("school_id", schoolIds as string[])
         .order("event_date", { ascending: true });
       setParentEvents(events || []);

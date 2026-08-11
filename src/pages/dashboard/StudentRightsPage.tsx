@@ -67,7 +67,7 @@ const StudentRightsPage = () => {
       // 1. Fetch assignments + submissions for this student's class
       const { data: assignments } = await supabase
         .from("assignments")
-        .select("id, title, subject, due_date, published_at, created_at")
+        .select("id, title, subject, due_date, created_at")
         .eq("class_id", prof.class_id)
         .eq("published", true)
         .order("due_date", { ascending: false })
@@ -242,7 +242,7 @@ const StudentRightsPage = () => {
         if (tc?.user_id) {
           // Create conversation + send message
           const { data: conv } = await supabase.from("conversations")
-            .insert({ school_id: profile.schoolId }).select("id").single();
+            .insert({ school_id: profile.schoolId, created_by: profile.id }).select("id").single();
           if (conv?.id) {
             await supabase.from("conversation_participants").insert([
               { conversation_id: conv.id, user_id: profile.id },

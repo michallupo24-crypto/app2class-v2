@@ -54,7 +54,7 @@ export const getStudentGrades = async (studentId: string, schoolId: string, seme
     .from("grade_events")
     .select("id, subject, weight, title")
     .eq("school_id", schoolId)
-    .eq("grade", cls.grade as string)
+    .eq("grade", cls.grade)
     .eq("semester", semester)
     .eq("event_type", "exam")
     .not("weight", "is", null);

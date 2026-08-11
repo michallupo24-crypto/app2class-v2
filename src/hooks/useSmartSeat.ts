@@ -130,14 +130,22 @@ export function useSmartSeat(classId?: string, lessonId?: string) {
         // Save to DB if in a lesson context
         if (lessonId) {
             try {
-                await supabase
-                    .from('attendance')
-                    .upsert({
-                        student_id: studentId,
-                        lesson_id: lessonId,
-                        status: nextStatus,
-                        noted_at: new Date().toISOString()
-                    }, { onConflict: 'student_id,lesson_id' });
+                if (nextStatus === 'none' || nextStatus === 'disruption' || nextStatus === 'positive') {
+                    await supabase
+                        .from('attendance')
+                        .delete()
+                        .eq('student_id', studentId)
+                        .eq('lesson_id', lessonId);
+                } else {
+                    await supabase
+                        .from('attendance')
+                        .upsert({
+                            student_id: studentId,
+                            lesson_id: lessonId,
+                            status: nextStatus,
+                            noted_at: new Date().toISOString()
+                        }, { onConflict: 'student_id,lesson_id' });
+                }
             } catch (err) {
                 console.error("Error saving attendance from map:", err);
             }

@@ -359,7 +359,7 @@ const RollCallPage = () => {
                         const s = students.find(st => st.id === seated.id);
                         return s ? ({ ...s, attendance: s.status || 'none', seatRow: r, seatCol: c } as any) : undefined;
                     }}
-                    onCellClick={(r, c, student) => student && handleSwipe(student.id, student.status === 'present' ? 'right' : 'left')}
+                    onCellClick={(r, c, student) => student && handleSwipe(student.id, student.attendance === 'present' ? 'right' : 'left')}
                     onDrop={() => {}}
                 />
             </CardContent>

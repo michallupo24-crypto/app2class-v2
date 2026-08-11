@@ -146,7 +146,7 @@ const MasterSchedulerPage = () => {
 
     const { error } = await supabase.from("grade_events").insert({
       school_id: profile.schoolId!,
-      grade: determinedGrade,
+      grade: determinedGrade as any,
       title: form.title,
       description: form.description || null,
       event_type: form.event_type,

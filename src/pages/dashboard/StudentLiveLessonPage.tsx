@@ -213,7 +213,7 @@ const StudentLiveLessonPage = () => {
       await supabase.from("live_poll_responses").insert({
         poll_id: pollId,
         student_id: profile.id,
-        option_index: optionIdx,
+        selected_option: optionIdx,
       });
       setMyPollResponses(prev => ({ ...prev, [pollId]: optionIdx }));
       toast({ title: "תגובתך נשלחה! 📊" });

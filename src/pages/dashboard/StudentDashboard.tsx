@@ -93,6 +93,7 @@ const StudentDashboard = () => {
   const [now, setNow] = useState<Date>(new Date());
   const [gradeEvents, setGradeEvents] = useState<GradeEvent[]>([]);
   const [studentGrade, setStudentGrade] = useState<string | null>(null);
+  const [myClassId, setMyClassId] = useState<string | null>(null);
   const [aiInsight, setAiInsight] = useState<string>("");
   const [aiLoading, setAiLoading] = useState(false);
   const [isBirthday, setIsBirthday] = useState(false);
@@ -172,6 +173,7 @@ const StudentDashboard = () => {
       const { data: myProfile } = await supabase
         .from("profiles").select("class_id").eq("id", profile.id).single();
       if (!myProfile?.class_id) return;
+      setMyClassId(myProfile.class_id);
       const { data: cls } = await supabase
         .from("classes").select("grade").eq("id", myProfile.class_id).single();
       if (!cls?.grade) return;
@@ -449,9 +451,9 @@ ${birthdayText}
           </motion.div>
 
           {/* Class Messenger */}
-          {profile.classId && (
+          {myClassId && (
             <motion.div variants={item}>
-              <ClassMessenger classId={profile.classId} userId={profile.id} isTeacher={false} />
+              <ClassMessenger classId={myClassId} userId={profile.id} isTeacher={false} />
             </motion.div>
           )}
         </div>

@@ -105,7 +105,19 @@
       "Bash(tee /tmp/tscout.txt)",
       "Bash(cd \"C:\\\\Users\\\\micha\\\\OneDrive\\\\Desktop\\\\A\" && cat /tmp/tscout.txt 2>&1 | grep \"error TS\" | sed -E 's/\\\\\\([0-9]+,[0-9]+\\\\\\)//' | sort | uniq -c | sort -rn | head -30)",
       "Bash(git init *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(tee /tmp/tscout2.txt)",
+      "Bash(Get-Content -Path C:\\\\Users\\\\micha\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-micha-OneDrive-Desktop-A\\\\214d766e-5cba-49cd-8299-9696f819e7f5\\\\tasks\\\\bcipa6ap7.output)",
+      "Bash(echo \"started bg pid $!\")",
+      "Bash(grep -A3 \"StudentPracticePage.tsx\" /tmp/tscout4.txt | head -60)",
+      "Bash(curl -s 'https://pnfxysxxmqznwoorgene.supabase.co/rest/v1/interactive_tasks?select=id&limit=1' -H 'apikey: sb_publishable_rggr7jxyC2YztnmkT2hVbg_serKSNKO' -H 'Authorization: Bearer sb_publishable_rggr7jxyC2YztnmkT2hVbg_serKSNKO')",
+      "Bash(mv src/integrations/supabase/types.ts.new src/integrations/supabase/types.ts)",
+      "Bash(grep \"error TS\" /tmp/tscout5.txt | sed -E 's/\\\\\\([0-9]+,[0-9]+\\\\\\)//' | sed -E 's/error TS[0-9]+:.*//' | sort | uniq -c | sort -rn)",
+      "Bash(grep -A5 \"StudentGradesPage.tsx\\\\|StudentDashboard.tsx\\\\|StudentRightsPage.tsx\\\\|StudentPracticePage.tsx\\\\|StudentLiveLessonPage.tsx\\\\|SeatingMapPage.tsx\\\\|RollCallPage.tsx\\\\|MasterSchedulerPage.tsx\\\\|ExamArchivePage.tsx\\\\|EventApprovalsPage.tsx\\\\|ManualQuestionEditor.tsx\\\\|ClassLoadMeter.tsx\" /tmp/tscout5.txt)",
+      "Bash(grep -A6 \"ClassroomGrid.tsx\\\\|StudentRightsPage.tsx\\\\|StudentPracticePage.tsx\\\\|StudentLiveLessonPage.tsx\\\\|RollCallPage.tsx\\\\|MasterSchedulerPage.tsx\\\\|ExamArchivePage.tsx\\\\|EventApprovalsPage.tsx\\\\|useSmartSeat.ts\\\\|ClassLoadMeter.tsx\" /tmp/tscout6.txt)",
+      "Bash(grep -o \"@typescript-eslint/[a-z-]*\\\\|prefer-const\\\\|no-empty\\\\|no-case-declarations\\\\|react-hooks/[a-z-]*\\\\|no-require-imports\\\\|no-constant\" /tmp/lintout.txt | sort | uniq -c | sort -rn | head -20)",
+      "Bash(npx vite *)"
     ]
   }
 }

@@ -38,7 +38,7 @@ const ExamArchivePage = () => {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [form, setForm] = useState({ subject: SUBJECTS[0], grade: "none", year: "", title: "", topic: "" });
+  const [form, setForm] = useState({ subject: SUBJECTS[0] as string, grade: "none", year: "", title: "", topic: "" });
   const [file, setFile] = useState<File | null>(null);
 
   const load = async () => {

@@ -20,7 +20,7 @@ import type { TaskLanguage } from "@/components/task-studio/ide/types";
 
 interface Question {
   id: string;
-  question_type: "multiple_choice" | "true_false" | "open" | "fill_blank";
+  question_type: "multiple_choice" | "true_false" | "open" | "fill_blank" | "matching";
   question_text: string;
   options: string[];
   correct_answer: string;
@@ -91,7 +91,7 @@ const StudentPracticePage = () => {
         supabase.from("task_questions").select("*").eq("assignment_id", assignmentId).order("order_num"),
       ]);
       setAssignment(assignRes.data);
-      setQuestions(questRes.data || []);
+      setQuestions((questRes.data || []).map((q: any) => ({ ...q, options: Array.isArray(q.options) ? q.options : [] })));
 
       // 1. Real interactive_tasks row (Task IDE builder)
       const { data: task } = await supabase

@@ -76,7 +76,7 @@ const StudentGradesPage = () => {
       let targetId = studentId;
 
       // Parent Context Recovery: If no ID in URL, find first child
-      if (profile.role === 'parent' && !paramId) {
+      if (profile.roles.includes('parent') && !paramId) {
         const { data: kids } = await supabase.from("parent_student").select("student_id").eq("parent_id", profile.id).limit(1);
         if (kids?.[0]?.student_id) targetId = kids[0].student_id;
       }

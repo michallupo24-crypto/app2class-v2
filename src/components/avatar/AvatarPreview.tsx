@@ -101,9 +101,10 @@ function inlineSvg(raw: string) {
 interface AvatarPreviewProps {
   config: AvatarConfig;
   size?: number;
+  className?: string;
 }
 
-const AvatarPreview = ({ config, size = 160 }: AvatarPreviewProps) => {
+const AvatarPreview = ({ config, size = 160, className }: AvatarPreviewProps) => {
   const bodyTypeKey = config.body_type || "basic";
   const eyeColorKey = config.eye_color || "brown";
   const skinColor = config.skin || "#FDDBB4";
@@ -141,7 +142,7 @@ const AvatarPreview = ({ config, size = 160 }: AvatarPreviewProps) => {
   return (
     <div className="flex flex-col items-center gap-2">
       <div
-        className="relative flex items-center justify-center rounded-2xl overflow-hidden shadow-md"
+        className={`relative flex items-center justify-center rounded-2xl overflow-hidden shadow-md${className ? ` ${className}` : ""}`}
         style={{
           width: dim,
           height: dim,
