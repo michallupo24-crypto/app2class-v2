@@ -45,6 +45,10 @@ const NOTE_CATEGORIES: { value: string; label: string; group: "discipline" | "po
   { value: "excellence", label: "הצטיינות", group: "positive" },
 ];
 
+const STATUS_LABELS: Record<NonNullable<StudentCard["status"]>, string> = {
+  present: "נוכח/ת", absent: "חיסור", late: "איחור", excused: "מוצדק",
+};
+
 const SwipeableStudentRow = ({
   student,
   isMobile,
@@ -59,9 +63,9 @@ const SwipeableStudentRow = ({
   const x = useMotionValue(0);
   const leftBgOpacity = useTransform(x, [-150, -SWIPE_THRESHOLD, 0], [1, 0.6, 0]);
   const rightBgOpacity = useTransform(x, [0, SWIPE_THRESHOLD, 150], [0, 0.6, 1]);
-  const leftScale = useTransform(x, [-150, -SWIPE_THRESHOLD, 0], [1.1, 0.9, 0.5]);
-  const rightScale = useTransform(x, [0, SWIPE_THRESHOLD, 150], [0.5, 0.9, 1.1]);
-  const cardScale = useTransform(x, [-150, 0, 150], [0.98, 1, 0.98]);
+  const leftScale = useTransform(x, [-150, -SWIPE_THRESHOLD, 0], [1.15, 0.9, 0.5]);
+  const rightScale = useTransform(x, [0, SWIPE_THRESHOLD, 150], [0.5, 0.9, 1.15]);
+  const cardScale = useTransform(x, [-150, 0, 150], [0.97, 1, 0.97]);
 
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startPress = () => {
@@ -77,20 +81,27 @@ const SwipeableStudentRow = ({
   };
 
   const statusConfig = student.status === "present"
-    ? { bg: "bg-success/8 border-success/25", ring: "ring-success/20", icon: "✓" }
+    ? { bg: "bg-success/10 border-success/30", accent: "bg-success", text: "text-success", icon: Check }
     : student.status === "absent"
-      ? { bg: "bg-destructive/8 border-destructive/25", ring: "ring-destructive/20", icon: "✗" }
+      ? { bg: "bg-destructive/10 border-destructive/30", accent: "bg-destructive", text: "text-destructive", icon: X }
       : student.status === "late"
-        ? { bg: "bg-warning/8 border-warning/25", ring: "ring-warning/20", icon: "◷" }
-        : { bg: "bg-card border-border/50", ring: "", icon: "" };
+        ? { bg: "bg-warning/10 border-warning/30", accent: "bg-warning", text: "text-warning-foreground", icon: Clock }
+        : { bg: "bg-card border-border/60 hover:border-border", accent: "bg-muted-foreground/30", text: "text-muted-foreground", icon: null };
+
+  const hasDisciplineNote = student.notes.some(n => NOTE_CATEGORIES.find(c => c.value === n.category)?.group === "discipline");
+  const hasPositiveNote = student.notes.some(n => NOTE_CATEGORIES.find(c => c.value === n.category)?.group === "positive");
 
   return (
-    <div className="relative overflow-hidden rounded-2xl">
-      <motion.div className="absolute inset-0 flex items-center justify-start pr-5 bg-gradient-to-l from-transparent to-success/30" style={{ opacity: leftBgOpacity }}>
-        <motion.div style={{ scale: leftScale }} className="text-success font-bold">נוכח</motion.div>
+    <div className="relative overflow-hidden rounded-2xl shadow-sm">
+      <motion.div className="absolute inset-0 flex items-center justify-start pr-6 bg-gradient-to-l from-transparent via-success/20 to-success/40" style={{ opacity: leftBgOpacity }}>
+        <motion.div style={{ scale: leftScale }} className="flex items-center gap-1.5 text-success font-heading font-bold">
+          <Check className="h-5 w-5" /> נוכח
+        </motion.div>
       </motion.div>
-      <motion.div className="absolute inset-0 flex items-center justify-end pl-5 bg-gradient-to-r from-transparent to-destructive/30" style={{ opacity: rightBgOpacity }}>
-        <motion.div style={{ scale: rightScale }} className="text-destructive font-bold">חסר</motion.div>
+      <motion.div className="absolute inset-0 flex items-center justify-end pl-6 bg-gradient-to-r from-transparent via-destructive/20 to-destructive/40" style={{ opacity: rightBgOpacity }}>
+        <motion.div style={{ scale: rightScale }} className="flex items-center gap-1.5 text-destructive font-heading font-bold">
+          חסר <X className="h-5 w-5" />
+        </motion.div>
       </motion.div>
       <motion.div
         drag={isMobile ? "x" : false}
@@ -102,24 +113,52 @@ const SwipeableStudentRow = ({
         onPointerLeave={cancelPress}
         onContextMenu={(e) => e.preventDefault()}
         style={{ x, scale: cardScale }}
-        className={`relative z-10 flex items-center gap-3 p-3 rounded-2xl border-2 backdrop-blur-sm select-none ${statusConfig.bg}`}
+        className={`relative z-10 flex items-center gap-3.5 p-3 pr-4 rounded-2xl border backdrop-blur-sm select-none transition-colors duration-200 ${statusConfig.bg} ${!isMobile ? "hover:shadow-md" : ""}`}
       >
+        {/* Status accent strip */}
+        <div className={`absolute inset-y-2 right-0 w-1 rounded-full ${statusConfig.accent} opacity-70`} />
+
         <div className="relative shrink-0">
-          {student.avatar ? <AvatarPreview config={student.avatar} size={44} /> : <div className="w-11 h-11 rounded-2xl bg-muted flex items-center justify-center">👤</div>}
-          {student.status && <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary text-white text-[10px] flex items-center justify-center border-2 border-background">{statusConfig.icon}</div>}
-          {student.notes.length > 0 && (
-            <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-background ${
-              student.notes.some(n => NOTE_CATEGORIES.find(c => c.value === n.category)?.group === "discipline") ? "bg-destructive" : "bg-success"
-            }`} />
+          <div className={`rounded-2xl ring-2 ring-offset-2 ring-offset-background transition-all ${student.status ? statusConfig.accent.replace("bg-", "ring-") + "/40" : "ring-transparent"}`}>
+            {student.avatar
+              ? <AvatarPreview config={student.avatar} size={48} />
+              : <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center text-lg">👤</div>}
+          </div>
+          {student.status && statusConfig.icon && (
+            <div className={`absolute -bottom-1.5 -left-1.5 w-6 h-6 rounded-full ${statusConfig.accent} text-white flex items-center justify-center border-2 border-background shadow-sm`}>
+              <statusConfig.icon className="h-3.5 w-3.5" strokeWidth={3} />
+            </div>
+          )}
+          {student.isBirthday && (
+            <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-pink-500 text-white flex items-center justify-center border-2 border-background shadow-sm" title="יום הולדת שמח! 🎉">
+              <Cake className="h-3.5 w-3.5" />
+            </div>
           )}
         </div>
-        <p className="flex-1 font-heading font-bold text-sm text-right">{student.name}</p>
+
+        <div className="flex-1 min-w-0 text-right">
+          <p className="font-heading font-bold text-sm truncate">{student.name}</p>
+          <div className="flex items-center justify-end gap-1.5 mt-0.5 min-h-[16px]">
+            {student.status && (
+              <span className={`text-[10px] font-bold ${statusConfig.text}`}>{STATUS_LABELS[student.status]}</span>
+            )}
+            {hasDisciplineNote && (
+              <span className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive font-medium">
+                <MoreHorizontal className="h-2.5 w-2.5" /> הערה
+              </span>
+            )}
+            {hasPositiveNote && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-success/10 text-success font-medium">⭐ חיובי</span>
+            )}
+          </div>
+        </div>
+
         {!isMobile && (
-          <div className="flex gap-1">
-            <Button size="sm" variant="outline" onClick={() => onSwipe(student.id, "left")} className={student.status === "present" ? "bg-success/20" : ""}>✓</Button>
-            <Button size="sm" variant="outline" onClick={() => onSwipe(student.id, "right")} className={student.status === "absent" ? "bg-destructive/20" : ""}>✗</Button>
-            <Button size="sm" variant="outline" onClick={() => onSwipe(student.id, "late")} className={student.status === "late" ? "bg-warning/20" : ""}>⏰</Button>
-            <Button size="sm" variant="outline" onClick={() => onLongPress(student.id)}>📝</Button>
+          <div className="flex gap-1 shrink-0">
+            <Button size="sm" variant="outline" onClick={() => onSwipe(student.id, "left")} className={`h-8 w-8 p-0 ${student.status === "present" ? "bg-success/20 border-success/40 text-success" : ""}`}><Check className="h-4 w-4" /></Button>
+            <Button size="sm" variant="outline" onClick={() => onSwipe(student.id, "right")} className={`h-8 w-8 p-0 ${student.status === "absent" ? "bg-destructive/20 border-destructive/40 text-destructive" : ""}`}><X className="h-4 w-4" /></Button>
+            <Button size="sm" variant="outline" onClick={() => onSwipe(student.id, "late")} className={`h-8 w-8 p-0 ${student.status === "late" ? "bg-warning/20 border-warning/40" : ""}`}><Clock className="h-4 w-4" /></Button>
+            <Button size="sm" variant="outline" onClick={() => onLongPress(student.id)} className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
           </div>
         )}
       </motion.div>
@@ -161,14 +200,19 @@ const RollCallPage = () => {
     if (!selectedClass) return;
     const loadStudents = async () => {
       setLoading(true);
-      const { data: profiles } = await supabase.from("profiles").select("id, full_name").eq("class_id", selectedClass).eq("is_approved", true);
+      const { data: profiles } = await supabase.from("profiles").select("id, full_name, date_of_birth").eq("class_id", selectedClass).eq("is_approved", true);
       if (!profiles) { setStudents([]); setLoading(false); return; }
       const { data: avatars } = await supabase.from("avatars").select("*").in("user_id", profiles.map(p => p.id));
       const avatarMap = new Map((avatars || []).map(a => [a.user_id, {
         body_type: a.face_shape || "basic", eye_color: a.eye_color || "brown", skin: a.skin_color || "#FDDBB4", hair_style: a.hair_style || "boy", hair_color: a.hair_color || "#2C1A0E",
       }]));
 
-      setStudents(profiles.map(p => ({ id: p.id, name: p.full_name, avatar: avatarMap.get(p.id) || null, status: null, notes: [], isBirthday: false })));
+      const today = new Date();
+      setStudents(profiles.map(p => {
+        const dob = (p as any).date_of_birth ? new Date((p as any).date_of_birth) : null;
+        const isBirthday = !!dob && dob.getMonth() === today.getMonth() && dob.getDate() === today.getDate();
+        return { id: p.id, name: p.full_name, avatar: avatarMap.get(p.id) || null, status: null, notes: [], isBirthday };
+      }));
       setLoading(false);
     };
     loadStudents();
@@ -318,11 +362,26 @@ const RollCallPage = () => {
     }
   };
 
+  const presentCount = students.filter(s => s.status === "present").length;
+  const absentCount = students.filter(s => s.status === "absent").length;
+  const lateCount = students.filter(s => s.status === "late").length;
+  const unmarkedCount = students.length - presentCount - absentCount - lateCount;
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-heading font-bold">הקראת שמות</h1>
-        <div className="flex gap-2 items-center">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+            <ClipboardList className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-heading font-bold leading-tight">הקראת שמות</h1>
+            {!loading && students.length > 0 && (
+              <p className="text-xs text-muted-foreground font-body">{students.length} תלמידים בכיתה</p>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-2 items-center flex-wrap">
             <div className="flex bg-muted rounded-lg p-1">
                 <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="sm" onClick={() => setViewMode("list")} className="h-8 shadow-none"><List className="h-4 w-4 mr-2" /> רשימה</Button>
                 <Button variant={viewMode === "map" ? "secondary" : "ghost"} size="sm" onClick={() => setViewMode("map")} className="h-8 shadow-none"><LayoutGrid className="h-4 w-4 mr-2" /> מפה</Button>
@@ -337,11 +396,47 @@ const RollCallPage = () => {
         </div>
       </div>
 
-      {loading ? <div className="py-20 text-center text-muted-foreground">טוען תלמידים...</div> :
+      {!loading && students.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`flex items-center gap-1.5 text-xs font-heading font-bold px-3 py-1.5 rounded-full transition-colors ${unmarkedCount > 0 ? "bg-muted text-muted-foreground" : "bg-muted/50 text-muted-foreground/50"}`}>
+            <span className="w-2 h-2 rounded-full bg-muted-foreground/40" /> {unmarkedCount} טרם סומנו
+          </span>
+          <span className={`flex items-center gap-1.5 text-xs font-heading font-bold px-3 py-1.5 rounded-full transition-colors ${presentCount > 0 ? "bg-success/10 text-success" : "bg-muted/30 text-muted-foreground/40"}`}>
+            <Check className="h-3 w-3" /> {presentCount} נוכחים
+          </span>
+          <span className={`flex items-center gap-1.5 text-xs font-heading font-bold px-3 py-1.5 rounded-full transition-colors ${absentCount > 0 ? "bg-destructive/10 text-destructive" : "bg-muted/30 text-muted-foreground/40"}`}>
+            <X className="h-3 w-3" /> {absentCount} חיסורים
+          </span>
+          <span className={`flex items-center gap-1.5 text-xs font-heading font-bold px-3 py-1.5 rounded-full transition-colors ${lateCount > 0 ? "bg-warning/10 text-warning-foreground" : "bg-muted/30 text-muted-foreground/40"}`}>
+            <Clock className="h-3 w-3" /> {lateCount} איחורים
+          </span>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3.5 p-3 rounded-2xl border border-border/50 bg-card animate-pulse">
+              <div className="w-12 h-12 rounded-2xl bg-muted shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 bg-muted rounded w-2/3 mr-auto" />
+                <div className="h-2 bg-muted rounded w-1/3 mr-auto" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) :
       viewMode === "list" ? (
-        <div className="space-y-2">
+        students.length === 0 ? (
+          <div className="py-20 text-center text-muted-foreground">
+            <ClipboardList className="h-10 w-10 mx-auto mb-3 opacity-30" />
+            <p className="font-heading font-medium">אין תלמידים משויכים לכיתה זו</p>
+          </div>
+        ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
             {students.map(s => <SwipeableStudentRow key={s.id} student={s} isMobile={isMobile} onSwipe={handleSwipe} onLongPress={setNoteStudentId} />)}
         </div>
+        )
       ) : (
         <Card className="min-h-[500px]">
             <CardContent className="p-0">
