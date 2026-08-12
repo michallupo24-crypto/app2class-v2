@@ -56,6 +56,7 @@ export default function StudentAttendancePage() {
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [submittingExcuse, setSubmittingExcuse] = useState(false);
   const [studentName, setStudentName] = useState("");
+  const [totalLessons, setTotalLessons] = useState<number | null>(null);
 
   const container = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
   const item = { hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } };
@@ -64,9 +65,19 @@ export default function StudentAttendancePage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     
-    if (isParentView) {
-      const { data: p } = await supabase.from("profiles").select("full_name").eq("id", studentId).single();
-      if (p) setStudentName(p.full_name);
+    const { data: p } = await supabase.from("profiles").select("full_name, class_id").eq("id", studentId).single();
+    if (isParentView && p) setStudentName(p.full_name);
+
+    // Real denominator for the attendance rate: how many lessons this
+    // student's class actually had, not a made-up formula.
+    if (p?.class_id) {
+      const { count } = await supabase
+        .from("lessons")
+        .select("id", { count: "exact", head: true })
+        .eq("class_id", p.class_id);
+      setTotalLessons(count ?? 0);
+    } else {
+      setTotalLessons(0);
     }
 
     // 1. Fetch attendance
@@ -130,12 +141,19 @@ export default function StudentAttendancePage() {
 
   /* ── Calculations ─────────────────────────────────────── */
   const stats = useMemo(() => {
-    const totalPossible = 100; // Mock base or derived from lessons count
-    const unexcused = records.filter(r => r.status === "absent").length;
+    const unexcused = records.filter(r => r.status === "absent" && r.justificationStatus !== "approved").length;
     const lates = records.filter(r => r.status === "late").length;
-    const presencePct = Math.max(0, 100 - (unexcused * 2)); // Dynamic-ish presence pulse
-    return { presencePct, unexcused, lates, highlights: notes.filter(n => ["excellence", "positive_participation", "helped_peer"].includes(n.category)).length };
-  }, [records, notes]);
+    // Real rate: unexcused absences out of the class's actual lesson count
+    // (previously a fake "100 - unexcused*2" formula unrelated to real data).
+    const absencePct = totalLessons ? Math.min(100, Math.round((unexcused / totalLessons) * 100)) : 0;
+    const presencePct = totalLessons ? Math.max(0, 100 - absencePct) : 100;
+    // Spec: Ministry of Education red-line at 15% unexcused absence
+    const nearRedLine = totalLessons !== null && totalLessons > 0 && absencePct >= 15;
+    return {
+      presencePct, absencePct, unexcused, lates, nearRedLine,
+      highlights: notes.filter(n => ["excellence", "positive_participation", "helped_peer"].includes(n.category)).length,
+    };
+  }, [records, notes, totalLessons]);
 
   const handleExcuseSubmit = async () => {
     if (!selectedRecordId || !excuseReason) return;
@@ -207,14 +225,18 @@ export default function StudentAttendancePage() {
 
       {/* 2. ATTENDANCE PULSE CARD */}
       <motion.div variants={item}>
-         <Card className="border-none bg-indigo-600 text-white rounded-[3rem] p-10 overflow-hidden relative shadow-2xl shadow-indigo-100">
+         <Card className={`border-none text-white rounded-[3rem] p-10 overflow-hidden relative shadow-2xl ${stats.nearRedLine ? "bg-rose-600 shadow-rose-100" : "bg-indigo-600 shadow-indigo-100"}`}>
             <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full -mr-40 -mt-40 blur-3xl" />
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-12">
                <div className="space-y-4 text-center md:text-right">
-                  <p className="text-[10px] uppercase font-black tracking-widest text-indigo-200">מדד נוכחות והתמדה</p>
+                  <p className={`text-[10px] uppercase font-black tracking-widest ${stats.nearRedLine ? "text-rose-200" : "text-indigo-200"}`}>מדד נוכחות והתמדה</p>
                   <h2 className="text-6xl font-heading font-black">{stats.presencePct}%</h2>
-                  <div className="flex items-center gap-2 text-indigo-100 font-bold text-xs">
-                     <ShieldCheck className="h-4 w-4" /> רמת התמדה יציבה
+                  <div className={`flex items-center gap-2 font-bold text-xs ${stats.nearRedLine ? "text-rose-100" : "text-indigo-100"}`}>
+                     {stats.nearRedLine ? (
+                        <><AlertTriangle className="h-4 w-4" /> {stats.absencePct}% היעדרות — מתקרב לקו האדום (15%)</>
+                     ) : (
+                        <><ShieldCheck className="h-4 w-4" /> רמת התמדה יציבה</>
+                     )}
                   </div>
                </div>
                <div className="flex-1 w-full max-w-md space-y-6">
