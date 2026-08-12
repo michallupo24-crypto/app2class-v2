@@ -59,6 +59,7 @@ const StudentPracticePage = () => {
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
   const [wrongIds, setWrongIds] = useState<string[]>([]);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   // Flashcard state
   const [flipped, setFlipped] = useState(false);
@@ -166,22 +167,27 @@ const StudentPracticePage = () => {
           const { data: existing } = await supabase.from("submissions")
             .select("id").eq("assignment_id", assignmentId).eq("student_id", profile.id).maybeSingle();
           if (existing) {
-            await supabase.from("submissions").update({ grade: pct, status: "submitted" as any, submitted_at: new Date().toISOString() }).eq("id", existing.id);
+            const { error } = await supabase.from("submissions").update({ grade: pct, status: "submitted" as any, submitted_at: new Date().toISOString() }).eq("id", existing.id);
+            if (error) throw error;
           } else {
-            await supabase.from("submissions").insert({
+            const { error } = await supabase.from("submissions").insert({
               assignment_id: assignmentId, student_id: profile.id,
               grade: pct, status: "submitted" as any, submitted_at: new Date().toISOString(),
             });
+            if (error) throw error;
           }
           if (interactiveTaskId) {
-            await supabase.from("interactive_task_progress").upsert({
+            const { error } = await supabase.from("interactive_task_progress").upsert({
               task_id: interactiveTaskId, student_id: profile.id,
               score: data.score, total, status: "submitted",
               submitted_at: new Date().toISOString(), last_active_at: new Date().toISOString(),
             }, { onConflict: "task_id,student_id" });
+            if (error) throw error;
           }
           toast({ title: "🎉 הציון נשמר!", description: `${data.score}/${total}` });
-        } catch { /* best effort */ }
+        } catch {
+          toast({ variant: "destructive", title: "שגיאה בשמירת הציון", description: "הציון לא נשמר. בדוק/י את החיבור ונסה/י שוב." });
+        }
         return;
       }
 
@@ -270,6 +276,7 @@ const StudentPracticePage = () => {
     setFcIdx(0);
     setOpenAnswer("");
     setOpenFeedback(null);
+    setSaveStatus("idle");
     setStarted(true);
   };
 
@@ -300,19 +307,26 @@ const StudentPracticePage = () => {
 
   const saveScore = async () => {
     if (!assignmentId) return;
+    setSaveStatus("saving");
     const pct = Math.round((score / shuffled.length) * 100);
     try {
       const { data: existing } = await supabase.from("submissions")
         .select("id").eq("assignment_id", assignmentId).eq("student_id", profile.id).maybeSingle();
       if (existing) {
-        await supabase.from("submissions").update({ grade: pct, status: "submitted" as any, submitted_at: new Date().toISOString() }).eq("id", existing.id);
+        const { error } = await supabase.from("submissions").update({ grade: pct, status: "submitted" as any, submitted_at: new Date().toISOString() }).eq("id", existing.id);
+        if (error) throw error;
       } else {
-        await supabase.from("submissions").insert({
+        const { error } = await supabase.from("submissions").insert({
           assignment_id: assignmentId, student_id: profile.id,
           grade: pct, status: "submitted" as any, submitted_at: new Date().toISOString(),
         });
+        if (error) throw error;
       }
-    } catch { /* best effort */ }
+      setSaveStatus("saved");
+    } catch {
+      setSaveStatus("error");
+      toast({ variant: "destructive", title: "שגיאה בשמירת הציון", description: "הציון לא נשמר. בדוק/י את החיבור ונסה/י שוב." });
+    }
   };
 
   const checkOpenAnswer = async () => {
@@ -441,8 +455,21 @@ const StudentPracticePage = () => {
           <p className="text-lg font-heading">
             {pct >= 90 ? "מצוין! שלטת בחומר! 🏆" : pct >= 75 ? "עבודה טובה! 💪" : pct >= 60 ? "לא רע, אפשר לשפר 📚" : "כדאי לחזור על החומר 🔁"}
           </p>
-          {pct < 100 && (
+          {pct < 100 && saveStatus === "saving" && (
+            <p className="text-sm text-muted-foreground flex items-center justify-center gap-1.5">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />שומר את הציון...
+            </p>
+          )}
+          {pct < 100 && saveStatus === "saved" && (
             <p className="text-sm text-muted-foreground">הציון נשמר אוטומטית</p>
+          )}
+          {pct < 100 && saveStatus === "error" && (
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-sm text-destructive font-medium">הציון לא נשמר עקב שגיאה</p>
+              <Button size="sm" variant="outline" className="gap-2" onClick={saveScore}>
+                <RotateCcw className="h-3.5 w-3.5" />נסה לשמור שוב
+              </Button>
+            </div>
           )}
         </div>
         <div className="flex gap-3 justify-center flex-wrap">

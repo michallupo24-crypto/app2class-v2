@@ -7,13 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Megaphone, 
-  Send, 
-  Pin, 
-  Trash2, 
-  Smile, 
-  MessageCircle, 
-  Calendar,
+  Megaphone,
+  Send,
+  Pin,
+  Trash2,
+  MessageCircle,
   AlertCircle,
   Loader2,
   CheckCircle2
@@ -137,12 +135,20 @@ const ClassMessenger = ({ classId, userId, isTeacher }: { classId: string; userI
   };
 
   const togglePin = async (msgId: string, currentStatus: boolean) => {
-      await supabase.from("faction_posts").update({ is_pinned: !currentStatus }).eq("id", msgId);
+      const { error } = await supabase.from("faction_posts").update({ is_pinned: !currentStatus }).eq("id", msgId);
+      if (error) {
+        toast({ title: "שגיאה בעדכון הנעיצה", variant: "destructive" });
+        return;
+      }
       loadMessages();
   };
 
   const deleteMessage = async (msgId: string) => {
-      await supabase.from("faction_posts").update({ is_removed: true }).eq("id", msgId);
+      const { error } = await supabase.from("faction_posts").update({ is_removed: true }).eq("id", msgId);
+      if (error) {
+        toast({ title: "שגיאה במחיקת ההודעה", variant: "destructive" });
+        return;
+      }
       loadMessages();
   };
 
@@ -234,12 +240,8 @@ const ClassMessenger = ({ classId, userId, isTeacher }: { classId: string; userI
                        placeholder="כתוב הודעה לכיתה..."
                        className="min-h-[80px] rounded-2xl bg-white border-slate-200 focus:ring-primary/20 pr-4 pt-3 text-sm resize-none shadow-sm"
                     />
-                    <div className="flex items-center justify-between mt-3">
-                       <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg text-slate-400"><Smile className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg text-slate-400"><Calendar className="h-4 w-4" /></Button>
-                       </div>
-                       <Button 
+                    <div className="flex items-center justify-end mt-3">
+                       <Button
                          onClick={postMessage} 
                          disabled={!newMsg.trim() || sending} 
                          className="rounded-xl h-9 px-6 font-bold gap-2 shadow-lg shadow-primary/20"

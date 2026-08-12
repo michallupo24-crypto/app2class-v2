@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { he } from "date-fns/locale";
 
@@ -21,6 +22,7 @@ interface NotificationRow {
 
 const NotificationBell = ({ userId }: { userId: string }) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
 
@@ -28,6 +30,7 @@ const NotificationBell = ({ userId }: { userId: string }) => {
     const { data } = await supabase
       .from("notifications")
       .select("id, type, title, body, link, is_read, created_at")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(30);
     setNotifications(data || []);
@@ -51,7 +54,11 @@ const NotificationBell = ({ userId }: { userId: string }) => {
   const markRead = async (n: NotificationRow) => {
     if (!n.is_read) {
       setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)));
-      await supabase.from("notifications").update({ is_read: true }).eq("id", n.id);
+      const { error } = await supabase.from("notifications").update({ is_read: true }).eq("id", n.id);
+      if (error) {
+        setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, is_read: false } : x)));
+        toast({ title: "שגיאה בסימון ההתראה כנקראה", variant: "destructive" });
+      }
     }
     if (n.link) {
       setOpen(false);
@@ -63,7 +70,11 @@ const NotificationBell = ({ userId }: { userId: string }) => {
     const unreadIds = notifications.filter((n) => !n.is_read).map((n) => n.id);
     if (unreadIds.length === 0) return;
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    await supabase.from("notifications").update({ is_read: true }).in("id", unreadIds);
+    const { error } = await supabase.from("notifications").update({ is_read: true }).in("id", unreadIds);
+    if (error) {
+      setNotifications((prev) => prev.map((n) => (unreadIds.includes(n.id) ? { ...n, is_read: false } : n)));
+      toast({ title: "שגיאה בסימון ההתראות כנקראו", variant: "destructive" });
+    }
   };
 
   return (

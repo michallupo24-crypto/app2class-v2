@@ -12,7 +12,6 @@ import {
   UserCheck,
   Bell,
   Shield,
-  GraduationCap,
   Menu,
   MessageCircle,
   LayoutGrid,
@@ -119,18 +118,12 @@ function getNavItems(profile: UserProfile): { primary: NavItem[]; overflow: NavI
   if (isEducator) {
     adminPrimary.push({ title: "נוכחות", url: "/dashboard/roll-call", icon: ClipboardList });
     adminPrimary.push({ title: "לוח זמנים", url: "/dashboard/schedule", icon: Calendar });
-  } else {
-    adminPrimary.push({ title: "תלמידים", url: "/dashboard/students", icon: GraduationCap });
-    adminPrimary.push({ title: "כיתות", url: "/dashboard/classes", icon: BookOpen });
   }
 
   const adminOverflow: NavItem[] = [];
   if (isEducator) {
-    adminOverflow.push({ title: "תלמידים", url: "/dashboard/students", icon: GraduationCap });
-    adminOverflow.push({ title: "כיתות", url: "/dashboard/classes", icon: BookOpen });
     adminOverflow.push({ title: "משימות", url: "/dashboard/teacher-assignments", icon: FileText });
   }
-  adminOverflow.push({ title: "סטטיסטיקות", url: "/dashboard/stats", icon: BarChart3 });
   adminOverflow.push({ title: "ניהול", url: "/dashboard/admin", icon: Shield });
   adminOverflow.push({ title: "שיחות", url: "/dashboard/chat", icon: MessageCircle });
 

@@ -21,118 +21,6 @@ import { supabase } from "@/integrations/supabase/client";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-/* ─── AI Auto-Discovery: Finds the best available model for your key ─── */
-let cachedModel: string | null = null;
-const discoverBestModel = async (apiKey: string): Promise<string> => {
-  if (cachedModel) return cachedModel;
-
-  // Force v1beta first - most reliable for free tier/regional keys
-  const endpoints = ['v1beta', 'v1'];
-  for (const ver of endpoints) {
-    try {
-      const resp = await fetch(`https://generativelanguage.googleapis.com/${ver}/models?key=${apiKey}`);
-      if (!resp.ok) continue;
-      const data = await resp.json();
-      const models = data.models || [];
-      const supported = models.filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"));
-
-      const flash = supported.find((m: any) => m.name.includes("flash"));
-      if (flash) {
-        cachedModel = flash.name;
-        return flash.name;
-      }
-
-      if (supported.length > 0) {
-        cachedModel = supported[0].name;
-        return supported[0].name;
-      }
-    } catch (e) { }
-  }
-  return "models/gemini-1.5-flash";
-};
-
-/* ─── Streaming Gemini chat - Fixed Version (v1beta) ─── */
-async function streamGeminiChat({
-  messages, systemPrompt, onDelta, onDone, signal,
-}: {
-  messages: Msg[]; systemPrompt: string;
-  onDelta: (t: string) => void; onDone: () => void; signal?: AbortSignal;
-}) {
-  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!GEMINI_API_KEY) throw new Error("Missing AI Key");
-
-  const modelName = await discoverBestModel(GEMINI_API_KEY);
-  // Always use v1beta for streaming - more compatible
-  const url = `https://generativelanguage.googleapis.com/v1beta/${modelName}:streamGenerateContent?key=${GEMINI_API_KEY}&alt=sse`;
-
-  const contents = messages.map((m, idx) => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: idx === 0 ? `INSTRUCTIONS: ${systemPrompt}\n\nMESSAGE: ${m.content}` : m.content }]
-  }));
-
-  try {
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents,
-        generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
-      }),
-      signal,
-    });
-
-    if (!resp.ok) {
-      const errData = await resp.json().catch(() => ({}));
-      throw new Error(errData.error?.message || `API Error ${resp.status}`);
-    }
-
-    if (!resp.body) throw new Error("No response body");
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split("\n");
-      for (let line of lines) {
-        if (line.trim().startsWith("data: ")) {
-          try {
-            const data = JSON.parse(line.trim().slice(6));
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text) onDelta(text);
-          } catch (e) { }
-        }
-      }
-    }
-    onDone();
-  } catch (e: any) {
-    if (e.name === "AbortError") return;
-    throw e;
-  }
-}
-
-async function callGeminiJSON(systemPrompt: string, userPrompt: string) {
-  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-  const modelName = await discoverBestModel(GEMINI_API_KEY);
-  const version = modelName.includes("2.0") ? "v1beta" : "v1";
-  const url = `https://generativelanguage.googleapis.com/${version}/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: `SYSTEM: ${systemPrompt}\n\nUSER: ${userPrompt}\n\nOUTPUT JSON ONLY.` }] }],
-      generationConfig: { responseMimeType: "application/json", temperature: 0.1 }
-    })
-  });
-
-  if (!response.ok) throw new Error("AI JSON Error");
-  const data = await response.json();
-  return JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text || "[]");
-}
-
 const QUICK_PROMPTS = [
   { label: "סכם שיעור", icon: FileText, prompt: "תסכם לי את הנושא האחרון בצורה מסודרת" },
   { label: "תוכנית מבחן", icon: Calendar, prompt: "עזור לי לבנות תוכנית לימודים למבחן" },
@@ -151,7 +39,6 @@ const AITutorPage = () => {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -159,56 +46,6 @@ const AITutorPage = () => {
   const [sessions, setSessions] = useState<{ id: string; title: string; created_at: string }[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [gradesContext, setGradesContext] = useState("");
-  const [calendarContext, setCalendarContext] = useState("");
-
-  // Load context grades and upcoming tasks
-  useEffect(() => {
-    if (!profile?.id) return;
-    const fetchTutorContext = async () => {
-      // 1. Fetch Grades
-      const { data: gradesData } = await supabase
-        .from('submissions')
-        .select('grade, feedback, assignments(title, subject, max_grade)')
-        .eq('student_id', profile.id)
-        .eq('status', 'graded')
-        .order('graded_at', { ascending: false })
-        .limit(10);
-
-      if (gradesData && gradesData.length > 0) {
-        const summary = gradesData.map((s: any) =>
-          `- ${s.assignments?.subject}: ${s.assignments?.title} | ציון: ${s.grade}/${s.assignments?.max_grade || 100}${s.feedback ? ` (משוב: ${s.feedback})` : ''}`
-        ).join('\n');
-        setGradesContext(`נתוני ציונים ומשובים אחרונים:\n${summary}`);
-      }
-
-      // 2. Fetch Class for Upcoming Tasks
-      const { data: profileDetails } = await supabase
-        .from('profiles')
-        .select('class_id')
-        .eq('id', profile.id)
-        .single();
-
-      if (profileDetails?.class_id) {
-        const { data: upcoming } = await supabase
-          .from('assignments')
-          .select('title, subject, type, due_date')
-          .eq('class_id', profileDetails.class_id)
-          .eq('published', true)
-          .gte('due_date', new Date().toISOString())
-          .order('due_date', { ascending: true })
-          .limit(8);
-
-        if (upcoming && upcoming.length > 0) {
-          const list = upcoming.map((a: any) =>
-            `- ${a.subject}: ${a.title} (${a.type === 'exam' ? 'מבחן' : 'מטלה'}) | תאריך: ${new Date(a.due_date).toLocaleDateString('he-IL')}`
-          ).join('\n');
-          setCalendarContext(`לוח מבחנים ומשימות קרובות:\n${list}`);
-        }
-      }
-    };
-    fetchTutorContext();
-  }, [profile.id]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -225,7 +62,6 @@ const AITutorPage = () => {
   }, [profile.id, isStudent]);
 
   const startNewChat = () => {
-    abortRef.current?.abort();
     setIsLoading(false);
     setMessages([]);
     setActiveSessionId(null);
@@ -260,37 +96,19 @@ const AITutorPage = () => {
       }
     }
 
-    const controller = new AbortController();
-    abortRef.current = controller;
-    let soFar = "";
-
-    const upsert = (chunk: string) => {
-      soFar += chunk;
-      setMessages(prev => {
-        const last = prev[prev.length - 1];
-        if (last?.role === "assistant") return [...prev.slice(0, -1), { role: "assistant", content: soFar }];
-        return [...prev, { role: "assistant", content: soFar }];
-      });
-    };
-
     try {
-      await streamGeminiChat({
-        messages: newMessages,
-        systemPrompt: `אתה המנטור "C.H.E.E.S.E." , עוזר לימודי אישי חכם ומעודד. ענה בעברית בלבד. שם התלמיד: ${profile.fullName}.
-${gradesContext ? `הנה נתוני הציונים האחרונים של התלמיד:\n${gradesContext}` : ''}
-${calendarContext ? `הנה לוח המבחנים והמשימות הקרובות של התלמיד:\n${calendarContext}` : ''}
-הנחיות: השתמש בנתונים אלו כדי לתת עצות ממוקדות, לנתח מגמות, לעזור בתכנון לו"ז למבחנים קרובים, או לענות על שאלות לגבי ההישגים שלו. ת`,
-        onDelta: upsert,
-        onDone: async () => {
-          setIsLoading(false);
-          if (currentSessionId && isStudent) {
-            await supabase.from('ai_chat_messages').insert({ session_id: currentSessionId, role: "assistant", content: soFar });
-          }
-        },
-        signal: controller.signal,
+      const { data, error } = await supabase.functions.invoke("ai-tutor", {
+        body: { messages: newMessages, studentId: profile.id },
       });
+      if (error) throw error;
+      const replyText: string = data?.response || data?.error || "לא הצלחתי לענות כרגע, נסה שוב";
+      setMessages(prev => [...prev, { role: "assistant", content: replyText }]);
+      if (currentSessionId && isStudent) {
+        await supabase.from('ai_chat_messages').insert({ session_id: currentSessionId, role: "assistant", content: replyText });
+      }
     } catch (e: any) {
-      if (e.name !== "AbortError") toast.error(e.message || "שגיאה בחיבור ל-AI");
+      toast.error(e.message || "שגיאה בחיבור ל-AI");
+    } finally {
       setIsLoading(false);
     }
   };

@@ -11,7 +11,6 @@ import StaffRegistration from "./pages/register/StaffRegistration";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import DashboardHome from "./pages/dashboard/DashboardHome";
 import ApprovalsPage from "./pages/dashboard/ApprovalsPage";
-import PlaceholderPage from "./pages/dashboard/PlaceholderPage";
 import SubjectDetailPage from "./pages/dashboard/SubjectDetailPage";
 import StudentDashboard from "./pages/dashboard/StudentDashboard";
 import SubjectHubsPage from "./pages/dashboard/SubjectHubsPage";
@@ -82,10 +81,7 @@ const App = () => (
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<DashboardHome />} />
             <Route path="approvals" element={<ApprovalsPage />} />
-            <Route path="students" element={<PlaceholderPage title="תלמידים" description="ניהול תלמידים ומעקב אחר התקדמות" icon="🎓" />} />
-            <Route path="classes" element={<PlaceholderPage title="כיתות" description="ניהול כיתות, מערכת שעות ושיוכים" icon="📚" />} />
             <Route path="my-child" element={<ParentDashboardPage />} />
-            <Route path="stats" element={<PlaceholderPage title="סטטיסטיקות" description="נתונים, גרפים ודוחות" icon="📊" />} />
             <Route path="admin" element={<SystemAdminPage />} />
             <Route path="principal" element={<PrincipalDashboardPage />} />
             <Route path="org-tree" element={<SchoolOrgTreePage />} />

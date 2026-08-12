@@ -140,7 +140,7 @@ async function fetchAvatarsByUserIds(userIds: string[]) {
 
 /* ─── Component ───────────────────────────────────────── */
 const ChatPage = () => {
-  const { profile } = useOutletContext<{ profile: UserProfile }>();
+  const { profile, refresh } = useOutletContext<{ profile: UserProfile; refresh: () => Promise<void> }>();
   const { toast } = useToast();
   const location = useLocation();
   const navState = location.state as { targetUserId?: string; initialType?: ConversationType } | null;
@@ -446,6 +446,7 @@ const ChatPage = () => {
         .eq("user_id", profile.id);
 
       setConversations(prev => prev.map(c => c.id === selectedId ? { ...c, unreadCount: 0 } : c));
+      refresh();
     };
     load();
 
@@ -476,7 +477,7 @@ const ChatPage = () => {
           is_flagged: m.is_flagged,
           flag_reason: m.flag_reason,
         };
-        setMessages(prev => [...prev, newMsg]);
+        setMessages(prev => prev.some(msg => msg.id === newMsg.id) ? prev : [...prev, newMsg]);
         // Update last message in list
         setConversations(prev => prev.map(c =>
           c.id === selectedId
@@ -486,6 +487,7 @@ const ChatPage = () => {
         await supabase.from("conversation_participants")
           .update({ last_read_at: new Date().toISOString() })
           .eq("conversation_id", selectedId).eq("user_id", profile.id);
+        refresh();
       })
       .subscribe();
     realtimeRef.current = channel;
@@ -696,13 +698,14 @@ const ChatPage = () => {
         return;
       }
 
-      await supabase.from("messages").insert({
+      const { error: insertError } = await supabase.from("messages").insert({
         conversation_id: selectedId,
         sender_id: profile.id,
         content,
         is_flagged: flagged,
         flag_reason: flagged ? flagReason : null,
       });
+      if (insertError) throw insertError;
 
       await supabase.from("conversations")
         .update({ updated_at: new Date().toISOString() })

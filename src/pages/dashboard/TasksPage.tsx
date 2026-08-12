@@ -77,6 +77,7 @@ const TasksPage = () => {
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
+  const [quizSaveError, setQuizSaveError] = useState(false);
   const [loadingQuiz, setLoadingQuiz] = useState(false);
   const [flipped, setFlipped] = useState(false);
   const [quizMode, setQuizMode] = useState<"quiz" | "flashcard">("quiz");
@@ -286,18 +287,20 @@ const TasksPage = () => {
     const pct = Math.round((correct / quizQuestions.length) * 100);
     setQuizScore(pct);
     setQuizSubmitted(true);
+    setQuizSaveError(false);
 
     try {
       if (quizTask.id) {
-        await supabase.from("submissions").update({
+        const { error } = await supabase.from("submissions").update({
           grade: pct,
           status: "graded",
           submitted_at: new Date().toISOString(),
           graded_at: new Date().toISOString(),
           content: JSON.stringify(quizAnswers),
         }).eq("id", quizTask.id);
+        if (error) throw error;
       } else {
-        await supabase.from("submissions").insert({
+        const { error } = await supabase.from("submissions").insert({
           assignment_id: quizTask.assignmentId,
           student_id: profile.id,
           grade: pct,
@@ -306,10 +309,14 @@ const TasksPage = () => {
           graded_at: new Date().toISOString(),
           content: JSON.stringify(quizAnswers),
         });
+        if (error) throw error;
       }
       toast({ title: `סיימת! ציון: ${pct}% 🎉` });
       loadTasks();
-    } catch { /* best effort */ }
+    } catch {
+      setQuizSaveError(true);
+      toast({ variant: "destructive", title: "שגיאה בשמירת הציון", description: "הציון לא נשמר אצל המורה. נסה/י לשלוח שוב." });
+    }
   };
 
   /* ── Helpers ─────────────────────────────────────────────── */
@@ -623,6 +630,14 @@ const TasksPage = () => {
                   {Math.round(quizScore * quizQuestions.length / 100)} מתוך {quizQuestions.length} נכון
                 </p>
                 <Progress value={quizScore} className="mt-3 h-2.5" />
+                {quizSaveError && (
+                  <div className="mt-3 flex flex-col items-center gap-2">
+                    <p className="text-sm text-destructive font-medium">הציון לא נשמר אצל המורה עקב שגיאה</p>
+                    <Button size="sm" variant="outline" className="gap-2" onClick={submitQuiz}>
+                      <RotateCcw className="h-3.5 w-3.5" />נסה לשמור שוב
+                    </Button>
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 {quizQuestions.map((q, i) => {

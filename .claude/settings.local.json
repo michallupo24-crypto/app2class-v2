@@ -135,7 +135,27 @@
       "Read(//c/Users/micha/.config/supabase/**)",
       "Read(//c//**)",
       "Bash(cd \"C:\\\\Users\\\\micha\\\\OneDrive\\\\Desktop\\\\A\" && cat ~/.gitconfig 2>/dev/null | head -2 *)",
-      "Bash(xargs wc -l)"
+      "Bash(xargs wc -l)",
+      "Bash(git restore *)",
+      "Bash(git status *)",
+      "Bash(git checkout *)",
+      "Bash(grep -ro \"catch { /\\\\* best effort \\\\*/ }\" src -r)",
+      "Bash(ls -la \"/c/Users/micha/Downloads/docword-hybrid.zip\" 2>&1)",
+      "Bash(mkdir -p /c/Users/micha/AppData/Local/Temp/claude/C--Users-micha-OneDrive-Desktop-A/f4145a40-459e-4273-830b-86c37e30fa75/scratchpad/docword-hybrid)",
+      "Read(//c/Users/micha/AppData/Local/Temp/claude/C--Users-micha-OneDrive-Desktop-A/f4145a40-459e-4273-830b-86c37e30fa75/scratchpad/**)",
+      "Bash(unzip -o -q \"/c/Users/micha/Downloads/docword-hybrid.zip\")",
+      "Bash(SCRATCH=\"/c/Users/micha/AppData/Local/Temp/claude/C--Users-micha-OneDrive-Desktop-A/f4145a40-459e-4273-830b-86c37e30fa75/scratchpad/docword-hybrid\" *)",
+      "Bash(mkdir -p /c/Users/micha/AppData/Local/Temp/claude/C--Users-micha-OneDrive-Desktop-A/f4145a40-459e-4273-830b-86c37e30fa75/scratchpad/leshon-bank)",
+      "Bash(unzip -o -q \"/c/Users/micha/Downloads/מאגר-שאלות-בלשון \\(1\\).zip\")",
+      "Bash(SCRATCH=\"/c/Users/micha/AppData/Local/Temp/claude/C--Users-micha-OneDrive-Desktop-A/f4145a40-459e-4273-830b-86c37e30fa75/scratchpad/leshon-bank\" *)",
+      "WebSearch",
+      "Bash(awk '{print $NF}')",
+      "Bash(node -e \"require\\('esbuild'\\).buildSync\\({entryPoints:['supabase/functions/ai-tutor/index.ts'],bundle:false,write:false,loader:{'.ts':'ts'}}\\)\")",
+      "Bash(node -e \"require\\('esbuild'\\).buildSync\\({entryPoints:['supabase/functions/ocr-extract/index.ts'],bundle:false,write:false,loader:{'.ts':'ts'}}\\)\")",
+      "Bash(supabase --version)",
+      "Bash(supabase projects *)",
+      "Bash(where supabase *)",
+      "Bash(grep -rn \"catch { /\\\\* best effort \\\\*/ }\" src --include=\"*.tsx\" --include=\"*.ts\")"
     ]
   }
 }

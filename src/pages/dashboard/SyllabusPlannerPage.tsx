@@ -193,27 +193,18 @@ const SyllabusPlannerPage = () => {
       reader.readAsDataURL(file);
       const base64Data = await base64Promise;
 
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: "אנא נתח את הסילבוס המצורף. החזר לי רשימת נושאים בפורמט JSON בלבד: [{\"topic\": \"שם הנושא\", \"hours\": כמות שעות מוערכת}]. וודא שמות מקצועות בעברית תקינה." },
-              { inline_data: { mime_type: file.type, data: base64Data } }
-            ]
-          }]
-        })
+      const { data, error } = await supabase.functions.invoke("ocr-extract", {
+        body: { base64Data, mimeType: file.type || "image/jpeg", ocrMode: "syllabus-topics", languageHint: "hebrew" },
       });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      const match = text?.match(/\[.*\]/s);
-      if (match) {
-        const result = JSON.parse(match[0]);
+      const result = data?.topics || [];
+      if (result.length > 0) {
         setTopics(result.map((r: any) => ({ topic: r.topic, estimated_hours: r.hours || 1 })));
         toast({ title: "ה-AI זיהה את נושאי הלימוד! 🧠" });
+      } else {
+        toast({ title: "לא זוהו נושאים בקובץ", variant: "destructive" });
       }
     } catch (e: any) {
       toast({ title: "שגיאה בניתוח AI", description: e.message, variant: "destructive" });

@@ -79,9 +79,6 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
   const isGradeCoordinator = roles.includes("grade_coordinator");
   const isSubjectCoordinator = roles.includes("subject_coordinator");
   const isCounselor = roles.includes("counselor");
-  const isStaff = roles.some((r) =>
-    ["educator", "professional_teacher", "subject_coordinator", "grade_coordinator", "counselor", "management", "system_admin"].includes(r)
-  );
   const isAdmin = roles.includes("system_admin");
   const isManagement = roles.includes("management");
   const isEducator = roles.includes("educator");
@@ -173,13 +170,8 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
   ];
 
   if (hasApprovalPower) adminItems.push({ title: "אישורים", url: "/dashboard/approvals", icon: UserCheck });
-  if (isStaff) {
-    adminItems.push({ title: "תלמידים", url: "/dashboard/students", icon: GraduationCap });
-    adminItems.push({ title: "כיתות", url: "/dashboard/classes", icon: BookOpen });
-  }
   if (isManagement || isAdmin) {
     adminItems.push({ title: "דאשבורד מנהלת", url: "/dashboard/principal", icon: User });
-    adminItems.push({ title: "סטטיסטיקות", url: "/dashboard/stats", icon: BarChart3 });
   }
   if (isAdmin) {
     adminItems.push({ title: "ניהול מערכת", url: "/dashboard/admin", icon: Shield });

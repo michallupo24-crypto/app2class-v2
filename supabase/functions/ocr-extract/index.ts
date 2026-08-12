@@ -29,7 +29,9 @@ serve(async (req) => {
       : " שים לב לטקסט רב-לשוני, כולל עברית, אנגלית, מספרים וסימנים.";
 
     let prompt: string;
-    if (ocrMode === "handwriting") {
+    if (ocrMode === "syllabus-topics") {
+      prompt = `אנא נתח את הסילבוס המצורף. החזר רשימת נושאים בפורמט JSON בלבד: [{"topic": "שם הנושא", "hours": כמות שעות מוערכת}]. וודא שמות מקצועות בעברית תקינה.`;
+    } else if (ocrMode === "handwriting") {
       prompt = `בצע זיהוי כתב יד מתקדם על התמונה הזו.${langContext} התמונה מכילה טקסט כתוב ביד — פענח בזהירות צורות אותיות, חיבורים בין אותיות, וכתב יד עברי. החזר את הטקסט המתומלל בצורה נקייה, שמור על מבנה הפסקאות. אל תוסיף הסברים או הערות — רק את הטקסט המתומלל.`;
     } else if (ocrMode === "markdown") {
       prompt = `בצע OCR מקיף על התמונה והחזר את התוכן כ-Markdown נקי ומובנה.${langContext} כלול כותרות, טקסט מודגש, רשימות ומבנה היררכי כפי שמופיע במקור. אל תשמיט טקסט.`;
@@ -73,6 +75,22 @@ serve(async (req) => {
 
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+    if (ocrMode === "syllabus-topics") {
+      let topics: { topic: string; hours: number }[] = [];
+      try {
+        const match = text.match(/\[.*\]/s);
+        if (match) {
+          const parsed = JSON.parse(match[0]);
+          topics = parsed.map((r: any) => ({ topic: r.topic, hours: r.hours || 1 }));
+        }
+      } catch (e) {
+        console.error("syllabus-topics parse error:", e);
+      }
+      return new Response(JSON.stringify({ topics }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     return new Response(JSON.stringify({ text }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

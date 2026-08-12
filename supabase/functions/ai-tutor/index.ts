@@ -39,7 +39,15 @@ serve(async (req) => {
       });
     }
 
-    async function callGemini(systemPrompt: string, userText: string, asJson = false) {
+    async function callGemini(
+      systemPrompt: string,
+      userText: string,
+      asJson = false,
+      history?: { role: string; content: string }[],
+    ) {
+      const contents = history && history.length > 0
+        ? history.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }))
+        : [{ role: "user", parts: [{ text: userText }] }];
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
@@ -47,7 +55,7 @@ serve(async (req) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: systemPrompt }] },
-            contents: [{ role: "user", parts: [{ text: userText }] }],
+            contents,
             ...(asJson ? { generationConfig: { responseMimeType: "application/json" } } : {}),
           }),
         },
@@ -142,6 +150,30 @@ ${trackStr}
 ${trackStr}
 (עדיין אין ציונים כדי לחשב ממוצע)
 `;
+        }
+
+        const { data: profileDetails } = await sb
+          .from("profiles")
+          .select("class_id")
+          .eq("id", studentId)
+          .single();
+
+        if (profileDetails?.class_id) {
+          const { data: upcoming } = await sb
+            .from("assignments")
+            .select("title, subject, type, due_date")
+            .eq("class_id", profileDetails.class_id)
+            .eq("published", true)
+            .gte("due_date", new Date().toISOString())
+            .order("due_date", { ascending: true })
+            .limit(8);
+
+          if (upcoming && upcoming.length > 0) {
+            const list = upcoming.map((a: any) =>
+              `- ${a.subject}: ${a.title} (${a.type === "exam" ? "מבחן" : "מטלה"}) | תאריך: ${new Date(a.due_date).toLocaleDateString("he-IL")}`
+            ).join("\n");
+            studentContext += `\n[לוח מבחנים ומשימות קרובות]\n${list}\n`;
+          }
         }
       } catch (e) {
         console.error("Failed to load student context:", e);
@@ -264,7 +296,7 @@ ${studentContext}
 אתה ידידותי, סבלני ומעודד.`;
 
     try {
-      const text = await callGemini(systemPrompt, userInput || messages?.map((m: any) => m.content).join("\n") || "");
+      const text = await callGemini(systemPrompt, userInput, false, messages);
 
       // Some callers (BagrutHunterMode) expect a `questions` array when the
       // reply is JSON; others (AiOptimizationMode/BlankHtmlMode) just want
