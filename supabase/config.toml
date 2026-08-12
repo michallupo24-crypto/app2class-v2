@@ -1,1 +1,12 @@
 project_id = "pnfxysxxmqznwoorgene"
+
+[auth]
+
+[auth.email]
+enable_confirmations = false
+max_frequency = "1m0s"
+otp_length = 8
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
