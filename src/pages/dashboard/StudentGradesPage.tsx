@@ -10,13 +10,13 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   FileText, TrendingUp, TrendingDown, Award, BarChart3,
   BookOpen, Loader2, MessageSquare, Send, Sparkles,
-  BrainCircuit, Trophy, CheckCircle2, AlertCircle, Info, ArrowUpRight
+  BrainCircuit, Trophy, CheckCircle2, AlertCircle, Info, ArrowUpRight, Users
 } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+  AreaChart, Area, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts";
 
 /* ─── Types ───────────────────────────────────────────── */
@@ -65,6 +65,9 @@ const StudentGradesPage = () => {
   const [appealText, setAppealText] = useState("");
   const [sendingAppeal, setSendingAppeal] = useState(false);
   const [studentName, setStudentName] = useState<string>("");
+  const [classId, setClassId] = useState<string | null>(null);
+  const [distribution, setDistribution] = useState<{ bucket_label: string; bucket_min: number; student_count: number }[]>([]);
+  const [distributionLoading, setDistributionLoading] = useState(false);
 
   const container = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
   const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } };
@@ -81,8 +84,8 @@ const StudentGradesPage = () => {
         if (kids?.[0]?.student_id) targetId = kids[0].student_id;
       }
 
-      const { data: p } = await supabase.from("profiles").select("full_name").eq("id", targetId).single();
-      if (p) setStudentName(p.full_name);
+      const { data: p } = await supabase.from("profiles").select("full_name, class_id").eq("id", targetId).single();
+      if (p) { setStudentName(p.full_name); setClassId(p.class_id); }
 
       const { data: subs, error } = await supabase
         .from("submissions")
@@ -147,10 +150,74 @@ const StudentGradesPage = () => {
     }).sort((a, b) => b.average - a.average);
   }, [grades]);
 
-  const overallAvg = useMemo(() => 
+  const overallAvg = useMemo(() =>
     subjectSummaries.length === 0 ? 0 : Math.round(subjectSummaries.reduce((s, ss) => s + ss.average, 0) / subjectSummaries.length),
     [subjectSummaries]
   );
+
+  // Default the subject selector to the student's top subject once grades load
+  useEffect(() => {
+    if (selectedSubject === "all" && subjectSummaries.length > 0) {
+      setSelectedSubject(subjectSummaries[0].subject);
+    }
+  }, [subjectSummaries, selectedSubject]);
+
+  const activeSubjectSummary = useMemo(
+    () => subjectSummaries.find(ss => ss.subject === selectedSubject) || null,
+    [subjectSummaries, selectedSubject]
+  );
+
+  /* ── Anonymous Bell Curve (spec: Grade Benchmark) ─────── */
+  useEffect(() => {
+    if (!classId || !selectedSubject || selectedSubject === "all") { setDistribution([]); return; }
+    const load = async () => {
+      setDistributionLoading(true);
+      const { data } = await supabase.rpc("get_grade_distribution", { p_class_id: classId, p_subject: selectedSubject });
+      setDistribution((data as any[]) || []);
+      setDistributionLoading(false);
+    };
+    load();
+  }, [classId, selectedSubject]);
+
+  // Spec: "relative improvement trend" — is the child improving faster or
+  // slower than the class average, not just their own raw trend
+  const trendInsight = useMemo(() => {
+    const entries = activeSubjectSummary?.grades || [];
+    const withClassAvg = entries.filter(g => g.classAvg !== null);
+    if (withClassAvg.length < 2) return null;
+
+    const recent = withClassAvg.slice(0, Math.min(2, Math.floor(withClassAvg.length / 2)) || 1);
+    const previous = withClassAvg.slice(recent.length, recent.length * 2);
+    if (previous.length === 0) return null;
+
+    const avg = (arr: GradeEntry[], key: "normalizedGrade" | "classAvg") =>
+      arr.reduce((s, g) => s + (Number(g[key]) || 0), 0) / arr.length;
+
+    const studentDelta = Math.round(avg(recent, "normalizedGrade") - avg(previous, "normalizedGrade"));
+    const classDelta = Math.round(avg(recent, "classAvg") - avg(previous, "classAvg"));
+    const relative = studentDelta - classDelta;
+    if (Math.abs(relative) < 2) return null;
+
+    if (relative > 0 && classDelta < 0) {
+      return studentDelta >= 0
+        ? `הילד/ה שמר/ה על הציון בעוד שממוצע הכיתה ירד ב-${Math.abs(classDelta)} נקודות`
+        : `הציון ירד, אך פחות מהכיתה שירדה ב-${Math.abs(classDelta)} נקודות`;
+    }
+    if (relative > 0) return `הילד/ה משתפר/ת מהר יותר מממוצע הכיתה (${studentDelta > 0 ? "+" : ""}${studentDelta} מול ${classDelta > 0 ? "+" : ""}${classDelta})`;
+    return `הקצב מול הכיתה איטי יותר לאחרונה (${studentDelta > 0 ? "+" : ""}${studentDelta} מול ${classDelta > 0 ? "+" : ""}${classDelta})`;
+  }, [activeSubjectSummary]);
+
+  const bellCurveData = useMemo(() => {
+    const ORDER = [0, 60, 70, 80, 90];
+    const LABELS: Record<number, string> = { 0: "מתחת ל-60", 60: "60-69", 70: "70-79", 80: "80-89", 90: "90-100" };
+    const myBucketMin = activeSubjectSummary
+      ? ([...ORDER].reverse().find(min => activeSubjectSummary.average >= min) ?? 0)
+      : null;
+    return ORDER.map(min => {
+      const row = distribution.find(d => d.bucket_min === min);
+      return { bucket: LABELS[min], min, count: row?.student_count || 0, isMine: min === myBucketMin };
+    });
+  }, [distribution, activeSubjectSummary]);
 
   const chartData = useMemo(() => {
     return [...grades].reverse().slice(-10).map((g, i) => ({
@@ -273,6 +340,72 @@ const StudentGradesPage = () => {
               </div>
            </Card>
         </motion.div>
+
+        {/* ANONYMOUS BELL CURVE (Grade Benchmark) */}
+        {subjectSummaries.length > 0 && (
+          <motion.div variants={item}>
+             <Card className="bg-white dark:bg-slate-900 border-none rounded-[3.5rem] p-12 shadow-sm relative overflow-hidden">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+                   <div>
+                      <h3 className="text-xl font-black flex items-center gap-4">
+                         <Users className="h-6 w-6 text-indigo-600" /> התפלגות ציונים אנונימית
+                      </h3>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                         כמה תלמידים בכיתה נמצאים בכל טווח ציונים — ללא חשיפת זהויות
+                      </p>
+                   </div>
+                   <div className="flex flex-wrap gap-2">
+                      {subjectSummaries.map(ss => (
+                        <button
+                          key={ss.subject}
+                          onClick={() => setSelectedSubject(ss.subject)}
+                          className={`px-4 py-2 rounded-2xl text-xs font-black transition-colors ${
+                            selectedSubject === ss.subject
+                              ? "bg-indigo-600 text-white"
+                              : "bg-slate-50 dark:bg-slate-800 text-slate-500 hover:bg-slate-100"
+                          }`}
+                        >
+                          {ss.subject}
+                        </button>
+                      ))}
+                   </div>
+                </div>
+
+                {trendInsight && (
+                  <div className="mb-8 p-5 rounded-[2rem] bg-indigo-50 dark:bg-indigo-500/10 flex items-center gap-4">
+                     <Sparkles className="h-5 w-5 text-indigo-600 shrink-0" />
+                     <p className="text-sm font-bold text-indigo-700 dark:text-indigo-300">{trendInsight}</p>
+                  </div>
+                )}
+
+                <div className="h-64">
+                   {distributionLoading ? (
+                     <div className="h-full flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-slate-300" /></div>
+                   ) : (
+                     <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={bellCurveData}>
+                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                           <XAxis dataKey="bucket" tick={{ fontSize: 11, fontWeight: 700 }} />
+                           <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                           <Tooltip
+                             contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
+                             formatter={(v: number) => [`${v} תלמידים`, "כמות"]}
+                           />
+                           <Bar dataKey="count" radius={[8, 8, 0, 0]}>
+                              {bellCurveData.map((d, i) => (
+                                <Cell key={i} fill={d.isMine ? "#4f46e5" : "#e2e8f0"} />
+                              ))}
+                           </Bar>
+                        </BarChart>
+                     </ResponsiveContainer>
+                   )}
+                </div>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-4 flex items-center gap-2">
+                   <div className="w-2.5 h-2.5 rounded-full bg-indigo-600" /> העמודה הכהה מציינת את הטווח שבו נמצא/ת {isParentView ? "הילד/ה" : "אתה/את"}
+                </p>
+             </Card>
+          </motion.div>
+        )}
 
         {/* DETAILED GRADE TABLE */}
         <motion.div variants={item} className="space-y-8">

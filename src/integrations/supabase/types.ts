@@ -3358,6 +3358,14 @@ export type Database = {
       }
       get_class_average: { Args: { p_class_id: string }; Returns: number }
       get_counselor_note: { Args: { p_note_id: string }; Returns: string }
+      get_grade_distribution: {
+        Args: { p_class_id: string; p_subject: string }
+        Returns: {
+          bucket_label: string
+          bucket_min: number
+          student_count: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
