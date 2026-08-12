@@ -69,6 +69,7 @@ const SystemAdminOrgTreePage = () => {
   const [classes, setClasses] = useState<{ id: string; grade: string; classNumber: number }[]>([]);
   const [teacherClassesMap, setTeacherClassesMap] = useState<Record<string, string[]>>({});
   const [parentStudentMap, setParentStudentMap] = useState<Record<string, string[]>>({});
+  const [homeroomMap, setHomeroomMap] = useState<Record<string, string>>({});
 
   // User management dialog
   const [selectedUser, setSelectedUser] = useState<PersonNode | null>(null);
@@ -158,10 +159,19 @@ const SystemAdminOrgTreePage = () => {
       psMap[ps.student_id].push(ps.parent_id);
     }
 
+    // Homeroom teacher per class (educator role's homeroom_class_id, not profile.class_id)
+    const hrMap: Record<string, string> = {};
+    for (const r of allRoles) {
+      if (r.role === "educator" && r.homeroom_class_id && profileIds.has(r.user_id)) {
+        hrMap[r.homeroom_class_id] = r.user_id;
+      }
+    }
+
     setPeople(personList);
     setClasses((classesRes.data || []).map(c => ({ id: c.id, grade: c.grade, classNumber: c.class_number })));
     setTeacherClassesMap(tcMap);
     setParentStudentMap(psMap);
+    setHomeroomMap(hrMap);
     setSchoolLoading(false);
   };
 
@@ -482,16 +492,16 @@ const SystemAdminOrgTreePage = () => {
                           <div className="mr-6 space-y-1 pb-2">
                             {gCoords.map(gc => <PersonRow key={gc.id} person={gc} />)}
                             {gradeClasses.map(cls => {
-                              const classEducator = educators.find(e => {
-                                // educator with homeroom for this class
-                                return people.find(p => p.id === e.id && p.classId === cls.id) !== undefined;
-                              });
+                              const classEducator = people.find(p => p.id === homeroomMap[cls.id]);
                               const classStudents = students.filter(s => s.classId === cls.id);
                               return (
                                 <Collapsible key={cls.id}>
                                   <CollapsibleTrigger className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-muted/30 transition-colors text-right">
                                     <ChevronLeft className="h-3 w-3 text-muted-foreground shrink-0 transition-transform [[data-state=open]>&]:rotate-[-90deg]" />
-                                    <p className="text-sm font-body">{grade}'{cls.classNumber}</p>
+                                    <p className="text-sm font-body">
+                                      {grade}'{cls.classNumber}
+                                      {classEducator && <span className="text-muted-foreground"> • מחנך/ת: {classEducator.fullName}</span>}
+                                    </p>
                                     <span className="text-[10px] text-muted-foreground">{classStudents.length} תלמידים</span>
                                   </CollapsibleTrigger>
                                   <CollapsibleContent>

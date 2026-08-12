@@ -128,7 +128,8 @@
       "Bash(git count-objects *)",
       "Bash(git rm *)",
       "Bash(curl -s -X POST https://pnfxysxxmqznwoorgene.supabase.co/functions/v1/dev-skip-registration -H 'apikey: sb_publishable_rggr7jxyC2YztnmkT2hVbg_serKSNKO' -H 'Authorization: Bearer sb_publishable_rggr7jxyC2YztnmkT2hVbg_serKSNKO' -H 'Content-Type: application/json' -d '{\"role\":\"staff\"}')",
-      "Bash(echo \"tsc exit:$?\")"
+      "Bash(echo \"tsc exit:$?\")",
+      "Bash(echo \"tsc:$?\")"
     ]
   }
 }
