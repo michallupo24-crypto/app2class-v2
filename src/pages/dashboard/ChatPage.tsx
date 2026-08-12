@@ -493,9 +493,12 @@ const ChatPage = () => {
     return () => { if (realtimeRef.current) supabase.removeChannel(realtimeRef.current); };
   }, [selectedId, profile.id]);
 
-  // Handle deep linking from Dashboard
+  // Handle deep linking from Dashboard. Guard on loadingConvos (not
+  // conversations.length) - a brand-new user with zero conversations is
+  // exactly the common case for "message my teacher for the first time",
+  // and the old length check silently no-opped for them.
   useEffect(() => {
-    if (conversations.length === 0 || !navState) return;
+    if (loadingConvos || !navState) return;
 
     const { targetUserId, initialType } = navState;
 
@@ -517,7 +520,8 @@ const ChatPage = () => {
         (window as any).history?.replaceState({}, "");
       }
     }
-  }, [conversations, navState]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingConvos, navState]);
 
   // Scroll to bottom
   useEffect(() => {

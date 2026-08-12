@@ -4,7 +4,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   BookOpen, FileText, BarChart3, MessageSquare, Download,
   Send, ArrowRight, Radio, Play, Loader2, CheckCircle2,
@@ -41,7 +40,6 @@ const SubjectDetailPage = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
   const navigate = useNavigate();
   const subject = decodeURIComponent(subjectName || "");
-  const [chatInput, setChatInput] = useState("");
   const defaultTab = searchParams.get("tab") || "materials";
 
   // Practice tab state
@@ -117,6 +115,27 @@ const SubjectDetailPage = () => {
     },
   });
 
+  // Real subject teacher for this class (derived from assignments they've published here -
+  // there's no class-wide "subject channel" backing yet, so the chat tab links to a real 1:1
+  // DM with the actual teacher instead of pretending to be a class-wide chat)
+  const { data: subjectTeacher } = useQuery({
+    queryKey: ["subject-teacher", profile.id, subject],
+    queryFn: async () => {
+      const { data: p } = await supabase.from("profiles").select("class_id").eq("id", profile.id).single();
+      if (!p?.class_id) return null;
+      const { data: a } = await supabase
+        .from("assignments")
+        .select("teacher_id")
+        .eq("class_id", p.class_id)
+        .eq("subject", subject)
+        .limit(1)
+        .maybeSingle();
+      if (!a?.teacher_id) return null;
+      const { data: t } = await supabase.from("profiles").select("id, full_name").eq("id", a.teacher_id).single();
+      return t || null;
+    },
+  });
+
   // Fetch real assignments/grades for this subject
   const { data: grades = [] } = useQuery<GradeItem[]>({
     queryKey: ["subject-grades", profile.id, subject],
@@ -173,22 +192,6 @@ const SubjectDetailPage = () => {
   const average = grades.filter(g => g.grade !== null).length > 0
     ? Math.round(grades.filter(g => g.grade !== null).reduce((sum, g) => sum + g.grade!, 0) / grades.filter(g => g.grade !== null).length)
     : null;
-
-  // Mock chat messages (will be replaced with real conversation system later)
-  const [messages, setMessages] = useState([
-    { from: "system", text: `ברוכים הבאים לצ'אט כיתתי של ${subject}!`, time: "09:00", name: "" },
-  ]);
-
-  const handleSend = () => {
-    if (!chatInput.trim()) return;
-    setMessages(prev => [...prev, {
-      from: "student",
-      name: profile.fullName,
-      text: chatInput,
-      time: new Date().toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }),
-    }]);
-    setChatInput("");
-  };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
@@ -398,45 +401,29 @@ const SubjectDetailPage = () => {
           )}
         </TabsContent>
 
-        {/* Chat Tab */}
+        {/* Chat Tab — links to a real conversation with the subject teacher */}
         <TabsContent value="chat" className="mt-4">
-          <Card className="flex flex-col" style={{ height: 400 }}>
-            <CardHeader className="pb-2 border-b">
-              <CardTitle className="text-sm font-heading">צ'אט כיתתי - {subject}</CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto py-3 space-y-3">
-              {messages.map((msg, i) => (
-                <div key={i} className={`flex flex-col ${msg.from === "student" && msg.name === profile.fullName ? "items-start" : "items-end"}`}>
-                  {msg.from !== "system" ? (
-                    <div className={`max-w-[80%] rounded-xl px-3 py-2 ${
-                      msg.from === "teacher" ? "bg-primary/10 text-foreground" :
-                      msg.name === profile.fullName ? "bg-accent text-accent-foreground" :
-                      "bg-muted text-foreground"
-                    }`}>
-                      <p className="text-[10px] font-bold text-muted-foreground mb-0.5">{msg.name}</p>
-                      <p className="text-sm">{msg.text}</p>
-                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">{msg.time}</p>
-                    </div>
-                  ) : (
-                    <div className="w-full text-center">
-                      <span className="text-xs text-muted-foreground bg-muted/50 px-3 py-1 rounded-full">{msg.text}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
+          <Card>
+            <CardContent className="py-10 text-center text-muted-foreground space-y-3">
+              <MessageSquare className="h-10 w-10 mx-auto opacity-40" />
+              {subjectTeacher ? (
+                <>
+                  <p className="font-heading font-medium text-foreground">שיחה עם {subjectTeacher.full_name}</p>
+                  <p className="text-sm">שאלות על {subject} אפשר לשלוח ישירות למורה</p>
+                  <Button
+                    className="gap-2 font-heading"
+                    onClick={() => navigate("/dashboard/chat", { state: { targetUserId: subjectTeacher.id } })}
+                  >
+                    <Send className="h-4 w-4" />פתח/י שיחה
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="font-heading font-medium">אין עדיין מורה משויך למקצוע זה</p>
+                  <p className="text-sm">ברגע שהמורה יפרסם משימה ראשונה, אפשר יהיה לפתוח איתו שיחה מכאן</p>
+                </>
+              )}
             </CardContent>
-            <div className="border-t p-3 flex gap-2">
-              <Input
-                value={chatInput}
-                onChange={e => setChatInput(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleSend()}
-                placeholder="כתוב הודעה..."
-                className="flex-1 text-sm"
-              />
-              <Button size="icon" onClick={handleSend}>
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
           </Card>
         </TabsContent>
       </Tabs>
