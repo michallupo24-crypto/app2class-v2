@@ -441,7 +441,7 @@ const PrincipalDashboardPage = () => {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
                 { label: "אישורים ממתינים", icon: UserCheck, route: "/dashboard/approvals", color: "text-primary" },
-                { label: "עץ ארגוני", icon: Building2, route: "/dashboard/org-tree", color: "text-purple-600" },
+                { label: "עץ ארגוני", icon: Building2, route: profile.schoolId ? "/dashboard/org-tree" : "/dashboard/system-org-tree", color: "text-purple-600" },
                 { label: "לוח שנה", icon: BarChart3, route: "/dashboard/schedule", color: "text-green-600" },
                 { label: "שיחות", icon: FileText, route: "/dashboard/chat", color: "text-blue-600" },
                 { label: "דוחות AI", icon: Brain, route: "/dashboard/grade-progress", color: "text-orange-600" },

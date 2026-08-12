@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -64,6 +65,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 const SchoolOrgTreePage = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -83,7 +85,7 @@ const SchoolOrgTreePage = () => {
 
   useEffect(() => {
     const load = async () => {
-      if (!profile.schoolId) return;
+      if (!profile.schoolId) { setLoading(false); return; }
 
       // Fetch all profiles, roles, avatars, classes for this school
       const [profilesRes, rolesRes, avatarsRes, classesRes, teacherClassesRes, parentStudentRes] = await Promise.all([
@@ -224,6 +226,21 @@ const SchoolOrgTreePage = () => {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!profile.schoolId) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+        <Building2 className="h-12 w-12 text-muted-foreground/40" />
+        <p className="text-sm text-muted-foreground font-body max-w-sm">
+          העץ הארגוני הזה מציג בית ספר בודד, וחשבונך אינו משויך לבית ספר ספציפי.
+          השתמש בעץ הארגוני של כלל המערכת כדי לבחור בית ספר לצפייה.
+        </p>
+        <Button onClick={() => navigate("/dashboard/system-org-tree")} className="gap-2">
+          <Building2 className="h-4 w-4" /> עבור לעץ הארגוני - כלל המערכת
+        </Button>
       </div>
     );
   }
