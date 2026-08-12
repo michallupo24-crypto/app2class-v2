@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useNavigate, useOutletContext, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +42,8 @@ const PERCENTILE_BINS = [
 const TeacherGradesPage = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const navState = location.state as { classId?: string; assignmentId?: string } | null;
   const { toast } = useToast();
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [selectedClass, setSelectedClass] = useState("");
@@ -69,11 +71,14 @@ const TeacherGradesPage = () => {
       if (data) {
         const cls = data.map((d: any) => ({ id: d.classes.id, grade: d.classes.grade, number: d.classes.class_number }));
         setClasses(cls);
-        if (cls.length > 0) setSelectedClass(cls[0].id);
+        const deepLinkClass = navState?.classId && cls.some(c => c.id === navState.classId) ? navState.classId : null;
+        if (deepLinkClass) setSelectedClass(deepLinkClass);
+        else if (cls.length > 0) setSelectedClass(cls[0].id);
       }
       setLoading(false);
     };
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile.id]);
 
   // Load assignments
@@ -89,10 +94,18 @@ const TeacherGradesPage = () => {
           id: a.id, title: a.title, subject: a.subject, type: a.type,
           maxGrade: a.max_grade || 100, weight: a.weight_percent || 0, dueDate: a.due_date,
         })));
-        setSelectedAssignment(data.length > 0 ? data[0].id : "");
+        const deepLinkAssignment = navState?.assignmentId && data.some((a: any) => a.id === navState.assignmentId) ? navState.assignmentId : null;
+        if (deepLinkAssignment) {
+          setSelectedAssignment(deepLinkAssignment);
+          setShowGrading(true);
+          window.history.replaceState({}, "");
+        } else {
+          setSelectedAssignment(data.length > 0 ? data[0].id : "");
+        }
       }
     };
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClass, profile.id]);
 
   // Load student grades

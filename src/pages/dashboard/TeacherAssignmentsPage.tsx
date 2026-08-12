@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ const ASSIGNMENT_TYPES = [
 
 const TeacherAssignmentsPage = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [tab, setTab] = useState("active");
   const [classes, setClasses] = useState<{ id: string; grade: string; number: number }[]>([]);
@@ -268,7 +269,12 @@ const TeacherAssignmentsPage = () => {
                         )}
                       </div>
                     </div>
-                    <Button size="sm" variant="ghost" className="font-heading text-xs">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="font-heading text-xs"
+                      onClick={() => navigate("/dashboard/teacher-grades", { state: { classId: assignment.class_id, assignmentId: assignment.id } })}
+                    >
                       צפה בהגשות
                     </Button>
                   </div>
