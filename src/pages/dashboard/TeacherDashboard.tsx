@@ -122,11 +122,16 @@ const TeacherDashboard = () => {
         setMissingSubmissions(null);
       }
 
+      const { count: todayLessonsRecorded } = await supabase.from("lessons")
+        .select("id", { count: "exact", head: true })
+        .eq("teacher_id", profile.id)
+        .gte("lesson_date", new Date().toISOString().split("T")[0]);
+
       setStats({
         totalStudents: studentCount,
         classCount: classIds.length,
         pendingSubmissions: submissionsRes.count || 0,
-        todayLessons: 0,
+        todayLessons: todayLessonsRecorded || 0,
       });
 
       if (profile.roles?.includes("subject_coordinator")) {
@@ -146,14 +151,8 @@ const TeacherDashboard = () => {
         .eq("day_of_week", today);
 
       if (slots && slots.length > 0) {
-        // Teacher has lessons today. Check if they submitted anything today.
-        const { count: lessonsToday } = await supabase.from("lessons")
-          .select("id", { count: "exact", head: true })
-          .eq("teacher_id", profile.id)
-          .gte("lesson_date", new Date().toISOString().split('T')[0]);
-
-        // If it's past noon and today's lessons weren't reported
-        if (lessonsToday === 0 && new Date().getHours() >= 12) {
+        // Teacher has lessons today. If it's past noon and none were reported yet, nudge them.
+        if (!todayLessonsRecorded && new Date().getHours() >= 12) {
           setHasSkippedRollcall(true);
         }
       }
@@ -308,7 +307,7 @@ const TeacherDashboard = () => {
         </motion.div>
 
         <div className="flex items-center gap-3">
-           <Button variant="outline" className="rounded-xl border-slate-200 bg-white/50 backdrop-blur-sm px-6 h-12 gap-2 hover:bg-primary/5 transition-all text-sm font-bold">
+           <Button variant="outline" className="rounded-xl border-slate-200 bg-white/50 backdrop-blur-sm px-6 h-12 gap-2 hover:bg-primary/5 transition-all text-sm font-bold" onClick={() => navigate("/dashboard/roll-call")}>
               <ClipboardList className="h-4 w-4 text-primary" /> הקראת שמות מהירה
            </Button>
            <Button onClick={() => navigate("/dashboard/chat")} className="rounded-xl h-12 shadow-lg shadow-primary/20 px-8 font-bold gap-2">
