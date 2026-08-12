@@ -438,27 +438,75 @@ const RollCallPage = () => {
         </div>
         )
       ) : (
-        <Card className="min-h-[500px]">
-            <CardContent className="p-0">
-                <ClassroomGrid
-                    config={ss.config}
-                    students={students.map(s => {
-                        const seated = ss.students.find(st => st.id === s.id);
-                        return { ...s, attendance: s.status || 'none', seatRow: seated?.seatRow, seatCol: seated?.seatCol } as any;
-                    })}
-                    mode="lesson"
-                    highlightedId={null}
-                    getStudentAt={(r, c) => {
-                        const seated = ss.students.find(st => st.seatRow === r && st.seatCol === c);
-                        if (!seated) return undefined;
-                        const s = students.find(st => st.id === seated.id);
-                        return s ? ({ ...s, attendance: s.status || 'none', seatRow: r, seatCol: c } as any) : undefined;
-                    }}
-                    onCellClick={(r, c, student) => student && handleSwipe(student.id, student.attendance === 'present' ? 'right' : 'left')}
-                    onDrop={() => {}}
-                />
-            </CardContent>
-        </Card>
+        <>
+          {ss.unseatedStudents.length === students.length && students.length > 0 ? (
+            <Card>
+              <CardContent className="py-10 text-center space-y-3">
+                <LayoutGrid className="h-10 w-10 mx-auto text-muted-foreground/30" />
+                <p className="font-heading font-medium text-muted-foreground">לכיתה הזו עדיין אין סידור הושבה</p>
+                <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                  אפשר לסמן נוכחות לתלמידים למטה, או להגדיר סידור הושבה כדי לראות אותם על גבי מפה
+                </p>
+                <Button variant="outline" size="sm" asChild>
+                  <a href="/dashboard/seating"><LayoutGrid className="h-4 w-4 mr-2" />הגדר/י מפת הושבה</a>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+          <Card className="min-h-[500px]">
+              <CardContent className="p-0">
+                  <ClassroomGrid
+                      config={ss.config}
+                      students={students.map(s => {
+                          const seated = ss.students.find(st => st.id === s.id);
+                          return { ...s, attendance: s.status || 'none', seatRow: seated?.seatRow, seatCol: seated?.seatCol } as any;
+                      })}
+                      mode="lesson"
+                      highlightedId={null}
+                      getStudentAt={(r, c) => {
+                          const seated = ss.students.find(st => st.seatRow === r && st.seatCol === c);
+                          if (!seated) return undefined;
+                          const s = students.find(st => st.id === seated.id);
+                          return s ? ({ ...s, attendance: s.status || 'none', seatRow: r, seatCol: c } as any) : undefined;
+                      }}
+                      onCellClick={(r, c, student) => student && handleSwipe(student.id, student.attendance === 'present' ? 'right' : 'left')}
+                      onDrop={() => {}}
+                  />
+              </CardContent>
+          </Card>
+          )}
+
+          {ss.unseatedStudents.length > 0 && (
+            <Card>
+              <CardContent className="py-4">
+                <p className="text-xs font-heading font-bold text-muted-foreground mb-3">
+                  {ss.unseatedStudents.length === students.length ? "סימון נוכחות" : `ממתינים לשיבוץ במפה (${ss.unseatedStudents.length})`}
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  {ss.unseatedStudents.map(seatStudent => {
+                    const s = students.find(st => st.id === seatStudent.id);
+                    if (!s) return null;
+                    const isPresent = s.status === "present";
+                    const isAbsent = s.status === "absent";
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => handleSwipe(s.id, isPresent ? "right" : "left")}
+                        onContextMenu={(e) => { e.preventDefault(); setNoteStudentId(s.id); }}
+                        className={`flex flex-col items-center gap-1.5 p-2.5 rounded-2xl border transition-all w-20 ${
+                          isPresent ? "bg-success/10 border-success/30" : isAbsent ? "bg-destructive/10 border-destructive/30" : "bg-card border-border/50 hover:border-primary/40"
+                        }`}
+                      >
+                        {s.avatar ? <AvatarPreview config={s.avatar} size={40} /> : <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">👤</div>}
+                        <span className="text-[10px] font-heading font-medium text-center leading-tight line-clamp-1 w-full">{s.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
 
       <Card className="sticky bottom-4 z-40">
