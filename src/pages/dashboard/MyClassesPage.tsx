@@ -124,7 +124,7 @@ const MyClassesPage = () => {
           <p className="text-sm text-muted-foreground font-body mt-1">הכיתה הדיגיטלית — זיהוי מהיר של תלמידים לפי אווטאר</p>
         </div>
         {selectedClassId && (
-          <Button variant="outline" size="sm" onClick={() => navigate("/dashboard/roll-call")} className="gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate("/dashboard/roll-call", { state: { classId: selectedClassId } })} className="gap-2">
             <ClipboardList className="h-4 w-4" /> הקראת שמות לכיתה זו
           </Button>
         )}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useLocation } from "react-router-dom";
 import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -168,6 +168,8 @@ const SwipeableStudentRow = ({
 
 const RollCallPage = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
+  const location = useLocation();
+  const navState = location.state as { classId?: string } | null;
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [students, setStudents] = useState<StudentCard[]>([]);
@@ -190,10 +192,13 @@ const RollCallPage = () => {
       if (data) {
         const cls = data.map((d: any) => ({ id: d.classes.id, grade: d.classes.grade, number: d.classes.class_number }));
         setClasses(cls);
-        if (cls.length > 0) setSelectedClass(cls[0].id);
+        const deepLinkClass = navState?.classId && cls.some(c => c.id === navState.classId) ? navState.classId : null;
+        if (deepLinkClass) setSelectedClass(deepLinkClass);
+        else if (cls.length > 0) setSelectedClass(cls[0].id);
       }
     };
     loadClasses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile.id]);
 
   useEffect(() => {

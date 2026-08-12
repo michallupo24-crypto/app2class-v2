@@ -134,7 +134,8 @@
       "Bash(curl -s \"https://api.supabase.com/v1/projects/pnfxysxxmqznwoorgene/config/auth\" -H \"Authorization: Bearer $\\(cat ~/.supabase/access-token \\)\")",
       "Read(//c/Users/micha/.config/supabase/**)",
       "Read(//c//**)",
-      "Bash(cd \"C:\\\\Users\\\\micha\\\\OneDrive\\\\Desktop\\\\A\" && cat ~/.gitconfig 2>/dev/null | head -2 *)"
+      "Bash(cd \"C:\\\\Users\\\\micha\\\\OneDrive\\\\Desktop\\\\A\" && cat ~/.gitconfig 2>/dev/null | head -2 *)",
+      "Bash(xargs wc -l)"
     ]
   }
 }
