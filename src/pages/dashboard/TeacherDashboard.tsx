@@ -50,8 +50,9 @@ const TeacherDashboard = () => {
   const [stats, setStats] = useState<TeacherStats>({ totalStudents: 0, classCount: 0, pendingSubmissions: 0, todayLessons: 0 });
   const [myClasses, setMyClasses] = useState<{id: string, name: string}[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [coordinatorSubject, setCoordinatorSubject] = useState<string>("מתמטיקה");
+  const [coordinatorSubject, setCoordinatorSubject] = useState<string>("");
   const [missingWeightsCount, setMissingWeightsCount] = useState(0);
+  const [materialGapExams, setMaterialGapExams] = useState<{ id: string; title: string; dueDate: string }[]>([]);
   const [hasSkippedRollcall, setHasSkippedRollcall] = useState(false);
   const [weeklyAttendance, setWeeklyAttendance] = useState<{ day: string; present: number; absent: number; late: number }[]>([]);
   const [attendanceWatchList, setAttendanceWatchList] = useState<{ name: string; absences: number }[]>([]);
@@ -135,12 +136,42 @@ const TeacherDashboard = () => {
       });
 
       if (profile.roles?.includes("subject_coordinator")) {
-        const { count: missing } = await supabase.from("grade_events")
-          .select("id", { count: "exact", head: true })
-          .eq("event_type", "exam")
-          .eq("subject", coordinatorSubject)
-          .is("weight", null);
-        setMissingWeightsCount(missing || 0);
+        let mySubject = coordinatorSubject;
+        if (!mySubject) {
+          const { data: myRole } = await supabase.from("user_roles")
+            .select("subject").eq("user_id", profile.id).eq("role", "subject_coordinator" as any).maybeSingle();
+          mySubject = myRole?.subject || "";
+          setCoordinatorSubject(mySubject);
+        }
+        if (mySubject) {
+          const { count: missing } = await supabase.from("grade_events")
+            .select("id", { count: "exact", head: true })
+            .eq("event_type", "exam")
+            .eq("subject", mySubject)
+            .is("weight", null);
+          setMissingWeightsCount(missing || 0);
+
+          // Exams (not quizzes) due within a week that still have no material
+          // attached - reminder for the subject coordinator to follow up with
+          // the teacher.
+          const weekOut = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+          const { data: gapExams } = await supabase.from("assignments")
+            .select("id, title, due_date, description")
+            .eq("subject", mySubject)
+            .eq("published", true)
+            .ilike("title", "%מבחן%")
+            .not("title", "ilike", "%בוחן%")
+            .not("due_date", "is", null)
+            .gt("due_date", new Date().toISOString())
+            .lte("due_date", weekOut);
+          setMaterialGapExams(
+            (gapExams || [])
+              .filter((a: any) => !a.description || !a.description.trim())
+              .map((a: any) => ({ id: a.id, title: a.title, dueDate: a.due_date }))
+          );
+          // Push a real (deduplicated) notification too, not just the dashboard card.
+          (supabase as any).rpc("check_missing_exam_material").then(() => {});
+        }
       }
 
       // ─── Skipped Roll Call Heuristic ───
@@ -301,7 +332,7 @@ const TeacherDashboard = () => {
            <div>
               <h1 className="text-3xl font-heading font-black tracking-tighter">שלום, {profile.fullName.split(' ')[0]} 👋</h1>
               <p className="text-sm text-slate-500 font-medium flex items-center gap-2 mt-1">
-                <BookOpen className="h-4 w-4 text-primary" /> {profile.schoolName || "תיכון חדש תל אביב"} • מורה פדגוגי
+                <BookOpen className="h-4 w-4 text-primary" /> {profile.schoolName ? `${profile.schoolName} • ` : ""}מורה פדגוגי
               </p>
            </div>
         </motion.div>
@@ -352,6 +383,25 @@ const TeacherDashboard = () => {
                  <CheckCircle2 className="h-4 w-4" /> כל האחוזים הוזנו
                </div>
             )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* ─── MISSING EXAM MATERIAL REMINDER (7 days out) ─── */}
+      {profile.roles?.includes("subject_coordinator") && materialGapExams.length > 0 && (
+        <motion.div variants={item}>
+          <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 space-y-2">
+            <div className="flex items-center gap-2 font-heading font-bold text-warning">
+              <AlertTriangle className="h-4 w-4" /> {materialGapExams.length} מבחנים בשבוע הקרוב עדיין ללא חומר לימוד
+            </div>
+            <ul className="text-sm space-y-1">
+              {materialGapExams.map((e) => (
+                <li key={e.id} className="flex items-center justify-between gap-2">
+                  <span>"{e.title}" — {new Date(e.dueDate).toLocaleDateString("he-IL")}</span>
+                  <Button variant="outline" size="sm" className="h-7" onClick={() => navigate("/dashboard/schedule")}>לבדיקה</Button>
+                </li>
+              ))}
+            </ul>
           </div>
         </motion.div>
       )}

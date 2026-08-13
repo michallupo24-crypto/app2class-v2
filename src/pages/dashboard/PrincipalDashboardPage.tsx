@@ -79,12 +79,24 @@ const PrincipalDashboardPage = () => {
       if (!profile.schoolId) { setLoading(false); return; }
 
       // 1. Basic school stats
-      const [studRes, teachRes, classRes, approvalRes] = await Promise.all([
+      const [studRes, schoolProfilesRes, classRes, approvalRes] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }).eq("school_id", profile.schoolId).eq("is_approved", true),
-        supabase.from("user_roles").select("user_id", { count: "exact", head: true }).in("role", ["professional_teacher", "educator", "subject_coordinator"]),
+        supabase.from("profiles").select("id").eq("school_id", profile.schoolId),
         supabase.from("classes").select("id", { count: "exact", head: true }).eq("school_id", profile.schoolId),
         supabase.from("approvals").select("id", { count: "exact", head: true }).eq("status", "pending"),
       ]);
+
+      // user_roles has no school_id column, so teacher count must be scoped
+      // by intersecting with this school's own profile ids.
+      const schoolProfileIds = (schoolProfilesRes.data || []).map((p: any) => p.id);
+      let teacherCount = 0;
+      if (schoolProfileIds.length > 0) {
+        const { data: schoolRoles } = await supabase.from("user_roles")
+          .select("user_id, role")
+          .in("user_id", schoolProfileIds)
+          .in("role", ["professional_teacher", "educator", "subject_coordinator"]);
+        teacherCount = new Set((schoolRoles || []).map((r: any) => r.user_id)).size;
+      }
 
       // 2. Grade averages by school grade (ז'–י"ב)
       const { data: classes } = await supabase
@@ -124,12 +136,19 @@ const PrincipalDashboardPage = () => {
 
       const overallAvg = avgs.length > 0 ? Math.round(avgs.reduce((s, g) => s + g.avg, 0) / avgs.length) : null;
 
-      // Fetch attendance for today
+      // Fetch attendance for today (school's own students only)
       const today = new Date().toISOString().split("T")[0];
-      const { data: attendanceData } = await supabase
-        .from("attendance")
-        .select("status, student_id")
-        .gte("created_at", today);
+      const { data: schoolStudents } = classIds.length > 0
+        ? await supabase.from("profiles").select("id").in("class_id", classIds)
+        : { data: [] };
+      const studentIds = (schoolStudents || []).map((s: any) => s.id);
+
+      const { data: attendanceData } = studentIds.length > 0
+        ? await supabase.from("attendance")
+          .select("status, student_id")
+          .in("student_id", studentIds)
+          .gte("noted_at", today)
+        : { data: [] };
 
       const uniqueStudents = new Map<string, string>();
       (attendanceData || []).forEach((a: any) => {
@@ -149,7 +168,7 @@ const PrincipalDashboardPage = () => {
 
       setStats({
         totalStudents: studRes.count || 0,
-        totalTeachers: teachRes.count || 0,
+        totalTeachers: teacherCount,
         totalClasses: classRes.count || 0,
         avgGrade: overallAvg,
         presentToday: presentCount,
@@ -219,7 +238,7 @@ const PrincipalDashboardPage = () => {
       });
       setCompliance(unique.slice(0, 8));
 
-      // 4. Teacher Wellness — load count proxy
+      // 4. Teacher Wellness — load count proxy, plus real assignment load & grading delay
       const { data: tcLinks } = await supabase
         .from("teacher_classes")
         .select("user_id, profiles(full_name)")
@@ -233,10 +252,40 @@ const PrincipalDashboardPage = () => {
           countByTeacher.set(tc.user_id, entry);
         });
 
+        const assignmentCountByTeacher = new Map<string, number>();
+        (assigns || []).forEach((a: any) => {
+          assignmentCountByTeacher.set(a.teacher_id, (assignmentCountByTeacher.get(a.teacher_id) || 0) + 1);
+        });
+
+        const delaysByTeacher = new Map<string, number[]>();
+        if (classIds.length > 0) {
+          const { data: gradedSubs } = await supabase
+            .from("submissions")
+            .select("submitted_at, graded_at, assignments!inner(teacher_id, class_id)")
+            .in("assignments.class_id", classIds)
+            .eq("status", "graded")
+            .not("submitted_at", "is", null)
+            .not("graded_at", "is", null)
+            .limit(200);
+
+          (gradedSubs || []).forEach((s: any) => {
+            const teacherId = s.assignments?.teacher_id;
+            if (!teacherId) return;
+            const days = (new Date(s.graded_at).getTime() - new Date(s.submitted_at).getTime()) / (1000 * 60 * 60 * 24);
+            const list = delaysByTeacher.get(teacherId) || [];
+            list.push(days);
+            delaysByTeacher.set(teacherId, list);
+          });
+        }
+
         const loads: TeacherLoad[] = [];
         countByTeacher.forEach(({ name, count }, id) => {
-          const risk: TeacherLoad["burnoutRisk"] = count >= 8 ? "high" : count >= 5 ? "medium" : "low";
-          loads.push({ id, name, classCount: count, assignmentCount: 0, avgGradeDelay: 0, burnoutRisk: risk });
+          const assignmentCount = assignmentCountByTeacher.get(id) || 0;
+          const delays = delaysByTeacher.get(id) || [];
+          const avgGradeDelay = delays.length > 0 ? Math.round(delays.reduce((a, b) => a + b, 0) / delays.length) : 0;
+          const risk: TeacherLoad["burnoutRisk"] =
+            count >= 8 || avgGradeDelay > 10 ? "high" : count >= 5 || avgGradeDelay > 5 ? "medium" : "low";
+          loads.push({ id, name, classCount: count, assignmentCount, avgGradeDelay, burnoutRisk: risk });
         });
         setTeacherLoads(loads.sort((a, b) => b.classCount - a.classCount).slice(0, 6));
       }
@@ -413,7 +462,10 @@ const PrincipalDashboardPage = () => {
                     <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${t.burnoutRisk === "high" ? "bg-destructive" : t.burnoutRisk === "medium" ? "bg-yellow-500" : "bg-green-500"}`} />
                     <div>
                       <p className="font-heading text-sm font-medium">{t.name}</p>
-                      <p className="text-[10px] text-muted-foreground">{t.classCount} כיתות</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {t.classCount} כיתות • {t.assignmentCount} מטלות
+                        {t.avgGradeDelay > 0 && ` • עיכוב ציונים ממוצע: ${t.avgGradeDelay} ימים`}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">

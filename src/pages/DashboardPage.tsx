@@ -59,14 +59,23 @@ const DashboardPage = () => {
 
   const handleApproval = async (approvalId: string, userId: string, approved: boolean) => {
     const { data: { user } } = await supabase.auth.getUser();
-    
-    await supabase.from("approvals").update({
+
+    const { error: approvalError } = await supabase.from("approvals").update({
       status: approved ? "approved" : "rejected",
       approver_id: user?.id,
     }).eq("id", approvalId);
 
+    if (approvalError) {
+      toast({ title: "שגיאה בעדכון הבקשה", description: approvalError.message, variant: "destructive" });
+      return;
+    }
+
     if (approved) {
-      await supabase.from("profiles").update({ is_approved: true }).eq("id", userId);
+      const { error: profileError } = await supabase.from("profiles").update({ is_approved: true }).eq("id", userId);
+      if (profileError) {
+        toast({ title: "שגיאה באישור המשתמש", description: profileError.message, variant: "destructive" });
+        return;
+      }
     }
 
     toast({ title: approved ? "המשתמש אושר ✅" : "המשתמש נדחה ❌" });

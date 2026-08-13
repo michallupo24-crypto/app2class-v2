@@ -84,29 +84,72 @@ const StudentRightsPage = () => {
 
       const subMap = new Map((submissions || []).map((s: any) => [s.assignment_id, s]));
 
-      // Check 1: Material uploaded 7 days before exam
-      const lateUploads: string[] = [];
+      // Check 1: "מבחן" requires advance notice; "בוחן" by definition does not.
+      // Source: חוזר הוראות קבע תשע"ו/1(א), סעיף 3.1-51 ("מבחנים פנימיים כחלק
+      // מההערכה על פני הרצף החינוכי"), הערות [4]-[5]: "[4] מבחן: בדיקת הישגים
+      // לאחר הודעה מוקדמת. [5] בוחן: בדיקת הישגים ללא הודעה מוקדמת..."
+      // https://apps.education.gov.il/mankal/horaa.aspx?siduri=72
+      // No specific day-count is given in the source for "advance," so this only
+      // flags the clearest case: a מבחן announced the same day it's due.
+      const noNoticeExams: string[] = [];
       for (const a of assignments) {
-        if (a.due_date && a.created_at) {
-          const daysBeforeExam = Math.floor(
+        if (a.due_date && a.created_at && a.title.includes("מבחן") && !a.title.includes("בוחן")) {
+          const days = Math.floor(
             (new Date(a.due_date).getTime() - new Date(a.created_at).getTime()) / (1000 * 60 * 60 * 24)
           );
-          if (daysBeforeExam < 7 && daysBeforeExam >= 0) {
-            lateUploads.push(`"${a.title}" הועלה ${daysBeforeExam} ימים לפני המועד (נדרש 7)`);
+          if (days < 1) {
+            noNoticeExams.push(`"${a.title}" פורסם באותו יום שבו התקיים, ללא הודעה מוקדמת`);
           }
         }
       }
-
       checks.push({
-        id: "material_7days",
-        label: "חומר למבחן 7 ימים מראש",
-        description: "המורה חייב להעלות חומרי לימוד לפחות 7 ימים לפני מבחן",
-        status: lateUploads.length === 0 ? "ok" : "violation",
-        detail: lateUploads.length > 0 ? lateUploads[0] : undefined,
-        canAppeal: lateUploads.length > 0,
+        id: "exam_advance_notice",
+        label: "הודעה מוקדמת למבחן",
+        description: "מבחן (להבדיל מבוחן) טעון הודעה מוקדמת לתלמידים",
+        status: noNoticeExams.length === 0 ? "ok" : "violation",
+        detail: noNoticeExams[0],
+        canAppeal: noNoticeExams.length > 0,
       });
 
-      // Check 2: No more than 3 exams per week
+      // Check: a new בוחן in the same subject may not be given before the
+      // previous בוחן in that subject was returned. Source: same circular,
+      // פרק ו' ("בחנים כאחת מחלופות ההערכה"): "יוכל מורה לערוך בוחן רק בתנאי
+      // שבוחן שערך קודם כבר הוחזר לתלמידים." Note this rule is specifically
+      // about בוחן↔בוחן in the same subject, not מבחן.
+      const quizzesBySubject = new Map<string, typeof assignments>();
+      for (const a of assignments) {
+        if (a.due_date && a.title.includes("בוחן")) {
+          const list = quizzesBySubject.get(a.subject) || [];
+          list.push(a);
+          quizzesBySubject.set(a.subject, list);
+        }
+      }
+      const unreturnedQuizzes: string[] = [];
+      quizzesBySubject.forEach((quizzes) => {
+        const sorted = [...quizzes].sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+        for (let i = 1; i < sorted.length; i++) {
+          const prev = sorted[i - 1];
+          const prevSub = subMap.get(prev.id);
+          const nextDue = new Date(sorted[i].due_date).getTime();
+          const prevReturned = prevSub?.graded_at ? new Date(prevSub.graded_at).getTime() : null;
+          if (!prevReturned || prevReturned > nextDue) {
+            unreturnedQuizzes.push(`"${sorted[i].title}" נערך לפני שהבוחן הקודם ("${prev.title}") הוחזר`);
+          }
+        }
+      });
+      checks.push({
+        id: "prior_quiz_returned",
+        label: "בוחן קודם באותו מקצוע הוחזר",
+        description: "בוחן חדש טעון החזרת הבוחן הקודם באותו מקצוע לתלמידים",
+        status: unreturnedQuizzes.length === 0 ? "ok" : "violation",
+        detail: unreturnedQuizzes[0],
+        canAppeal: unreturnedQuizzes.length > 0,
+      });
+
+      // Check 2: No more than 3 assessment events per week, and no more than
+      // one per day. Source: same circular, section 4, item 2:
+      // "...אך בשום מקרה אין לקיים יותר מאירוע הערכה אחד ביום ויותר משלושה
+      // מועדי הערכה בשבוע."
       const examsByWeek = new Map<string, string[]>();
       for (const a of assignments) {
         if (a.due_date && (a.title.includes("מבחן") || a.title.includes("בוחן") || a.title.includes("בחן"))) {
@@ -129,13 +172,17 @@ const StudentRightsPage = () => {
       checks.push({
         id: "max_3_exams",
         label: "לא יותר מ-3 מבחנים בשבוע",
-        description: "על פי נוהל משרד החינוך, אין לקבוע יותר מ-3 מבחנים בשבוע אחד",
+        description: "על פי חוזר משרד החינוך, אין לקיים יותר מאירוע הערכה אחד ביום ויותר מ-3 בשבוע",
         status: maxWeekExams > 3 ? "violation" : "ok",
         detail: maxWeekExams > 3 ? `שבוע עמוס: ${overloadWeek.join(", ")}` : undefined,
         canAppeal: maxWeekExams > 3,
       });
 
-      // Check 3: Grade returned within 14 days
+      // Check 3: Feedback within two weeks. Source: same circular, section ד(2)(ג):
+      // "המורה מתבקש להחזיר לתלמיד התייחסות עניינית לכל היותר תוך שבועיים
+      // מהמועד שבו בוצעה או הוגשה המשימה להערכה." Note this is phrased as a
+      // recommendation ("מתבקש"), not a binding requirement ("חייב") - the
+      // label reflects that.
       const lateGrades: string[] = [];
       for (const a of assignments) {
         const sub = subMap.get(a.id);
@@ -151,32 +198,36 @@ const StudentRightsPage = () => {
 
       checks.push({
         id: "grade_14days",
-        label: "ציון תוך 14 יום",
-        description: "המורה חייב להחזיר ציון על עבודה שהוגשה תוך 14 יום",
+        label: "משוב תוך שבועיים",
+        description: "המורה מתבקש (על פי חוזר משרד החינוך) להחזיר ציון/משוב תוך שבועיים מהגשת המטלה",
         status: lateGrades.length === 0 ? "ok" : "violation",
         detail: lateGrades.length > 0 ? lateGrades[0] : undefined,
         canAppeal: lateGrades.length > 0,
       });
 
-      // Check 4: At least 1 day notice for quiz
-      const shortNotice: string[] = [];
-      for (const a of assignments) {
-        if (a.due_date && a.created_at) {
-          const days = Math.floor(
-            (new Date(a.due_date).getTime() - new Date(a.created_at).getTime()) / (1000 * 60 * 60 * 24)
-          );
-          if (days < 1 && a.title.includes("בוחן")) {
-            shortNotice.push(`"${a.title}" נקבע ביום שהועלה`);
-          }
-        }
-      }
+      // Informational rights (same section as check 3) - not auto-checkable
+      // against the current data model, so shown as "unknown" (info) rather
+      // than pass/fail.
       checks.push({
-        id: "quiz_notice",
-        label: "הודעה מראש לבוחן",
-        description: "בוחן חייב להיות מוגדר לפחות יום מראש",
-        status: shortNotice.length === 0 ? "ok" : "violation",
-        detail: shortNotice[0],
-        canAppeal: shortNotice.length > 0,
+        id: "rubric_right",
+        label: "משוב לפי מחוון שניתן מראש",
+        description: "\"התלמיד יקבל משוב על עבודתו - בהתייחס למחוון שניתן מראש ובאופן מפורט וישיר על כל שאלה/מטלה\" - חוזר משרד החינוך, סעיף 3.1-51",
+        status: "unknown",
+        canAppeal: false,
+      });
+      checks.push({
+        id: "makeup_exam_right",
+        label: "מועד חלופי בהיעדרות מוצדקת",
+        description: "\"תלמיד שנעדר מהכיתה מסיבה מוצדקת... יהיה זכאי לקבל מועד חלופי... על אותו החומר... וזמן זהה\" - חוזר משרד החינוך, סעיף 3.1-51",
+        status: "unknown",
+        canAppeal: false,
+      });
+      checks.push({
+        id: "appeal_escalation_right",
+        label: "זכות ערעור על כל ציון (מורה ← רכז ← מחנך)",
+        description: "\"תלמיד המבקש לערער על ציון... רשאי לפנות למורה המקצוע בכתב... במידת הצורך, יהיה התלמיד רשאי להמשיך ולערער בפני רכז המקצוע ומחנך הכיתה\" - חוזר משרד החינוך, סעיף 3.1-51",
+        status: "unknown",
+        canAppeal: false,
       });
 
       setRightsChecks(checks);
@@ -231,6 +282,8 @@ const StudentRightsPage = () => {
       const { data: prof } = await supabase
         .from("profiles").select("class_id").eq("id", profile.id).single();
 
+      let targetUserId: string | null = null;
+
       if (appealTarget === "homeroom" && prof?.class_id) {
         const { data: tc } = await supabase
           .from("teacher_classes")
@@ -238,23 +291,64 @@ const StudentRightsPage = () => {
           .eq("class_id", prof.class_id)
           .eq("is_homeroom", true)
           .maybeSingle();
-
-        if (tc?.user_id) {
-          // Create conversation + send message
-          const { data: conv } = await supabase.from("conversations")
-            .insert({ school_id: profile.schoolId, created_by: profile.id }).select("id").single();
-          if (conv?.id) {
-            await supabase.from("conversation_participants").insert([
-              { conversation_id: conv.id, user_id: profile.id },
-              { conversation_id: conv.id, user_id: tc.user_id },
-            ]);
-            await supabase.from("messages").insert({
-              conversation_id: conv.id,
-              sender_id: profile.id,
-              content: `[פנייה על הפרת זכויות] ${appealText}`,
-            });
+        targetUserId = tc?.user_id || null;
+      } else if (appealTarget === "coordinator" && prof?.class_id) {
+        const { data: cls } = await supabase.from("classes").select("grade").eq("id", prof.class_id).maybeSingle();
+        if (cls?.grade) {
+          const { data: coordRoles } = await supabase
+            .from("user_roles")
+            .select("user_id")
+            .eq("role", "grade_coordinator" as any)
+            .eq("grade", cls.grade as any);
+          const candidateIds = (coordRoles || []).map((r: any) => r.user_id);
+          if (candidateIds.length > 0) {
+            const { data: schoolCoord } = await supabase.from("profiles")
+              .select("id").eq("school_id", profile.schoolId).in("id", candidateIds).limit(1).maybeSingle();
+            targetUserId = schoolCoord?.id || null;
           }
         }
+      } else if (appealTarget === "management") {
+        const { data: mgmtRoles } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .eq("role", "management" as any);
+        const candidateIds = (mgmtRoles || []).map((r: any) => r.user_id);
+        if (candidateIds.length > 0) {
+          const { data: schoolMgmt } = await supabase.from("profiles")
+            .select("id").eq("school_id", profile.schoolId).in("id", candidateIds).limit(1).maybeSingle();
+          targetUserId = schoolMgmt?.id || null;
+        }
+      }
+
+      if (!targetUserId) {
+        toast({ title: "לא נמצא איש קשר מתאים לשליחת הפנייה", variant: "destructive" });
+        return;
+      }
+
+      const { data: conv, error: convError } = await supabase.from("conversations")
+        .insert({ school_id: profile.schoolId, created_by: profile.id }).select("id").single();
+      if (convError || !conv?.id) {
+        toast({ title: "שגיאה בשליחת הפנייה", description: convError?.message, variant: "destructive" });
+        return;
+      }
+
+      const { error: participantsError } = await supabase.from("conversation_participants").insert([
+        { conversation_id: conv.id, user_id: profile.id },
+        { conversation_id: conv.id, user_id: targetUserId },
+      ]);
+      if (participantsError) {
+        toast({ title: "שגיאה בשליחת הפנייה", description: participantsError.message, variant: "destructive" });
+        return;
+      }
+
+      const { error: messageError } = await supabase.from("messages").insert({
+        conversation_id: conv.id,
+        sender_id: profile.id,
+        content: `[פנייה על הפרת זכויות] ${appealText}`,
+      });
+      if (messageError) {
+        toast({ title: "שגיאה בשליחת הפנייה", description: messageError.message, variant: "destructive" });
+        return;
       }
 
       toast({ title: "הפנייה נשלחה! ✅" });
@@ -339,8 +433,8 @@ const StudentRightsPage = () => {
                     </div>
                   </div>
                   <div className="shrink-0 flex flex-col items-end gap-2">
-                    <Badge variant={check.status === "ok" ? "default" : "destructive"} className="text-[10px]">
-                      {check.status === "ok" ? "תקין ✓" : "חריגה ✕"}
+                    <Badge variant={check.status === "ok" ? "default" : check.status === "violation" ? "destructive" : "secondary"} className="text-[10px]">
+                      {check.status === "ok" ? "תקין ✓" : check.status === "violation" ? "חריגה ✕" : "מידע"}
                     </Badge>
                     {check.canAppeal && check.status === "violation" && (
                       <Button size="sm" variant="outline" className="h-7 text-[11px] font-heading gap-1 text-destructive border-destructive/30 hover:bg-destructive/5"

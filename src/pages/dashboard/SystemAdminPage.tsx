@@ -234,7 +234,11 @@ const SystemAdminPage = () => {
     if (!blockDialog) return;
     setBlocking(true);
     try {
-      await supabase.from("profiles").update({ is_approved: false }).eq("id", blockDialog.id);
+      const { error } = await supabase.from("profiles").update({ is_approved: false }).eq("id", blockDialog.id);
+      if (error) {
+        toast({ title: "שגיאה בהשבתת החשבון", description: error.message, variant: "destructive" });
+        return;
+      }
       toast({ title: `חשבון ${blockDialog.fullName} הושבת` });
       logAction("user_blocked", blockDialog.id);
       setBlockDialog(null);
@@ -248,7 +252,11 @@ const SystemAdminPage = () => {
   };
 
   const toggleApproval = async (userId: string, current: boolean) => {
-    await supabase.from("profiles").update({ is_approved: !current }).eq("id", userId);
+    const { error } = await supabase.from("profiles").update({ is_approved: !current }).eq("id", userId);
+    if (error) {
+      toast({ title: "שגיאה בעדכון החשבון", description: error.message, variant: "destructive" });
+      return;
+    }
     toast({ title: !current ? "חשבון אושר ✅" : "חשבון הושבת" });
     logAction(!current ? "user_unblocked" : "user_blocked", userId);
     loadUsers();
@@ -575,7 +583,7 @@ const SystemAdminPage = () => {
           {passwordDialog && (
             <div className="space-y-4">
               <p className="text-sm font-body text-muted-foreground">
-                שינוי סיסמה עבור <b>{passwordDialog.fullName}</b>. (דורש הגדרת Backend לאימות Supabase)
+                שינוי סיסמה עבור <b>{passwordDialog.fullName}</b>
               </p>
               <div className="space-y-2">
                 <Label className="font-heading text-xs">סיסמה חדשה</Label>

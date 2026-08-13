@@ -54,24 +54,42 @@ const DashboardHome = () => {
     ["educator", "professional_teacher", "subject_coordinator", "grade_coordinator", "counselor", "management", "system_admin"].includes(r)
   );
 
+  const isSystemAdmin = profile.roles.includes("system_admin");
+
   useEffect(() => {
     if (!isStaff) return;
     const load = async () => {
-      const [pendingRes, approvedRes, totalRolesRes, classesRes] = await Promise.all([
+      // System admins oversee every school, so their totals stay global.
+      // Everyone else (e.g. "management") should only see their own school.
+      const classesQuery = supabase.from("classes").select("id", { count: "exact", head: true });
+      const scoped = !isSystemAdmin && !!profile.schoolId;
+
+      // user_roles has no school_id column, so scoping it requires first
+      // narrowing to this school's own profile ids.
+      const rolesCountPromise = scoped
+        ? supabase.from("profiles").select("id").eq("school_id", profile.schoolId).then(async ({ data }) => {
+            const ids = (data || []).map((p: any) => p.id);
+            if (ids.length === 0) return 0;
+            const { data: roles } = await supabase.from("user_roles").select("user_id").in("user_id", ids);
+            return new Set((roles || []).map((r: any) => r.user_id)).size;
+          })
+        : supabase.from("user_roles").select("id", { count: "exact", head: true }).then(({ count }) => count || 0);
+
+      const [pendingRes, approvedRes, totalRoles, classesRes] = await Promise.all([
         supabase.from("approvals").select("id", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("approvals").select("id", { count: "exact", head: true }).eq("status", "approved"),
-        supabase.from("user_roles").select("id", { count: "exact", head: true }),
-        supabase.from("classes").select("id", { count: "exact", head: true }),
+        rolesCountPromise,
+        scoped ? classesQuery.eq("school_id", profile.schoolId) : classesQuery,
       ]);
       setStats({
-        totalUsers: totalRolesRes.count || (approvedRes.count || 0) + (pendingRes.count || 0),
+        totalUsers: totalRoles || (approvedRes.count || 0) + (pendingRes.count || 0),
         approvedUsers: approvedRes.count || 0,
         pendingUsers: pendingRes.count || 0,
         totalClasses: classesRes.count || 0,
       });
     };
     load();
-  }, [isStaff]);
+  }, [isStaff, isSystemAdmin, profile.schoolId]);
 
   // Redirect students to their dedicated dashboard
   if (isStudent) {

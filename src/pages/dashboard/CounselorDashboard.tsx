@@ -7,6 +7,7 @@ import AvatarPreview from "@/components/avatar/AvatarPreview";
 import type { UserProfile } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface FlaggedStudent {
   id: string;
@@ -23,6 +24,7 @@ interface Stats {
 const CounselorDashboard = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [stats, setStats] = useState<Stats>({ activeCases: 0, riskFlagged: 0, recommendationsThisMonth: 0 });
   const [flagged, setFlagged] = useState<FlaggedStudent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -147,7 +149,7 @@ const CounselorDashboard = () => {
   }, [profile.id, profile.schoolId]);
 
   const openCase = async (studentId: string) => {
-    const { data: existingRows } = await (supabase as any)
+    const { data: existingRows, error: lookupError } = await (supabase as any)
       .from("counselor_cases")
       .select("id")
       .eq("counselor_id", profile.id)
@@ -155,14 +157,23 @@ const CounselorDashboard = () => {
       .neq("status", "closed")
       .limit(1);
 
+    if (lookupError) {
+      toast({ title: "שגיאה בפתיחת התיק", description: lookupError.message, variant: "destructive" });
+      return;
+    }
+
     if (!existingRows || existingRows.length === 0) {
-      await (supabase as any).from("counselor_cases").insert({
+      const { error: insertError } = await (supabase as any).from("counselor_cases").insert({
         school_id: profile.schoolId,
         student_id: studentId,
         counselor_id: profile.id,
         status: "new",
         flagged_reason: "ai_risk_flag",
       });
+      if (insertError) {
+        toast({ title: "שגיאה בפתיחת התיק", description: insertError.message, variant: "destructive" });
+        return;
+      }
     }
     navigate("/dashboard/counselor-cases");
   };

@@ -261,7 +261,7 @@ const StudentGradesPage = () => {
            </div>
            <div className="flex gap-4">
               <Button variant="outline" className="rounded-2xl gap-2 font-bold h-12 px-6" onClick={() => navigate(-1)}>חזרה</Button>
-              <Button className="bg-indigo-600 text-white rounded-2xl gap-2 font-black h-12 px-8 shadow-2xl shadow-indigo-100">
+              <Button className="bg-indigo-600 text-white rounded-2xl gap-2 font-black h-12 px-8 shadow-2xl shadow-indigo-100" onClick={() => navigate(`/dashboard/report/${studentId}`)}>
                  הפק גיליון ציונים
               </Button>
            </div>

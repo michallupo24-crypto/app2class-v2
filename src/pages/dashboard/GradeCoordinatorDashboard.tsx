@@ -20,7 +20,7 @@ interface GradeStats {
   activeTutoring: number;
   scheduledMeetings: number;
   announcements: number;
-  avgAttendance: number;
+  avgAttendance: number | null;
   absentToday: number;
 }
 
@@ -30,7 +30,7 @@ const GradeCoordinatorDashboard = () => {
   const [stats, setStats] = useState<GradeStats>({
     totalClasses: 0, totalStudents: 0, pendingEvents: 0,
     upcomingExams: 0, activeTutoring: 0, scheduledMeetings: 0,
-    announcements: 0, avgAttendance: 0, absentToday: 0,
+    announcements: 0, avgAttendance: null, absentToday: 0,
   });
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [loadingInsight, setLoadingInsight] = useState(false);
@@ -67,12 +67,12 @@ const GradeCoordinatorDashboard = () => {
       ]);
 
       const classIds = (classesRes.data || []).map((c: any) => c.id);
-      let studentCount = 0;
+      let studentIds: string[] = [];
       if (classIds.length > 0) {
-        const { count } = await supabase.from("profiles")
-          .select("id", { count: "exact", head: true })
+        const { data: studentsData } = await supabase.from("profiles")
+          .select("id")
           .in("class_id", classIds);
-        studentCount = count || 0;
+        studentIds = (studentsData || []).map((s: any) => s.id);
       }
 
       const events = eventsRes.data || [];
@@ -80,35 +80,36 @@ const GradeCoordinatorDashboard = () => {
       const upcomingExams = events.filter((e: any) => e.event_type === "exam" && e.status === "approved").length;
 
       let absentCount = 0;
-      if (classIds.length > 0) {
+      let avgAttendance: number | null = null;
+      if (studentIds.length > 0) {
         const today = new Date().toISOString().split("T")[0];
-        const { data: attData } = await supabase.from("attendance")
-          .select("student_id, status")
-          .gte("created_at", today)
+        const { data: todayAtt } = await supabase.from("attendance")
+          .select("student_id")
+          .in("student_id", studentIds)
+          .gte("noted_at", today)
           .eq("status", "absent");
+        absentCount = new Set((todayAtt || []).map((a: any) => a.student_id)).size;
 
-        // Filter students belonging to this grade
-        if (attData && attData.length > 0) {
-          const { data: validStudents } = await supabase.from("profiles")
-            .select("id")
-            .in("class_id", classIds)
-            .in("id", attData.map((a: any) => a.student_id));
-            
-          const validSet = new Set((validStudents || []).map((v: any) => v.id));
-          const uniqueAbsents = new Set(attData.filter((a: any) => validSet.has(a.student_id)).map((a: any) => a.student_id));
-          absentCount = uniqueAbsents.size;
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const { data: recentAtt } = await supabase.from("attendance")
+          .select("status")
+          .in("student_id", studentIds)
+          .gte("noted_at", thirtyDaysAgo);
+        if (recentAtt && recentAtt.length > 0) {
+          const attended = recentAtt.filter((a: any) => a.status !== "absent").length;
+          avgAttendance = Math.round((attended / recentAtt.length) * 100);
         }
       }
 
       setStats({
         totalClasses: classIds.length,
-        totalStudents: studentCount,
+        totalStudents: studentIds.length,
         pendingEvents,
         upcomingExams,
         activeTutoring: tutoringRes.count || 0,
         scheduledMeetings: meetingsRes.count || 0,
         announcements: announcementsRes.count || 0,
-        avgAttendance: 0,
+        avgAttendance,
         absentToday: absentCount,
       });
     };
@@ -186,11 +187,17 @@ const GradeCoordinatorDashboard = () => {
       )}
 
       {/* Stats Grid */}
-      <motion.div variants={item} className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <motion.div variants={item} className="grid grid-cols-2 md:grid-cols-6 gap-3">
         {[
           { icon: BookOpen, label: "כיתות בשכבה", value: stats.totalClasses, color: "text-primary" },
           { icon: GraduationCap, label: "תלמידים", value: stats.totalStudents, color: "text-info" },
           { icon: AlertTriangle, label: "חיסורים היום", value: stats.absentToday, color: stats.absentToday > 0 ? "text-destructive" : "text-muted-foreground" },
+          {
+            icon: stats.avgAttendance !== null && stats.avgAttendance < 90 ? TrendingDown : TrendingUp,
+            label: "נוכחות ממוצעת (30 יום)",
+            value: stats.avgAttendance !== null ? `${stats.avgAttendance}%` : "—",
+            color: stats.avgAttendance === null ? "text-muted-foreground" : stats.avgAttendance < 90 ? "text-destructive" : "text-success",
+          },
           { icon: Calendar, label: "מבחנים קרובים", value: stats.upcomingExams, color: "text-warning" },
           { icon: Clock, label: "אירועים ממתינים", value: stats.pendingEvents, color: "text-orange-500" },
         ].map((s, i) => (

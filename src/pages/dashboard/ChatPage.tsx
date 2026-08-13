@@ -739,6 +739,17 @@ const ChatPage = () => {
     toast({ title: "✅ בקשה אושרה" });
   };
 
+  const declineRequest = async (convoId: string) => {
+    const { error } = await supabase.from("conversations").delete().eq("id", convoId);
+    if (error) {
+      toast({ title: "שגיאה בדחיית הבקשה", variant: "destructive" });
+      return;
+    }
+    setConversations(prev => prev.filter(c => c.id !== convoId));
+    if (selectedId === convoId) setSelectedId(null);
+    toast({ title: "הבקשה נדחתה" });
+  };
+
   /* ── Derived data ─────────────────────────────────────── */
   const requests = conversations.filter(c => !c.is_accepted && c.created_by !== profile.id);
   const totalUnread = conversations.reduce((n, c) => n + c.unreadCount, 0);
@@ -1173,7 +1184,7 @@ const ChatPage = () => {
                       <UserPlus className="h-4 w-4" />
                       בקשת הודעה מ{selectedConvo?.otherName}
                     </p>
-                    <Button size="sm" variant="outline" className="h-8 gap-1 text-xs font-heading text-destructive border-destructive/30">
+                    <Button size="sm" variant="outline" className="h-8 gap-1 text-xs font-heading text-destructive border-destructive/30" onClick={() => declineRequest(selectedId!)}>
                       <X className="h-3.5 w-3.5" />דחה
                     </Button>
                     <Button size="sm" className="h-8 gap-1 text-xs font-heading" onClick={() => acceptRequest(selectedId!)}>

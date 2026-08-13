@@ -120,7 +120,7 @@ export default function StudentAttendancePage() {
       .select(`
         id,
         category,
-        comment,
+        note,
         lessons (lesson_date, subject)
       `)
       .eq("student_id", studentId);
@@ -128,7 +128,7 @@ export default function StudentAttendancePage() {
     const notesList: LessonNote[] = (notesData || []).map((row: any) => ({
       id: row.id,
       category: row.category,
-      comment: row.comment,
+      comment: row.note,
       date: row.lessons?.lesson_date,
       subject: row.lessons?.subject || "כללי",
     }));

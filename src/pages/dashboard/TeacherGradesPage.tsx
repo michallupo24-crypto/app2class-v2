@@ -278,22 +278,26 @@ const TeacherGradesPage = () => {
   const saveGrades = async () => {
     setSaving(true);
     try {
+      let failCount = 0;
       for (const [studentId, edit] of Object.entries(gradeEdits)) {
         const gradeNum = parseInt(edit.grade);
         if (isNaN(gradeNum)) continue;
         const existing = studentGrades.find((s) => s.studentId === studentId);
-        if (existing?.submissionId) {
-          await supabase.from("submissions").update({
-            grade: gradeNum, feedback: edit.feedback || null,
-            status: "graded" as any, graded_by: profile.id, graded_at: new Date().toISOString(),
-          }).eq("id", existing.submissionId);
-        } else {
-          await supabase.from("submissions").insert({
-            assignment_id: selectedAssignment, student_id: studentId,
-            grade: gradeNum, feedback: edit.feedback || null, status: "graded" as any,
-            graded_by: profile.id, graded_at: new Date().toISOString(), submitted_at: new Date().toISOString(),
-          });
-        }
+        const { error } = existing?.submissionId
+          ? await supabase.from("submissions").update({
+              grade: gradeNum, feedback: edit.feedback || null,
+              status: "graded" as any, graded_by: profile.id, graded_at: new Date().toISOString(),
+            }).eq("id", existing.submissionId)
+          : await supabase.from("submissions").insert({
+              assignment_id: selectedAssignment, student_id: studentId,
+              grade: gradeNum, feedback: edit.feedback || null, status: "graded" as any,
+              graded_by: profile.id, graded_at: new Date().toISOString(), submitted_at: new Date().toISOString(),
+            });
+        if (error) failCount++;
+      }
+      if (failCount > 0) {
+        toast({ title: `${failCount} ציונים לא נשמרו`, description: "בדקו את החיבור ונסו שוב", variant: "destructive" });
+        return;
       }
       toast({ title: "הציונים נשמרו! ✅" });
       setShowGrading(false);
