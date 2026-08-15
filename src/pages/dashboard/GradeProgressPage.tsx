@@ -55,53 +55,51 @@ const GradeProgressPage = () => {
       const classIds = classesData.map((c: any) => c.id);
 
       const { data: students } = await supabase.from("profiles").select("id, class_id").in("class_id", classIds);
-      const { data: submissions } = await supabase.from("submissions")
-        .select("student_id, grade, assignments(subject, max_grade, class_id)")
-        .eq("status", "graded").not("grade", "is", null);
 
-      const filteredSubs = (submissions || []).filter((s: any) => classIds.includes(s.assignments?.class_id));
+      // Per-class-per-subject aggregates, computed server-side. Raw submissions
+      // are never exposed to the client here: grade_coordinator has no RLS
+      // access to public.submissions at all (only educator/management/
+      // system_admin/counselor do), so the direct query this used to run
+      // silently returned an empty array under RLS - the page always rendered
+      // its "no data" empty state even when real grades existed.
+      const { data: classSubjectStats } = await supabase.rpc("get_grade_coordinator_class_stats", { p_grade: roleData.grade });
 
-      // Per class stats
+      // Per class stats - avgGrade is the count-weighted average across that
+      // class's subject rows, mathematically identical to averaging every
+      // individual submission directly (each row's avg_grade is itself an
+      // average of grade_count equally-weighted submissions).
       const classStats: ClassStat[] = classesData.map((c: any) => {
         const classStudents = (students || []).filter((s: any) => s.class_id === c.id);
-        const classSubs = filteredSubs.filter((s: any) => s.assignments?.class_id === c.id);
-        const grades = classSubs.map((s: any) => (s.grade / (s.assignments?.max_grade || 100)) * 100);
-        const avgGrade = grades.length > 0 ? Math.round(grades.reduce((a, b) => a + b, 0) / grades.length) : null;
-        const uniqueSubjects = [...new Set(classSubs.map((s: any) => s.assignments?.subject).filter(Boolean))];
+        const classRows = (classSubjectStats || []).filter((r: any) => r.class_id === c.id);
+        const totalCount = classRows.reduce((sum: number, r: any) => sum + r.grade_count, 0);
+        const avgGrade = totalCount > 0
+          ? Math.round(classRows.reduce((sum: number, r: any) => sum + r.avg_grade * r.grade_count, 0) / totalCount)
+          : null;
 
         return {
           classId: c.id,
           className: `${c.grade}'${c.class_number}`,
           studentCount: classStudents.length,
           avgGrade,
-          gradeCount: classSubs.length,
-          subjects: uniqueSubjects,
+          gradeCount: totalCount,
+          subjects: classRows.map((r: any) => r.subject),
         };
       });
       setClasses(classStats);
 
       // Subject comparisons across classes
-      const subjectMap = new Map<string, Map<string, number[]>>();
-      filteredSubs.forEach((s: any) => {
-        const subj = s.assignments?.subject;
-        const classId = s.assignments?.class_id;
-        const className = classesData.find((c: any) => c.id === classId);
-        if (!subj || !className) return;
-        const cn = `${className.grade}'${className.class_number}`;
-        if (!subjectMap.has(subj)) subjectMap.set(subj, new Map());
-        const classMap = subjectMap.get(subj)!;
-        const norm = (s.grade / (s.assignments?.max_grade || 100)) * 100;
-        const list = classMap.get(cn) || [];
-        list.push(norm);
-        classMap.set(cn, list);
+      const subjectMap = new Map<string, { className: string; avg: number }[]>();
+      (classSubjectStats || []).forEach((row: any) => {
+        const cls = classesData.find((c: any) => c.id === row.class_id);
+        if (!cls) return;
+        const cn = `${cls.grade}'${cls.class_number}`;
+        const list = subjectMap.get(row.subject) || [];
+        list.push({ className: cn, avg: row.avg_grade });
+        subjectMap.set(row.subject, list);
       });
 
       const comparisons: SubjectComparison[] = [];
-      subjectMap.forEach((classMap, subject) => {
-        const classAvgs: { className: string; avg: number }[] = [];
-        classMap.forEach((gs, cn) => {
-          classAvgs.push({ className: cn, avg: Math.round(gs.reduce((a, b) => a + b, 0) / gs.length) });
-        });
+      subjectMap.forEach((classAvgs, subject) => {
         if (classAvgs.length > 0) comparisons.push({ subject, classes: classAvgs });
       });
       setSubjectComparisons(comparisons.sort((a, b) => {

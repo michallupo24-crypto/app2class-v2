@@ -106,32 +106,20 @@ const PrincipalDashboardPage = () => {
 
       const classIds = (classes || []).map((c: any) => c.id);
 
-      const { data: submissions } = classIds.length > 0
-        ? await supabase.from("submissions")
-          .select("grade, assignments(class_id, max_grade)")
-          .eq("status", "graded").not("grade", "is", null)
-          .limit(500)
+      // Aggregated server-side (get_school_grade_averages) instead of pulling
+      // raw graded submissions client-side with a row limit - a school with
+      // more than a few hundred graded submissions would otherwise have this
+      // KPI silently computed from an arbitrary truncated slice.
+      const { data: gradeAveragesData } = classIds.length > 0
+        ? await supabase.rpc("get_school_grade_averages", { p_school_id: profile.schoolId })
         : { data: [] };
 
-      // Group by grade
-      const gradeMap = new Map<string, number[]>();
-      (submissions || []).forEach((s: any) => {
-        const classId = s.assignments?.class_id;
-        const cls = (classes || []).find((c: any) => c.id === classId);
-        if (!cls) return;
-        const maxG = s.assignments?.max_grade || 100;
-        const norm = Math.round((s.grade / maxG) * 100);
-        const list = gradeMap.get(cls.grade) || [];
-        list.push(norm);
-        gradeMap.set(cls.grade, list);
-      });
-
       const gradeOrder = ["ז'", "ח'", "ט'", "י'", "י\"א", "י\"ב"];
-      const avgs: GradeAvg[] = [];
-      gradeMap.forEach((gs, grade) => {
-        const clsCount = (classes || []).filter((c: any) => c.grade === grade).length;
-        avgs.push({ grade, avg: Math.round(gs.reduce((a, b) => a + b, 0) / gs.length), classCount: clsCount });
-      });
+      const avgs: GradeAvg[] = (gradeAveragesData || []).map((row: any) => ({
+        grade: row.grade,
+        avg: row.avg_grade,
+        classCount: (classes || []).filter((c: any) => c.grade === row.grade).length,
+      }));
       avgs.sort((a, b) => gradeOrder.indexOf(a.grade) - gradeOrder.indexOf(b.grade));
 
       const overallAvg = avgs.length > 0 ? Math.round(avgs.reduce((s, g) => s + g.avg, 0) / avgs.length) : null;
@@ -177,17 +165,44 @@ const PrincipalDashboardPage = () => {
       });
       setGradeAvgs(avgs);
 
-      // 3. Compliance check — late materials & late grades
+      // 3. Compliance check — late materials & late grades.
+      // assignments.teacher_id has no actual FK constraint to profiles (verified:
+      // no such constraint exists in any migration), so the previous
+      // `profiles!assignments_teacher_id_fkey(...)` embed 400'd on every load -
+      // uncaught, which aborted this whole load() before it ever reached
+      // setLoading(false), leaving the entire page stuck spinning. Resolving
+      // names via a separate lookup instead. Also scoping the late-grades query
+      // to this school's own classes - it previously queried ALL "submitted"
+      // rows system-wide with no class/school filter at all.
       const violations: ComplianceItem[] = [];
+      let assigns2: { id: string; title: string; teacher_id: string; due_date: string | null; created_at: string }[] | null = null;
       if (classIds.length > 0) {
-        const { data: assigns } = await supabase
+        const { data } = await supabase
           .from("assignments")
-          .select("id, title, teacher_id, due_date, created_at, profiles!assignments_teacher_id_fkey(full_name)")
+          .select("id, title, teacher_id, due_date, created_at")
           .in("class_id", classIds)
           .eq("published", true)
           .limit(100);
+        assigns2 = data;
 
-        for (const a of (assigns || [])) {
+        const { data: pendingSubs } = await supabase
+          .from("submissions")
+          .select("submitted_at, assignment_id, assignments!inner(title, teacher_id, class_id)")
+          .in("assignments.class_id", classIds)
+          .in("status", ["submitted"])
+          .not("submitted_at", "is", null)
+          .limit(100);
+
+        const complianceTeacherIds = Array.from(new Set([
+          ...(assigns2 || []).map((a: any) => a.teacher_id),
+          ...(pendingSubs || []).map((s: any) => s.assignments?.teacher_id).filter(Boolean),
+        ]));
+        const { data: complianceProfiles } = complianceTeacherIds.length > 0
+          ? await supabase.from("profiles").select("id, full_name").in("id", complianceTeacherIds)
+          : { data: [] };
+        const complianceNameById = new Map((complianceProfiles || []).map((p: any) => [p.id, p.full_name]));
+
+        for (const a of (assigns2 || [])) {
           if (a.due_date && a.created_at) {
             const daysNotice = Math.floor(
               (new Date(a.due_date).getTime() - new Date(a.created_at).getTime()) / (1000 * 60 * 60 * 24)
@@ -195,7 +210,7 @@ const PrincipalDashboardPage = () => {
             if (daysNotice < 7 && daysNotice >= 0) {
               violations.push({
                 teacherId: a.teacher_id,
-                teacherName: (a.profiles as any)?.full_name || "מורה לא ידוע",
+                teacherName: complianceNameById.get(a.teacher_id) || "מורה לא ידוע",
                 violation: "חומר מבחן מאוחר",
                 type: "late_material",
                 detail: `"${a.title}" הועלה ${daysNotice} ימים לפני המועד`,
@@ -204,21 +219,14 @@ const PrincipalDashboardPage = () => {
           }
         }
 
-        // Late grades
-        const { data: pendingSubs } = await supabase
-          .from("submissions")
-          .select("submitted_at, assignment_id, assignments(title, teacher_id, profiles!assignments_teacher_id_fkey(full_name))")
-          .in("status", ["submitted"])
-          .not("submitted_at", "is", null)
-          .limit(100);
-
         for (const s of (pendingSubs || [])) {
           if (s.submitted_at) {
             const days = Math.floor((Date.now() - new Date(s.submitted_at).getTime()) / (1000 * 60 * 60 * 24));
             if (days > 14) {
+              const teacherId = (s.assignments as any)?.teacher_id || "";
               violations.push({
-                teacherId: (s.assignments as any)?.teacher_id || "",
-                teacherName: (s.assignments as any)?.profiles?.full_name || "מורה לא ידוע",
+                teacherId,
+                teacherName: complianceNameById.get(teacherId) || "מורה לא ידוע",
                 violation: "ציון מאוחר",
                 type: "late_grade",
                 detail: `"${(s.assignments as any)?.title}" — לא הוחזר ציון כבר ${days} ימים`,
@@ -238,22 +246,31 @@ const PrincipalDashboardPage = () => {
       });
       setCompliance(unique.slice(0, 8));
 
-      // 4. Teacher Wellness — load count proxy, plus real assignment load & grading delay
-      const { data: tcLinks } = await supabase
-        .from("teacher_classes")
-        .select("user_id, profiles(full_name)")
-        .limit(50);
+      // 4. Teacher Wellness — load count proxy, plus real assignment load & grading delay.
+      // teacher_classes.user_id references auth.users, not public.profiles, so it has
+      // no FK PostgREST can embed profiles(full_name) through (this always 400'd -
+      // the panel was silently empty on every load). Scope to this school's own
+      // classes and resolve names with a separate query instead.
+      const { data: tcLinks } = classIds.length > 0
+        ? await supabase.from("teacher_classes").select("user_id, class_id").in("class_id", classIds).limit(200)
+        : { data: [] };
 
       if (tcLinks) {
+        const teacherIds = Array.from(new Set(tcLinks.map((tc: any) => tc.user_id)));
+        const { data: teacherProfiles } = teacherIds.length > 0
+          ? await supabase.from("profiles").select("id, full_name").in("id", teacherIds)
+          : { data: [] };
+        const nameById = new Map((teacherProfiles || []).map((p: any) => [p.id, p.full_name]));
+
         const countByTeacher = new Map<string, { name: string; count: number }>();
         tcLinks.forEach((tc: any) => {
-          const entry = countByTeacher.get(tc.user_id) || { name: tc.profiles?.full_name || "", count: 0 };
+          const entry = countByTeacher.get(tc.user_id) || { name: nameById.get(tc.user_id) || "", count: 0 };
           entry.count++;
           countByTeacher.set(tc.user_id, entry);
         });
 
         const assignmentCountByTeacher = new Map<string, number>();
-        (assigns || []).forEach((a: any) => {
+        (assigns2 || []).forEach((a: any) => {
           assignmentCountByTeacher.set(a.teacher_id, (assignmentCountByTeacher.get(a.teacher_id) || 0) + 1);
         });
 

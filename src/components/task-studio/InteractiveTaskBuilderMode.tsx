@@ -26,6 +26,35 @@ interface Props {
 
 const SUBJECTS = ["מתמטיקה", "מדעי המחשב", "פיזיקה", "ביולוגיה", "היסטוריה/אזרחות", "אנגלית", "לשון", "כללי"];
 
+// Starter content for a brand-new "consume" task built by hand (not via the AI
+// Prompt Builder, which explains this SDK in its generated prompt already).
+// Without this, a teacher writing code from scratch has no way to discover
+// that window.App2Class.submitScore() is what reports a grade back to the
+// system - the game/quiz can work perfectly and still never produce a grade.
+const STARTER_HTML = `<div class="max-w-md mx-auto text-center space-y-4">
+  <h1 class="text-2xl font-bold">כמה זה 7 × 8?</h1>
+  <input id="answer" type="number" class="border rounded-lg px-4 py-2 text-center text-lg" placeholder="התשובה שלך" />
+  <button id="check-btn" class="block mx-auto bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">בדוק תשובה</button>
+  <p id="result" class="font-bold"></p>
+</div>`;
+const STARTER_JS = `// זו נקודת התחלה לדוגמה - אפשר למחוק הכל ולהתחיל מאפס.
+// הדבר החשוב היחיד: לקרוא ל-window.App2Class.submitScore() כשהתלמיד/ה
+// מסיים/ה, אחרת המערכת לא תדע איזה ציון לרשום לו/ה.
+
+document.getElementById('check-btn').addEventListener('click', () => {
+  const answer = Number(document.getElementById('answer').value);
+  const correct = answer === 56;
+  const resultEl = document.getElementById('result');
+  resultEl.textContent = correct ? '✅ נכון!' : '❌ נסה שוב';
+  resultEl.className = correct ? 'font-bold text-green-600' : 'font-bold text-red-600';
+
+  if (correct) {
+    // מדווח למערכת ציון של 100 מתוך 100.
+    // אפשר גם ציון חלקי, למשל submitScore(70, 100).
+    window.App2Class.submitScore(100, 100);
+  }
+});`;
+
 type PanelView = "editor" | "gallery" | "analytics";
 
 const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGeneratedCode, onConsumedInitialCode }: Props) => {
@@ -37,9 +66,9 @@ const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGene
   const [subject, setSubject] = useState("מתמטיקה");
   const [language, setLanguage] = useState<TaskLanguage>("web");
   const [taskMode, setTaskMode] = useState<TaskMode>("consume");
-  const [htmlCode, setHtmlCode] = useState("");
+  const [htmlCode, setHtmlCode] = useState(STARTER_HTML);
   const [cssCode, setCssCode] = useState("");
-  const [jsCode, setJsCode] = useState("");
+  const [jsCode, setJsCode] = useState(STARTER_JS);
   const [pythonCode, setPythonCode] = useState("");
   const [libraries, setLibraries] = useState<string[]>(["tailwindcss"]);
   const [forkedFrom, setForkedFrom] = useState<string | null>(null);

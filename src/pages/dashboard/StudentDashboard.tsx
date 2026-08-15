@@ -524,7 +524,11 @@ ${birthdayText}
                <Card className={`border-${attendance.pct >= 15 ? 'destructive' : attendance.pct >= 10 ? 'warning' : 'primary'}/20`}>
                   <CardContent className="p-4 flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-bold text-muted-foreground mb-1">מצב נוכחות קולל</p>
+                      {/* This is an absence rate (15% is the Ministry of Education's
+                          red-line threshold, matching the thresholds below) - not a
+                          presence/attendance rate like ParentDashboardPage shows for
+                          the same underlying data. Label it unambiguously as such. */}
+                      <p className="text-xs font-bold text-muted-foreground mb-1">אחוז חיסורים</p>
                       <div className="flex gap-2 text-sm font-heading">
                         <span className="text-destructive font-bold">{attendance.absent} חיסורים</span>
                         <span className="text-warning">{attendance.late} איחורים</span>

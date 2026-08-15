@@ -13,6 +13,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import LiveLessonTab from "@/components/live-lesson/LiveLessonTab";
 
 // ─── Real data fetching (no mock data) ───
@@ -39,8 +40,10 @@ const SubjectDetailPage = () => {
   const [searchParams] = useSearchParams();
   const { profile } = useOutletContext<{ profile: UserProfile }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const subject = decodeURIComponent(subjectName || "");
   const defaultTab = searchParams.get("tab") || "materials";
+  const [openingChat, setOpeningChat] = useState(false);
 
   // Practice tab state
   const [practiceAssignments, setPracticeAssignments] = useState<any[]>([]);
@@ -115,9 +118,8 @@ const SubjectDetailPage = () => {
     },
   });
 
-  // Real subject teacher for this class (derived from assignments they've published here -
-  // there's no class-wide "subject channel" backing yet, so the chat tab links to a real 1:1
-  // DM with the actual teacher instead of pretending to be a class-wide chat)
+  // Real subject teacher for this class (used only to show who's teaching -
+  // the actual channel is now a real class-wide group, see openSubjectChat)
   const { data: subjectTeacher } = useQuery({
     queryKey: ["subject-teacher", profile.id, subject],
     queryFn: async () => {
@@ -135,6 +137,65 @@ const SubjectDetailPage = () => {
       return t || null;
     },
   });
+
+  // Find-or-create the real class-wide subject channel (type "class_subject" -
+  // the conversations schema already had class_id/subject columns and this
+  // exact type in its CHECK constraint since it was first created, but no
+  // client code ever actually provisioned one; the chat tab used to open a
+  // 1:1 DM with the teacher as a stand-in instead of a real class group).
+  const openSubjectChat = async () => {
+    setOpeningChat(true);
+    try {
+      const { data: p } = await supabase.from("profiles").select("class_id, school_id").eq("id", profile.id).single();
+      if (!p?.class_id || !p?.school_id) {
+        toast({ title: "לא נמצאה כיתה משויכת", variant: "destructive" });
+        return;
+      }
+
+      const { data: existing } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("type", "class_subject").eq("class_id", p.class_id).eq("subject", subject)
+        .maybeSingle();
+
+      let convoId = existing?.id as string | undefined;
+
+      if (!convoId) {
+        const { data: convo, error } = await supabase
+          .from("conversations")
+          .insert({ school_id: p.school_id, type: "class_subject", class_id: p.class_id, subject, title: subject, created_by: profile.id })
+          .select("id").single();
+        if (error || !convo) {
+          toast({ title: "שגיאה בפתיחת הצ'אט", description: error?.message, variant: "destructive" });
+          return;
+        }
+        convoId = convo.id;
+
+        const [{ data: classStudents }, { data: teacherRows }] = await Promise.all([
+          supabase.from("profiles").select("id").eq("class_id", p.class_id),
+          supabase.from("assignments").select("teacher_id").eq("class_id", p.class_id).eq("subject", subject),
+        ]);
+        const memberIds = new Set<string>([profile.id]);
+        (classStudents || []).forEach((s: any) => memberIds.add(s.id));
+        (teacherRows || []).forEach((t: any) => memberIds.add(t.teacher_id));
+
+        await supabase.from("conversation_participants").insert(
+          Array.from(memberIds).map((user_id) => ({ conversation_id: convoId, user_id }))
+        );
+      } else {
+        // Self-join in case this group already existed before I was in this
+        // class/before this subject had a teacher assigned yet.
+        await supabase.from("conversation_participants")
+          .upsert({ conversation_id: convoId, user_id: profile.id }, { onConflict: "conversation_id,user_id" });
+      }
+
+      navigate("/dashboard/chat", { state: { targetConversationId: convoId } });
+    } catch (e: any) {
+      toast({ title: "שגיאה בפתיחת הצ'אט", description: e.message, variant: "destructive" });
+    } finally {
+      setOpeningChat(false);
+    }
+  };
 
   // Fetch real assignments/grades for this subject
   const { data: grades = [] } = useQuery<GradeItem[]>({
@@ -401,26 +462,29 @@ const SubjectDetailPage = () => {
           )}
         </TabsContent>
 
-        {/* Chat Tab — links to a real conversation with the subject teacher */}
+        {/* Chat Tab — a real class-wide group with the subject's teacher and
+            every student in the class (type "class_subject"), not a 1:1 DM */}
         <TabsContent value="chat" className="mt-4">
           <Card>
             <CardContent className="py-10 text-center text-muted-foreground space-y-3">
               <MessageSquare className="h-10 w-10 mx-auto opacity-40" />
               {subjectTeacher ? (
                 <>
-                  <p className="font-heading font-medium text-foreground">שיחה עם {subjectTeacher.full_name}</p>
-                  <p className="text-sm">שאלות על {subject} אפשר לשלוח ישירות למורה</p>
+                  <p className="font-heading font-medium text-foreground">צ'אט כיתתי — {subject}</p>
+                  <p className="text-sm">כל הכיתה ו{subjectTeacher.full_name} באותה שיחה</p>
                   <Button
                     className="gap-2 font-heading"
-                    onClick={() => navigate("/dashboard/chat", { state: { targetUserId: subjectTeacher.id } })}
+                    onClick={openSubjectChat}
+                    disabled={openingChat}
                   >
-                    <Send className="h-4 w-4" />פתח/י שיחה
+                    {openingChat ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    פתח/י צ'אט כיתתי
                   </Button>
                 </>
               ) : (
                 <>
                   <p className="font-heading font-medium">אין עדיין מורה משויך למקצוע זה</p>
-                  <p className="text-sm">ברגע שהמורה יפרסם משימה ראשונה, אפשר יהיה לפתוח איתו שיחה מכאן</p>
+                  <p className="text-sm">ברגע שהמורה יפרסם משימה ראשונה, אפשר יהיה לפתוח כאן את הצ'אט הכיתתי</p>
                 </>
               )}
             </CardContent>

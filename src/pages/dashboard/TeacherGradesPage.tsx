@@ -246,10 +246,23 @@ const TeacherGradesPage = () => {
   }, [studentGrades, selectedAssignment, assignments]);
 
   const handleGradeChange = (studentId: string, field: "grade" | "feedback", value: string) => {
-    setGradeEdits((prev) => ({
-      ...prev,
-      [studentId]: { grade: prev[studentId]?.grade || "", feedback: prev[studentId]?.feedback || "", [field]: value },
-    }));
+    setGradeEdits((prev) => {
+      const existingEdit = prev[studentId];
+      if (existingEdit) {
+        return { ...prev, [studentId]: { ...existingEdit, [field]: value } };
+      }
+      // First edit for this student in this session - seed the OTHER field from
+      // their actual saved values, not blank. Without this, editing only the
+      // feedback box for an already-graded student (e.g. via a quick-suggestion
+      // button) left `grade: ""` in the edit; saveGrades() then does
+      // parseInt("") -> NaN -> silently skips that student entirely (not even
+      // counted as a failure), so the teacher sees a false "✅ נשמרו" success
+      // toast while their comment is discarded and vanishes on reload.
+      const sg = studentGrades.find((s) => s.studentId === studentId);
+      const baseGrade = sg?.grade?.toString() || "";
+      const baseFeedback = sg?.feedback?.startsWith("[ערעור") ? "" : (sg?.feedback || "");
+      return { ...prev, [studentId]: { grade: baseGrade, feedback: baseFeedback, [field]: value } };
+    });
   };
 
   /* ── OCR-assisted grading: transcribe a scanned/photographed submission ── */

@@ -611,6 +611,47 @@ export type Database = {
           },
         ]
       }
+      class_announcements: {
+        Row: {
+          author_id: string
+          class_id: string
+          content: string
+          created_at: string
+          id: string
+          is_pinned: boolean
+          is_removed: boolean
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          class_id: string
+          content: string
+          created_at?: string
+          id?: string
+          is_pinned?: boolean
+          is_removed?: boolean
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          class_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          is_pinned?: boolean
+          is_removed?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_announcements_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       classes: {
         Row: {
           class_number: number
@@ -3364,6 +3405,35 @@ export type Database = {
           bucket_label: string
           bucket_min: number
           student_count: number
+        }[]
+      }
+      get_subject_coordinator_class_count: {
+        Args: { p_subject: string }
+        Returns: number
+      }
+      get_subject_coordinator_grade_stats: {
+        Args: { p_subject: string }
+        Returns: {
+          grade: Database["public"]["Enums"]["grade_level"]
+          avg_grade: number
+          grade_count: number
+        }[]
+      }
+      get_grade_coordinator_class_stats: {
+        Args: { p_grade: Database["public"]["Enums"]["grade_level"] }
+        Returns: {
+          class_id: string
+          subject: string
+          avg_grade: number
+          grade_count: number
+        }[]
+      }
+      get_school_grade_averages: {
+        Args: { p_school_id: string }
+        Returns: {
+          grade: string
+          avg_grade: number
+          class_count: number
         }[]
       }
       has_role: {

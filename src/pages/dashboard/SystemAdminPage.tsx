@@ -119,12 +119,23 @@ const SystemAdminPage = () => {
   const loadSchools = async () => {
     const { data } = await supabase.from("schools").select("id, name, created_at").order("created_at");
     if (!data) return;
-    // Get student count per school
-    const counts = await Promise.all(data.map((s: any) =>
-      supabase.from("profiles").select("id", { count: "exact", head: true }).eq("school_id", s.id)
-    ));
-    setSchools(data.map((s: any, i: number) => ({
-      id: s.id, name: s.name, createdAt: s.created_at, studentCount: counts[i].count || 0,
+
+    // Was: one count(*) query per school with no role filter, so "X תלמידים
+    // רשומים" actually counted every profile (teachers, parents, counselors,
+    // management too) tied to that school_id, and fired N+1 queries on every
+    // page visit. Two fixed queries, counting only role='student' profiles.
+    const { data: studentRoles } = await supabase.from("user_roles").select("user_id").eq("role", "student");
+    const studentIds = (studentRoles || []).map((r: any) => r.user_id);
+    const { data: studentProfiles } = studentIds.length > 0
+      ? await supabase.from("profiles").select("school_id").in("id", studentIds)
+      : { data: [] };
+    const countBySchool = new Map<string, number>();
+    (studentProfiles || []).forEach((p: any) => {
+      countBySchool.set(p.school_id, (countBySchool.get(p.school_id) || 0) + 1);
+    });
+
+    setSchools(data.map((s: any) => ({
+      id: s.id, name: s.name, createdAt: s.created_at, studentCount: countBySchool.get(s.id) || 0,
     })));
   };
 

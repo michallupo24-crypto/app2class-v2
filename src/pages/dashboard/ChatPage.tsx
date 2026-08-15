@@ -143,7 +143,7 @@ const ChatPage = () => {
   const { profile, refresh } = useOutletContext<{ profile: UserProfile; refresh: () => Promise<void> }>();
   const { toast } = useToast();
   const location = useLocation();
-  const navState = location.state as { targetUserId?: string; initialType?: ConversationType } | null;
+  const navState = location.state as { targetUserId?: string; initialType?: ConversationType; targetConversationId?: string } | null;
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -502,7 +502,7 @@ const ChatPage = () => {
   useEffect(() => {
     if (loadingConvos || !navState) return;
 
-    const { targetUserId, initialType } = navState;
+    const { targetUserId, initialType, targetConversationId } = navState;
 
     if (targetUserId) {
       const existing = conversations.find(c => c.otherUserId === targetUserId);
@@ -512,6 +512,19 @@ const ChatPage = () => {
       } else {
         const u: SearchUser = { user_id: targetUserId, full_name: "צוות חינוכי", avatar: null, roleLabel: "" };
         startDM(u);
+        (window as any).history?.replaceState({}, "");
+      }
+    } else if (targetConversationId) {
+      // Deep link straight to a conversation by id (e.g. a class_subject group
+      // that a caller like SubjectDetailPage just found-or-created). It may
+      // not be in `conversations` yet if it was created moments ago, in the
+      // same navigation - reload once before giving up.
+      const existing = conversations.find(c => c.id === targetConversationId);
+      if (existing) {
+        selectConvo(existing.id);
+        (window as any).history?.replaceState({}, "");
+      } else {
+        loadConversations().then(() => selectConvo(targetConversationId));
         (window as any).history?.replaceState({}, "");
       }
     } else if (initialType) {
@@ -596,8 +609,15 @@ const ChatPage = () => {
         .from("conversation_participants").select("conversation_id")
         .eq("user_id", user.user_id).in("conversation_id", myIds);
       if (shared?.length) {
+        // Was: took shared[0] and checked only THAT one id for type "private" -
+        // if the two users' first shared conversation happened to be a group
+        // (e.g. a class channel) rather than their actual DM, this missed the
+        // real private conversation entirely and fell through to creating a
+        // duplicate one. Filter the whole shared set by type instead of
+        // gambling on which id query order happened to return first.
+        const sharedIds = shared.map((s: any) => s.conversation_id);
         const { data: priv } = await supabase
-          .from("conversations").select("id").eq("id", shared[0].conversation_id).eq("type", "private").single();
+          .from("conversations").select("id").in("id", sharedIds).eq("type", "private").limit(1).maybeSingle();
         if (priv) {
           await loadConversations();
           selectConvo(priv.id);

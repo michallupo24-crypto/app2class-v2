@@ -68,13 +68,17 @@ const SubjectCoordinatorDashboard = () => {
       return;
     }
 
-    const [teacherRolesRes, examsRes, lessonsRes, subsRes] = await Promise.all([
+    // lessons and submissions are queried through SECURITY DEFINER RPCs, not
+    // directly: subject_coordinator has no RLS access to either table (verified
+    // against every policy on both), so the previous direct queries silently
+    // returned empty arrays - "כיתות מלמדות" always showed 0 and "ממוצע כללי
+    // במקצוע" always showed "-" even when real data existed.
+    const [teacherRolesRes, examsRes, classCountRes, gradeStatsRes] = await Promise.all([
       supabase.from("user_roles").select("user_id").eq("role", "professional_teacher").eq("subject", mySubject),
       supabase.from("grade_events").select("id, title, grade, event_date, status")
         .eq("school_id", profile.schoolId).eq("subject", mySubject).order("event_date", { ascending: false }),
-      supabase.from("lessons").select("class_id").eq("school_id", profile.schoolId).eq("subject", mySubject),
-      supabase.from("submissions").select("grade, assignments!inner(subject, max_grade, class_id, classes(grade))")
-        .eq("assignments.subject", mySubject).not("grade", "is", null),
+      supabase.rpc("get_subject_coordinator_class_count", { p_subject: mySubject }),
+      supabase.rpc("get_subject_coordinator_grade_stats", { p_subject: mySubject }),
     ]);
 
     const teacherIds = Array.from(new Set((teacherRolesRes.data || []).map((r: any) => r.user_id)));
@@ -88,29 +92,18 @@ const SubjectCoordinatorDashboard = () => {
     const examsList: ExamProposal[] = examsRes.data || [];
     setExams(examsList);
 
-    const classIds = new Set((lessonsRes.data || []).map((l: any) => l.class_id));
-
-    const bySubGrade: Record<string, number[]> = {};
-    (subsRes.data || []).forEach((s: any) => {
-      const a = Array.isArray(s.assignments) ? s.assignments[0] : s.assignments;
-      const grade = a?.classes?.grade;
-      const maxG = a?.max_grade || 100;
-      if (!grade) return;
-      const norm = (s.grade / maxG) * 100;
-      bySubGrade[grade] = bySubGrade[grade] || [];
-      bySubGrade[grade].push(norm);
-    });
-    const gradeAvgs = Object.entries(bySubGrade).map(([grade, grades]) => ({
-      grade, avg: Math.round(grades.reduce((a, b) => a + b, 0) / grades.length),
-    }));
+    const gradeStats = gradeStatsRes.data || [];
+    const gradeAvgs = gradeStats.map((row: any) => ({ grade: row.grade, avg: row.avg_grade }));
     setGradeAverages(gradeAvgs);
 
-    const allGrades = Object.values(bySubGrade).flat();
-    const overallAvg = allGrades.length ? Math.round(allGrades.reduce((a, b) => a + b, 0) / allGrades.length) : null;
+    const totalCount = gradeStats.reduce((sum: number, r: any) => sum + r.grade_count, 0);
+    const overallAvg = totalCount > 0
+      ? Math.round(gradeStats.reduce((sum: number, r: any) => sum + r.avg_grade * r.grade_count, 0) / totalCount)
+      : null;
 
     setStats({
       teacherCount: teacherProfiles.length,
-      classCount: classIds.size,
+      classCount: classCountRes.data || 0,
       subjectAvg: overallAvg,
       pendingExams: examsList.filter((e) => e.status === "proposed").length,
     });

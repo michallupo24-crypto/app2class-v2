@@ -253,12 +253,30 @@ const StudentPracticePage = () => {
   };
 
   const handleSolveAutoScore = async (autoScore: number, autoTotal: number) => {
-    if (!interactiveTaskId) return;
+    if (!interactiveTaskId || !assignmentId) return;
+    const pct = Math.round((autoScore / autoTotal) * 100);
     try {
       await supabase.from("interactive_task_progress").upsert({
         task_id: interactiveTaskId, student_id: profile.id,
         score: autoScore, total: autoTotal, last_active_at: new Date().toISOString(),
       }, { onConflict: "task_id,student_id" });
+
+      // Same target the "consume" mode score handler writes to (see the
+      // postMessage listener above) - without this, a student's auto-graded
+      // code submission never reaches the teacher's actual gradebook, only
+      // the separate Task Studio analytics dashboard. Unlike consume mode
+      // (where the score message IS the completion signal), solve mode has
+      // its own explicit submit step (handleSolveSubmit) - so only the grade
+      // value is pre-filled here; status/submitted_at stay untouched (default
+      // 'draft' on insert) until the student actually clicks "הגש".
+      const { data: existing } = await supabase.from("submissions")
+        .select("id").eq("assignment_id", assignmentId).eq("student_id", profile.id).maybeSingle();
+      if (existing) {
+        await supabase.from("submissions").update({ grade: pct }).eq("id", existing.id);
+      } else {
+        await supabase.from("submissions").insert({ assignment_id: assignmentId, student_id: profile.id, grade: pct });
+      }
+
       toast({ title: "🎯 הקוד שלך דיווח ציון", description: `${autoScore}/${autoTotal}` });
     } catch { /* best effort */ }
   };

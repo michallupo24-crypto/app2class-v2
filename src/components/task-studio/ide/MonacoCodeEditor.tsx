@@ -74,6 +74,14 @@ export const MonacoCodeEditor: React.FC<MonacoCodeEditorProps> = ({
         col: e.position.column
       });
     });
+
+    // automaticLayout's internal ResizeObserver sometimes measures the
+    // container before this flex layout has settled its final size,
+    // leaving Monaco stuck rendering at a ~5x5px fallback. Forcing a
+    // layout pass on the next frame (and once more shortly after, in
+    // case fonts/tabs still reflow the container) fixes it reliably.
+    requestAnimationFrame(() => editor.layout());
+    setTimeout(() => editor.layout(), 300);
   };
 
   const handleCopyCode = () => {
@@ -187,7 +195,13 @@ export const MonacoCodeEditor: React.FC<MonacoCodeEditorProps> = ({
         </div>
       </div>
 
-      <div className="flex-1 min-h-[350px] relative bg-[#111111]">
+      {/* Monaco doesn't support being hosted inside an RTL-direction page - its
+          internal absolute-position math (translate3d offsets for text/cursor
+          layers) assumes LTR and produces huge bogus offsets otherwise,
+          rendering the editor content invisible even though it's mounted and
+          sized correctly. Force this subtree back to ltr regardless of the
+          app's global RTL direction. */}
+      <div dir="ltr" className="flex-1 min-h-[350px] relative bg-[#111111]">
         <Editor
           height="100%"
           language={getMonacoLanguage()}

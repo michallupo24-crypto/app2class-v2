@@ -3,10 +3,9 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { 
+import {
   Megaphone,
   Send,
   Pin,
@@ -14,7 +13,6 @@ import {
   MessageCircle,
   AlertCircle,
   Loader2,
-  CheckCircle2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +29,11 @@ interface ClassMessage {
   author_avatar: any;
 }
 
+const FACE_TO_BODY: Record<string, string> = {
+  round: "basic", oval: "basic", square: "wider", long: "taller",
+  basic: "basic", wider: "wider", taller: "taller",
+};
+
 const ClassMessenger = ({ classId, userId, isTeacher }: { classId: string; userId: string; isTeacher: boolean }) => {
   const [messages, setMessages] = useState<ClassMessage[]>([]);
   const [newMsg, setNewMsg] = useState("");
@@ -42,58 +45,49 @@ const ClassMessenger = ({ classId, userId, isTeacher }: { classId: string; userI
     if (!classId) return;
     setLoading(true);
     try {
-      // For now, we reuse the faction_posts table but conceptually for class messages
-      // We'll search for a faction linked to this class or create one
-      let { data: faction } = await supabase
-        .from("factions")
-        .select("id")
+      const { data: posts, error } = await supabase
+        .from("class_announcements")
+        .select("id, class_id, author_id, content, is_pinned, created_at")
         .eq("class_id", classId)
-        .eq("faction_type", "class_board")
-        .single();
+        .eq("is_removed", false)
+        .order("is_pinned", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(10);
 
-      if (!faction) {
-          // Auto-create class board faction if it doesn't exist
-          const { data: classData } = await supabase.from("classes").select("grade, class_number").eq("id", classId).single();
-          const { data: newFaction, error } = await supabase.from("factions").insert({
-            name: `לוח כיתה ${classData?.grade}' ${classData?.class_number}`,
-            class_id: classId,
-            faction_type: "class_board",
-            school_id: (await supabase.from("profiles").select("school_id").eq("id", userId).single()).data?.school_id,
-            icon: "📋",
-            color: "#3b82f6"
-          }).select().single();
-          
-          if (newFaction) faction = newFaction;
+      if (error) throw error;
+
+      const authorIds = [...new Set((posts || []).map((p) => p.author_id))];
+      const nameById = new Map<string, string>();
+      const avatarById = new Map<string, any>();
+      if (authorIds.length > 0) {
+        const [{ data: profs }, { data: avatars }] = await Promise.all([
+          supabase.from("profiles").select("id, full_name").in("id", authorIds),
+          // avatars.user_id -> auth.users, no FK to profiles for PostgREST to embed - fetch separately
+          supabase.from("avatars").select("user_id, face_shape, eye_color, skin_color, hair_style, hair_color").in("user_id", authorIds),
+        ]);
+        for (const p of profs || []) nameById.set(p.id, p.full_name);
+        for (const a of avatars || []) avatarById.set(a.user_id, a);
       }
 
-      if (faction) {
-        const { data: posts } = await supabase
-          .from("faction_posts")
-          .select("*, profiles!faction_posts_author_id_fkey(full_name), avatars(face_shape, skin_color, eye_shape, eye_color, hair_style, hair_color, facial_hair, outfit, outfit_color, accessory, expression, background)")
-          .eq("faction_id", faction.id)
-          .eq("is_removed", false)
-          .order("is_pinned", { ascending: false })
-          .order("created_at", { ascending: false })
-          .limit(10);
-
-        if (posts) {
-          setMessages(posts.map((p: any) => ({
-            id: p.id,
-            class_id: classId,
-            author_id: p.author_id,
-            content: p.content,
-            is_pinned: p.is_pinned,
-            created_at: p.created_at,
-            author_name: p.profiles?.full_name || "מורה",
-            author_avatar: p.avatars ? {
-               faceShape: p.avatars.face_shape, skinColor: p.avatars.skin_color, eyeShape: p.avatars.eye_shape,
-               eyeColor: p.avatars.eye_color, hairStyle: p.avatars.hair_style, hairColor: p.avatars.hair_color,
-               facialHair: p.avatars.facial_hair || "none", outfit: p.avatars.outfit, outfitColor: p.avatars.outfit_color,
-               accessory: p.avatars.accessory || "none", expression: p.avatars.expression, background: p.avatars.background,
-            } : null
-          })));
-        }
-      }
+      setMessages((posts || []).map((p) => {
+        const av = avatarById.get(p.author_id);
+        return {
+          id: p.id,
+          class_id: p.class_id,
+          author_id: p.author_id,
+          content: p.content,
+          is_pinned: p.is_pinned,
+          created_at: p.created_at,
+          author_name: nameById.get(p.author_id) || "מורה",
+          author_avatar: av ? {
+            body_type: FACE_TO_BODY[av.face_shape] || "basic",
+            eye_color: av.eye_color || "brown",
+            skin: av.skin_color || "#FDDBB4",
+            hair_style: av.hair_style || "boy",
+            hair_color: av.hair_color || "#2C1A0E",
+          } : null,
+        };
+      }));
     } catch (e) {
       console.error(e);
     } finally {
@@ -109,33 +103,24 @@ const ClassMessenger = ({ classId, userId, isTeacher }: { classId: string; userI
     if (!newMsg.trim() || sending) return;
     setSending(true);
     try {
-        const { data: faction } = await supabase
-            .from("factions")
-            .select("id")
-            .eq("class_id", classId)
-            .eq("faction_type", "class_board")
-            .single();
-
-        if (faction) {
-            await supabase.from("faction_posts").insert({
-                faction_id: faction.id,
-                author_id: userId,
-                content: newMsg,
-                is_pinned: false
-            });
-            setNewMsg("");
-            loadMessages();
-            toast({ title: "ההודעה פורסמה לכל הכיתה! 📢" });
-        }
-    } catch (e) {
-        toast({ title: "שגיאה בפרסום", variant: "destructive" });
+      const { error } = await supabase.from("class_announcements").insert({
+        class_id: classId,
+        author_id: userId,
+        content: newMsg,
+      });
+      if (error) throw error;
+      setNewMsg("");
+      await loadMessages();
+      toast({ title: "ההודעה פורסמה לכל הכיתה! 📢" });
+    } catch (e: any) {
+      toast({ title: "שגיאה בפרסום", description: e.message, variant: "destructive" });
     } finally {
-        setSending(false);
+      setSending(false);
     }
   };
 
   const togglePin = async (msgId: string, currentStatus: boolean) => {
-      const { error } = await supabase.from("faction_posts").update({ is_pinned: !currentStatus }).eq("id", msgId);
+      const { error } = await supabase.from("class_announcements").update({ is_pinned: !currentStatus }).eq("id", msgId);
       if (error) {
         toast({ title: "שגיאה בעדכון הנעיצה", variant: "destructive" });
         return;
@@ -144,7 +129,7 @@ const ClassMessenger = ({ classId, userId, isTeacher }: { classId: string; userI
   };
 
   const deleteMessage = async (msgId: string) => {
-      const { error } = await supabase.from("faction_posts").update({ is_removed: true }).eq("id", msgId);
+      const { error } = await supabase.from("class_announcements").update({ is_removed: true }).eq("id", msgId);
       if (error) {
         toast({ title: "שגיאה במחיקת ההודעה", variant: "destructive" });
         return;
@@ -183,7 +168,7 @@ const ClassMessenger = ({ classId, userId, isTeacher }: { classId: string; userI
                     </div>
                  ) : (
                     messages.map((m, idx) => (
-                       <motion.div 
+                       <motion.div
                          key={m.id}
                          initial={{ opacity: 0, x: 20 }}
                          animate={{ opacity: 1, x: 0 }}
@@ -211,7 +196,7 @@ const ClassMessenger = ({ classId, userId, isTeacher }: { classId: string; userI
                                    </span>
                                 </div>
                                 <p className="text-sm text-slate-600 font-medium leading-relaxed whitespace-pre-wrap">{m.content}</p>
-                                
+
                                 {isTeacher && (
                                    <div className="flex items-center gap-2 mt-3 pt-2 border-t border-slate-50">
                                       <Button variant="ghost" size="sm" onClick={() => togglePin(m.id, m.is_pinned)} className="h-7 px-2 text-[10px] gap-1 hover:text-primary">
@@ -234,7 +219,7 @@ const ClassMessenger = ({ classId, userId, isTeacher }: { classId: string; userI
            {isTeacher ? (
               <div className="p-4 bg-slate-50/80 border-t border-slate-100">
                  <div className="relative">
-                    <Textarea 
+                    <Textarea
                        value={newMsg}
                        onChange={(e) => setNewMsg(e.target.value)}
                        placeholder="כתוב הודעה לכיתה..."
@@ -242,8 +227,8 @@ const ClassMessenger = ({ classId, userId, isTeacher }: { classId: string; userI
                     />
                     <div className="flex items-center justify-end mt-3">
                        <Button
-                         onClick={postMessage} 
-                         disabled={!newMsg.trim() || sending} 
+                         onClick={postMessage}
+                         disabled={!newMsg.trim() || sending}
                          className="rounded-xl h-9 px-6 font-bold gap-2 shadow-lg shadow-primary/20"
                        >
                           {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

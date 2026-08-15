@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate, Navigate, Outlet } from "react-router-dom";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { FontSizeToggle } from "@/components/FontSizeToggle";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import NotificationBell from "@/components/notifications/NotificationBell";
@@ -106,6 +107,9 @@ const DashboardLayout = () => {
 
               {/* Notifications */}
               <NotificationBell userId={profile.id} />
+
+              {/* Font size */}
+              <FontSizeToggle />
 
               {/* Dark mode toggle */}
               <ThemeToggle />
