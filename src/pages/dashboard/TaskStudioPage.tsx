@@ -25,6 +25,7 @@ import CoopGameMode from "@/components/task-studio/CoopGameMode";
 import GamePromptMode from "@/components/task-studio/GamePromptMode";
 import DataHookMode from "@/components/task-studio/DataHookMode";
 import InteractiveTaskBuilderMode from "@/components/task-studio/InteractiveTaskBuilderMode";
+import AIPromptBuilderMode from "@/components/task-studio/AIPromptBuilderMode";
 import BagrutCoverageBar from "@/components/task-studio/BagrutCoverageBar";
 
 interface StudioMode {
@@ -48,6 +49,7 @@ const STUDIO_MODES: StudioMode[] = [
   { id: "coop-game", title: "בן האש ובת המים", description: "משימת Co-op זוגית עם שיתוף פעולה", icon: <Flame className="h-6 w-6" />, category: "game", color: "bg-warning/10 text-warning" },
   { id: "game-prompt", title: "Game Prompt (AI)", description: "תיאור חופשי לבוט שימציא ויבנה משחק ייעודי", icon: <Sparkles className="h-6 w-6" />, category: "ai", color: "bg-accent/10 text-accent", badge: "AI" },
   { id: "blank-html", title: "בונה משימות אינטראקטיביות", description: "עורך קוד מלא (HTML/CSS/JS/Python), Live Preview, וסייען AI", icon: <Code2 className="h-6 w-6" />, category: "tools", color: "bg-muted text-muted-foreground", badge: "AI" },
+  { id: "ai-prompt-builder", title: "בונה פרומפט ל-AI חיצוני", description: "תארו את המשימה וקבלו פרומפט מדויק להעתקה ל-ChatGPT/Claude, כולל חוזה השילוב עם המערכת", icon: <Wand2 className="h-6 w-6" />, category: "ai", color: "bg-accent/10 text-accent", badge: "AI" },
   { id: "data-hook", title: "Data Hook (ציונים)", description: "משיכת נתונים ממשחק והזנה אוטומטית כציונים", icon: <Gamepad2 className="h-6 w-6" />, category: "tools", color: "bg-success/10 text-success" },
   { id: "bagrut-coverage", title: "בר הספק לבגרות", description: "אחוז החיפוי של חומר הבגרות שהמשימות מכסות", icon: <Target className="h-6 w-6" />, category: "tools", color: "bg-warning/10 text-warning" },
 ];
@@ -59,6 +61,7 @@ const TaskStudioPage = () => {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [selectedAssignment, setSelectedAssignment] = useState<string | null>(null);
   const [assignments, setAssignments] = useState<any[]>([]);
+  const [pendingGeneratedCode, setPendingGeneratedCode] = useState<{ title?: string; description?: string; htmlCode?: string; cssCode?: string; jsCode?: string } | null>(null);
 
   useEffect(() => {
     const loadAssignments = async () => {
@@ -89,7 +92,19 @@ const TaskStudioPage = () => {
       case "snakes-ladders": return <SnakesAndLaddersMode {...commonProps} />;
       case "coop-game": return <CoopGameMode {...commonProps} />;
       case "game-prompt": return <GamePromptMode {...commonProps} />;
-      case "blank-html": return <InteractiveTaskBuilderMode {...commonProps} />;
+      case "blank-html": return (
+        <InteractiveTaskBuilderMode
+          {...commonProps}
+          initialGeneratedCode={pendingGeneratedCode}
+          onConsumedInitialCode={() => setPendingGeneratedCode(null)}
+        />
+      );
+      case "ai-prompt-builder": return (
+        <AIPromptBuilderMode
+          {...commonProps}
+          onSendToEditor={(code) => { setPendingGeneratedCode(code); setActiveMode("blank-html"); }}
+        />
+      );
       case "data-hook": return <DataHookMode {...commonProps} />;
       case "bagrut-coverage": return <BagrutCoverageBar {...commonProps} />;
       default: return null;

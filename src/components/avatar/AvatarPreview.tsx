@@ -53,6 +53,10 @@ function useSvg(svgUrl: string | null) {
   const [error, setError] = useState(false);
   useEffect(() => {
     if (!svgUrl) { setContent(""); setError(false); return; }
+    // Guards against out-of-order responses: if the user changes selection
+    // again before this fetch resolves, an older in-flight request must not
+    // overwrite the state set for the newer one.
+    let cancelled = false;
     setError(false);
     fetch(svgUrl)
       .then((r) => {
@@ -60,6 +64,7 @@ function useSvg(svgUrl: string | null) {
         return r.text();
       })
       .then(text => {
+        if (cancelled) return;
         // Verify it's actually SVG content
         if (text.includes("<svg") || text.includes("<SVG")) {
           setContent(text);
@@ -68,7 +73,8 @@ function useSvg(svgUrl: string | null) {
           setContent("");
         }
       })
-      .catch(() => { setContent(""); setError(true); });
+      .catch(() => { if (!cancelled) { setContent(""); setError(true); } });
+    return () => { cancelled = true; };
   }, [svgUrl]);
   return { content, error };
 }
@@ -77,19 +83,22 @@ function useHairSvg(svgUrl: string | null, hairColor: string) {
   const [content, setContent] = useState("");
   useEffect(() => {
     if (!svgUrl) { setContent(""); return; }
+    let cancelled = false;
     fetch(svgUrl)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.text();
       })
       .then((text) => {
+        if (cancelled) return;
         if (text.includes("<svg") || text.includes("<SVG")) {
           setContent(replaceHairColors(text, hairColor));
         } else {
           setContent("");
         }
       })
-      .catch(() => setContent(""));
+      .catch(() => { if (!cancelled) setContent(""); });
+    return () => { cancelled = true; };
   }, [svgUrl, hairColor]);
   return content;
 }

@@ -141,12 +141,20 @@ const AvatarStudio = ({ config, onChange, variant = "student" }: AvatarStudioPro
   const handleBodyTypeChange = (newBodyType: string) => {
     const newHairStyles = HAIR_STYLES_BY_BODY[newBodyType];
     const currentHairExists = newHairStyles.some((h) => h.key === config.hair_style);
+    // "wider" has no green-eyes artwork (missing SVG asset) - fall back to
+    // green_dark, the closest available shade, same as the hair_style fallback above.
+    const needsEyeColorFallback = newBodyType === "wider" && config.eye_color === "green";
     onChange({
       ...config,
       body_type: newBodyType,
       hair_style: currentHairExists ? config.hair_style : newHairStyles[0].key,
+      eye_color: needsEyeColorFallback ? "green_dark" : config.eye_color,
     });
   };
+
+  // "wider" body type has no green-eyes artwork on disk - hide that swatch
+  // instead of offering a choice that renders as a broken silhouette.
+  const availableEyeColors = EYE_COLORS.filter((e) => !(bodyTypeKey === "wider" && e.key === "green"));
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -169,7 +177,7 @@ const AvatarStudio = ({ config, onChange, variant = "student" }: AvatarStudioPro
           />
           <ColorSwatch
             label="צבע עיניים"
-            colors={EYE_COLORS.map((e) => ({ hex: e.hex, label: e.label }))}
+            colors={availableEyeColors.map((e) => ({ hex: e.hex, label: e.label }))}
             value={EYE_COLORS.find((e) => e.key === (config.eye_color || "brown"))?.hex || EYE_COLORS[0].hex}
             onChange={(hex) => {
               const entry = EYE_COLORS.find((e) => e.hex === hex);

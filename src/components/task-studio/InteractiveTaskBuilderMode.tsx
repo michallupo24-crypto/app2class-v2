@@ -20,13 +20,15 @@ interface Props {
   profile: UserProfile;
   assignmentId: string | null;
   onBack: () => void;
+  initialGeneratedCode?: { title?: string; description?: string; htmlCode?: string; cssCode?: string; jsCode?: string } | null;
+  onConsumedInitialCode?: () => void;
 }
 
 const SUBJECTS = ["מתמטיקה", "מדעי המחשב", "פיזיקה", "ביולוגיה", "היסטוריה/אזרחות", "אנגלית", "לשון", "כללי"];
 
 type PanelView = "editor" | "gallery" | "analytics";
 
-const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack }: Props) => {
+const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGeneratedCode, onConsumedInitialCode }: Props) => {
   const { toast } = useToast();
 
   const [taskId, setTaskId] = useState<string | null>(null);
@@ -132,6 +134,17 @@ const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack }: Props) =>
     if (generated.pythonCode !== undefined) setPythonCode(generated.pythonCode);
     if (generated.libraries) setLibraries(generated.libraries);
   };
+
+  // Code handed off from the AI Prompt Builder mode (pasted from an external
+  // AI chat) - applied once, then the parent clears it so re-entering this
+  // mode later doesn't silently overwrite in-progress edits.
+  useEffect(() => {
+    if (initialGeneratedCode) {
+      handleApplyGeneratedCode(initialGeneratedCode);
+      onConsumedInitialCode?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialGeneratedCode]);
 
   const performSave = async () => {
     if (!assignmentId) {

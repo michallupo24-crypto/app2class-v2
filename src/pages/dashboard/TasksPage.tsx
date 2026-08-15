@@ -104,7 +104,7 @@ const TasksPage = () => {
 
     const aIds = assignments.map((a: any) => a.id);
 
-    const [subsRes, qRes] = await Promise.all([
+    const [subsRes, qRes, itRes] = await Promise.all([
       supabase.from("submissions")
         .select("id, assignment_id, status, grade, feedback, file_url, content")
         .eq("student_id", profile.id)
@@ -112,10 +112,14 @@ const TasksPage = () => {
       supabase.from("task_questions")
         .select("assignment_id")
         .in("assignment_id", aIds),
+      supabase.from("interactive_tasks")
+        .select("assignment_id")
+        .in("assignment_id", aIds),
     ]);
 
     const subMap = new Map((subsRes.data || []).map((s: any) => [s.assignment_id, s]));
     const qSet = new Set((qRes.data || []).map((q: any) => q.assignment_id));
+    const interactiveSet = new Set((itRes.data || []).map((t: any) => t.assignment_id));
 
     const mapped: Task[] = assignments.map((a: any) => {
       const sub = subMap.get(a.id);
@@ -126,10 +130,14 @@ const TasksPage = () => {
         else if (sub.status === "revision_needed") status = "revision";
         else if (sub.status === "submitted" || sub.status === "revised") status = "submitted";
       }
-      let isBlankHtml = false;
-      try {
-        isBlankHtml = JSON.parse(a.description || "")?.type === "blank-html";
-      } catch { /* description isn't a blank-html payload */ }
+      // Real interactive_tasks row (current Task Studio IDE) OR the legacy
+      // JSON-in-description "blank-html" payload from before that table existed.
+      let isBlankHtml = interactiveSet.has(a.id);
+      if (!isBlankHtml) {
+        try {
+          isBlankHtml = JSON.parse(a.description || "")?.type === "blank-html";
+        } catch { /* description isn't a blank-html payload */ }
+      }
 
       return {
         id: sub?.id ?? null,
