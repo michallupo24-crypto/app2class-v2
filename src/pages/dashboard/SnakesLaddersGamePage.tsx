@@ -281,21 +281,29 @@ const SnakesLaddersGamePage = () => {
       const { data: ex } = await supabase.from("submissions").select("id")
         .eq("assignment_id", assignmentId).eq("student_id", profile.id).maybeSingle();
       if (ex) {
-        await supabase.from("submissions").update({
+        const { error } = await supabase.from("submissions").update({
           grade: pct,
           status: "submitted" as any,
           submitted_at: new Date().toISOString(),
           content: gameResult,
         }).eq("id", ex.id);
+        if (error) throw error;
       } else {
-        await supabase.from("submissions").insert({
+        const { error } = await supabase.from("submissions").insert({
           assignment_id: assignmentId, student_id: profile.id,
           grade: pct, status: "submitted" as any,
           submitted_at: new Date().toISOString(),
           content: gameResult,
         });
+        if (error) throw error;
       }
-    } catch { /* best effort */ }
+    } catch (e: any) {
+      // The winner screen tells the student their score was saved
+      // automatically, so a silent failure here would be misleading —
+      // surface it instead of swallowing it.
+      console.error("Failed to save snakes & ladders score:", e);
+      toast({ title: "שגיאה בשמירת הציון", description: "הציון לא נשמר, נסה/י לרענן ולשחק שוב", variant: "destructive" });
+    }
   };
 
   /* ─── Render board ─── */

@@ -14,9 +14,11 @@ serve(async (req) => {
     const {
       action, prompt, code, subject, topic, numQuestions,
       language, libraries, htmlCode, cssCode, jsCode, pythonCode, consoleLogs,
+      questionType, options, correctAnswer, studentAnswer, questionText,
     } = await req.json();
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
+    const DICTALM_ENDPOINT_URL = Deno.env.get("DICTALM_ENDPOINT_URL");
+    const DICTALM_API_KEY = Deno.env.get("DICTALM_API_KEY");
+    if (!DICTALM_ENDPOINT_URL || !DICTALM_API_KEY) throw new Error("DICTALM_ENDPOINT_URL / DICTALM_API_KEY is not configured");
 
     let systemPrompt = "";
     let userMessage = "";
@@ -92,6 +94,33 @@ ${JSON.stringify(consoleLogs || [])}`;
         userMessage = `צור ${numQuestions || 5} שאלות במקצוע ${subject}${topic ? ` בנושא ${topic}` : ""}`;
         break;
 
+      case "generate-tiered-questions":
+        asJson = true;
+        systemPrompt = `אתה מומחה בהוראה מותאמת אישית (differentiated instruction) לבתי ספר בישראל.
+בהינתן נושא לימודי, בנה שלוש רמות של אותה בדיקת ידע - אותו יעד לימודי בדיוק, ברמות קושי שונות:
+- support: ניסוח פשוט יותר, מספרים/דוגמאות קלים, לעיתים עם רמז מובנה במשפט השאלה עצמה.
+- standard: הרמה הרגילה המצופה מהכיתה.
+- challenge: דורש הסקת מסקנות נוספת, שילוב מושגים, או מספרים/תרחישים מורכבים יותר - לא רק "עוד מאותו דבר".
+כל שאלה במבנה: { "question_text": "...", "question_type": "multiple_choice"|"true_false"|"fill_blank", "options": ["..."], "correct_answer": "...", "explanation": "..." }
+החזר אך ורק JSON תקין במבנה: { "support": [...], "standard": [...], "challenge": [...] } - כל מערך עם ${numQuestions || 5} שאלות.`;
+        userMessage = `מקצוע: ${subject || "כללי"}${topic ? `, נושא: ${topic}` : ""}.${prompt ? `\nחומר מקור:\n${prompt}` : ""}`;
+        break;
+
+      case "diagnose-misconception":
+        asJson = true;
+        systemPrompt = `אתה מורה מנוסה שמזהה תפיסות שגויות (misconceptions) של תלמידים בזמן אמת.
+קיבלת שאלה, את התשובה הנכונה, ואת התשובה השגויה שהתלמיד בחר. אל תסביר סתם "זו טעות" - זהה בדיוק *למה* התשובה הזו הגיונית מנקודת המבט השגויה של התלמיד, ונסח הסבר קצר וחם בעברית שמתקן את זה נקודתית.
+בנוסף, בנה שאלת-מיקרו אחת קטנה שבודקת רק את התיקון הספציפי הזה (לא את כל הנושא מחדש).
+החזר אך ורק JSON תקין במבנה:
+{ "misconception": "תווית קצרה של התפיסה השגויה (2-5 מילים)", "explanation": "הסבר חם וממוקד בעברית, 2-3 משפטים", "microQuestion": { "question_text": "...", "question_type": "multiple_choice"|"true_false", "options": ["..."], "correct_answer": "..." } }`;
+        userMessage = `מקצוע: ${subject || "כללי"}
+שאלה: ${questionText}
+סוג שאלה: ${questionType || "multiple_choice"}
+אפשרויות: ${JSON.stringify(options || [])}
+תשובה נכונה: ${correctAnswer}
+תשובת התלמיד (שגויה): ${studentAnswer}`;
+        break;
+
       default:
         return new Response(
           JSON.stringify({ error: "Unknown action" }),
@@ -99,18 +128,21 @@ ${JSON.stringify(consoleLogs || [])}`;
         );
     }
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ role: "user", parts: [{ text: userMessage }] }],
-          ...(asJson ? { generationConfig: { responseMimeType: "application/json" } } : {}),
-        }),
-      }
-    );
+    // Self-hosted DictaLM server (see infra/dictalm-space) has no native JSON
+    // mode like Gemini's responseMimeType - reinforce it via the prompt instead,
+    // since the model is small enough to drift from the format otherwise.
+    const finalSystemPrompt = asJson
+      ? `${systemPrompt}\n\nחשוב מאוד: החזר אך ורק את ה-JSON המבוקש, ללא טקסט הסבר לפני או אחרי, וללא markdown code fences.`
+      : systemPrompt;
+
+    const response = await fetch(`${DICTALM_ENDPOINT_URL}/generate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${DICTALM_API_KEY}`,
+      },
+      body: JSON.stringify({ system: finalSystemPrompt, prompt: userMessage }),
+    });
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -128,7 +160,7 @@ ${JSON.stringify(consoleLogs || [])}`;
     }
 
     const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const content = data.content || "";
 
     // Try to parse JSON from the response
     let parsed = content;

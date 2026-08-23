@@ -211,8 +211,6 @@ const StaffRegistration = () => {
         ? "system_admin"
         : selectedRoles.find((r) => r.value === "educator")
         ? "grade_coordinator"
-        : selectedRoles.find((r) => r.value === "professional_teacher")
-        ? "subject_coordinator"
         : "management";
 
       await supabase.from("approvals").insert({

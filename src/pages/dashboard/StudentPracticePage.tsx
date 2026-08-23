@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { buildSandboxHtml } from "@/components/task-studio/ide/sandboxBuilder";
 import { StudentSolveEditor } from "@/components/task-studio/ide/StudentSolveEditor";
 import type { TaskLanguage } from "@/components/task-studio/ide/types";
+import { tierForAverage } from "@/lib/adaptiveTier";
 
 interface Question {
   id: string;
@@ -27,6 +28,15 @@ interface Question {
   explanation: string;
   points: number;
   order_num: number;
+  tier: "support" | "standard" | "challenge" | null;
+  coaching_enabled: boolean;
+}
+
+interface MicroQuestion {
+  question_text: string;
+  question_type: "multiple_choice" | "true_false";
+  options: string[];
+  correct_answer: string;
 }
 
 interface Assignment {
@@ -73,6 +83,13 @@ const StudentPracticePage = () => {
   // Shuffle questions on start
   const [shuffled, setShuffled] = useState<Question[]>([]);
 
+  // AI misconception coach: shown inline after a wrong answer on a
+  // coaching_enabled question, before the student can move on.
+  const [coach, setCoach] = useState<{ misconception: string; explanation: string; microQuestion: MicroQuestion } | null>(null);
+  const [coachLoading, setCoachLoading] = useState(false);
+  const [coachAnswered, setCoachAnswered] = useState<string | null>(null);
+  const [coachRowId, setCoachRowId] = useState<string | null>(null);
+
   // Interactive-task mini-app state (teacher-built page from Task Studio, via interactive_tasks
   // or the legacy JSON-in-description "blank-html" format)
   const [htmlCode, setHtmlCode] = useState<string | null>(null);
@@ -92,7 +109,24 @@ const StudentPracticePage = () => {
         supabase.from("task_questions").select("*").eq("assignment_id", assignmentId).order("order_num"),
       ]);
       setAssignment(assignRes.data);
-      setQuestions((questRes.data || []).map((q: any) => ({ ...q, options: Array.isArray(q.options) ? q.options : [] })));
+      let loadedQuestions: Question[] = (questRes.data || []).map((q: any) => ({ ...q, options: Array.isArray(q.options) ? q.options : [] }));
+
+      // Adaptive tiers: route this student to only their tier + any untiered
+      // questions, based on their own past average in this subject.
+      const hasTiers = loadedQuestions.some((q) => q.tier != null);
+      if (hasTiers && assignRes.data?.subject) {
+        const { data: pastGrades } = await supabase
+          .from("submissions")
+          .select("grade, assignments!inner(subject)")
+          .eq("student_id", profile.id)
+          .eq("assignments.subject", assignRes.data.subject)
+          .not("grade", "is", null);
+        const grades = (pastGrades || []).map((s: any) => s.grade);
+        const avg = grades.length > 0 ? grades.reduce((a: number, b: number) => a + b, 0) / grades.length : null;
+        const myTier = tierForAverage(avg);
+        loadedQuestions = loadedQuestions.filter((q) => q.tier == null || q.tier === myTier);
+      }
+      setQuestions(loadedQuestions);
 
       // 1. Real interactive_tasks row (Task IDE builder)
       const { data: task } = await supabase
@@ -229,18 +263,21 @@ const StudentPracticePage = () => {
     if (!interactiveTaskId || !assignmentId) return;
     setSolveSaving(true);
     try {
-      await supabase.from("interactive_task_progress").upsert({
+      const { error: progressError } = await supabase.from("interactive_task_progress").upsert({
         task_id: interactiveTaskId, student_id: profile.id,
         state: { code }, status: "submitted",
         submitted_at: new Date().toISOString(), last_active_at: new Date().toISOString(),
       }, { onConflict: "task_id,student_id" });
+      if (progressError) throw progressError;
 
       const { data: existing } = await supabase.from("submissions")
         .select("id").eq("assignment_id", assignmentId).eq("student_id", profile.id).maybeSingle();
       if (existing) {
-        await supabase.from("submissions").update({ status: "submitted" as any, submitted_at: new Date().toISOString(), content: code }).eq("id", existing.id);
+        const { error: updateError } = await supabase.from("submissions").update({ status: "submitted" as any, submitted_at: new Date().toISOString(), content: code }).eq("id", existing.id);
+        if (updateError) throw updateError;
       } else {
-        await supabase.from("submissions").insert({ assignment_id: assignmentId, student_id: profile.id, status: "submitted" as any, submitted_at: new Date().toISOString(), content: code });
+        const { error: insertError } = await supabase.from("submissions").insert({ assignment_id: assignmentId, student_id: profile.id, status: "submitted" as any, submitted_at: new Date().toISOString(), content: code });
+        if (insertError) throw insertError;
       }
 
       setSolveTask((prev) => (prev ? { ...prev, submitted: true, savedCode: code } : prev));
@@ -295,23 +332,75 @@ const StudentPracticePage = () => {
     setOpenAnswer("");
     setOpenFeedback(null);
     setSaveStatus("idle");
+    setCoach(null);
+    setCoachAnswered(null);
+    setCoachRowId(null);
     setStarted(true);
   };
 
   const currentQ = shuffled[currentIdx];
   const progress = shuffled.length > 0 ? ((currentIdx) / shuffled.length) * 100 : 0;
 
-  const handleAnswer = (ans: string) => {
+  const handleAnswer = async (ans: string) => {
     if (answered) return;
     setSelected(ans);
     setAnswered(true);
     const isCorrect = ans.trim().toLowerCase() === (currentQ?.correct_answer || "").trim().toLowerCase();
     setCorrect(isCorrect);
     if (isCorrect) setScore(s => s + 1);
-    else setWrongIds(prev => [...prev, currentQ.id]);
+    else {
+      setWrongIds(prev => [...prev, currentQ.id]);
+      if (currentQ.coaching_enabled) await diagnoseMisconception(ans);
+    }
+  };
+
+  const diagnoseMisconception = async (studentAnswer: string) => {
+    setCoachLoading(true);
+    setCoachAnswered(null);
+    try {
+      const { data } = await supabase.functions.invoke("task-studio-ai", {
+        body: {
+          action: "diagnose-misconception",
+          subject: assignment?.subject,
+          questionText: currentQ.question_text,
+          questionType: currentQ.question_type,
+          options: currentQ.options,
+          correctAnswer: currentQ.correct_answer,
+          studentAnswer,
+        },
+      });
+      const result = data?.result;
+      if (result?.misconception && result?.microQuestion) {
+        setCoach(result);
+        const { data: row } = await supabase.from("question_misconceptions").insert({
+          question_id: currentQ.id,
+          assignment_id: assignmentId,
+          student_id: profile.id,
+          student_answer: studentAnswer,
+          misconception_label: result.misconception,
+        }).select("id").single();
+        setCoachRowId(row?.id || null);
+      }
+    } catch {
+      // best effort - student still sees the normal "wrong answer" feedback below
+    } finally {
+      setCoachLoading(false);
+    }
+  };
+
+  const handleCoachAnswer = async (ans: string) => {
+    if (coachAnswered || !coach) return;
+    setCoachAnswered(ans);
+    const isCorrect = ans.trim().toLowerCase() === coach.microQuestion.correct_answer.trim().toLowerCase();
+    if (isCorrect && coachRowId) {
+      await supabase.from("question_misconceptions").update({ resolved: true }).eq("id", coachRowId);
+    }
   };
 
   const nextQ = () => {
+    setCoach(null);
+    setCoachAnswered(null);
+    setCoachRowId(null);
     if (currentIdx >= shuffled.length - 1) {
       setFinished(true);
       saveScore();
@@ -434,7 +523,12 @@ const StudentPracticePage = () => {
             srcDoc={htmlCode}
             className="w-full border-0"
             style={{ height: "70vh" }}
-            sandbox="allow-scripts allow-same-origin"
+            // allow-scripts ONLY - never add allow-same-origin: this iframe renders
+            // teacher/AI-authored HTML via srcDoc, which inherits the parent app's
+            // real origin under allow-same-origin and could read the student's
+            // Supabase auth token straight out of localStorage. Scoring already
+            // travels via postMessage (handled above), which works cross-origin.
+            sandbox="allow-scripts"
             title={assignment?.title || "משימה אינטראקטיבית"}
           />
         </Card>
@@ -661,7 +755,7 @@ const StudentPracticePage = () => {
 
             {/* Feedback */}
             {answered && (
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
                 <Card className={correct ? "border-green-500/50 bg-green-50/50 dark:bg-green-900/10" : "border-destructive/50 bg-red-50/50 dark:bg-red-900/10"}>
                   <CardContent className="py-3 space-y-1">
                     <p className={`font-heading font-bold text-sm ${correct ? "text-green-700 dark:text-green-400" : "text-destructive"}`}>
@@ -672,9 +766,57 @@ const StudentPracticePage = () => {
                     )}
                   </CardContent>
                 </Card>
-                <Button className="w-full mt-2 font-heading" onClick={nextQ}>
-                  {currentIdx >= shuffled.length - 1 ? "סיים וצפה בציון" : "שאלה הבאה"} <ArrowLeft className="h-4 w-4 mr-2" />
-                </Button>
+
+                {!correct && currentQ.coaching_enabled && coachLoading && (
+                  <Card className="border-purple-500/30 bg-purple-50/50 dark:bg-purple-900/10">
+                    <CardContent className="py-3 flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
+                      <p className="text-xs font-body text-muted-foreground">מאמן ה-AI בודק מה בדיוק בלבל אותך...</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {!correct && coach && (
+                  <Card className="border-purple-500/40 bg-purple-50/50 dark:bg-purple-900/10">
+                    <CardContent className="py-3 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Brain className="h-4 w-4 text-purple-600 shrink-0" />
+                        <Badge variant="secondary" className="text-[10px] bg-purple-500/20 text-purple-700 dark:text-purple-300 border-0">{coach.misconception}</Badge>
+                      </div>
+                      <p className="text-xs font-body leading-relaxed">{coach.explanation}</p>
+
+                      <div className="pt-1 border-t border-purple-500/20 space-y-2">
+                        <p className="text-xs font-heading font-bold">רגע לפני שממשיכים - נסה/י שוב:</p>
+                        <p className="text-sm font-heading">{coach.microQuestion.question_text}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {(coach.microQuestion.question_type === "true_false" ? ["נכון", "לא נכון"] : coach.microQuestion.options).map((opt, i) => {
+                            const isSel = coachAnswered === opt;
+                            const isRight = opt.trim().toLowerCase() === coach.microQuestion.correct_answer.trim().toLowerCase();
+                            let cls = "border-border";
+                            if (coachAnswered) cls = isRight ? "border-green-500 bg-green-50 dark:bg-green-900/20" : isSel ? "border-destructive bg-red-50 dark:bg-red-900/20" : "border-border opacity-50";
+                            return (
+                              <button key={i} disabled={!!coachAnswered} onClick={() => handleCoachAnswer(opt)}
+                                className={`text-xs px-3 py-1.5 rounded-lg border font-heading ${cls} ${!coachAnswered ? "hover:border-purple-400 cursor-pointer" : "cursor-default"}`}>
+                                {opt}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {coachAnswered && (
+                          <p className="text-xs font-body text-muted-foreground">
+                            {coachAnswered.trim().toLowerCase() === coach.microQuestion.correct_answer.trim().toLowerCase() ? "✅ בדיוק! עכשיו זה ברור." : `לא בדיוק - התשובה: ${coach.microQuestion.correct_answer}. בוא/י נמשיך.`}
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {!(!correct && currentQ.coaching_enabled && coachLoading) && (
+                  <Button className="w-full font-heading" onClick={nextQ}>
+                    {currentIdx >= shuffled.length - 1 ? "סיים וצפה בציון" : "שאלה הבאה"} <ArrowLeft className="h-4 w-4 mr-2" />
+                  </Button>
+                )}
               </motion.div>
             )}
           </motion.div>

@@ -38,13 +38,15 @@ const AvatarEditPage = () => {
       };
 
       if (existing) {
-        await supabase.from("avatars").update(avatarData).eq("user_id", profile.id);
+        const { error } = await supabase.from("avatars").update(avatarData).eq("user_id", profile.id);
+        if (error) throw error;
       } else {
-        await supabase.from("avatars").insert({
+        const { error } = await supabase.from("avatars").insert({
           user_id: profile.id,
           ...avatarData,
           eye_shape: "round",
         });
+        if (error) throw error;
       }
 
       await refresh();

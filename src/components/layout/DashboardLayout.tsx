@@ -2,7 +2,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { useAuth } from "@/hooks/useAuth";
-import { Bell, MessageCircle } from "lucide-react";
+import { Bell, Clock, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -42,6 +42,23 @@ const DashboardLayout = () => {
 
   if (!profile) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (!profile.isApproved) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4" dir="rtl">
+        <div className="text-center space-y-4 max-w-sm">
+          <div className="mx-auto h-16 w-16 rounded-full bg-warning/10 flex items-center justify-center">
+            <Clock className="h-8 w-8 text-warning" />
+          </div>
+          <h1 className="font-heading font-bold text-xl">החשבון שלך ממתין לאישור</h1>
+          <p className="text-sm text-muted-foreground">
+            תקבל/י גישה מלאה למערכת לאחר אישור הגורם המוסמך בבית הספר.
+          </p>
+          <Button variant="outline" onClick={logout}>התנתקות</Button>
+        </div>
+      </div>
+    );
   }
 
   return (

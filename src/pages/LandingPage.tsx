@@ -1,10 +1,7 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { GraduationCap, Users, Briefcase, Building2, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 
 const roles = [
   {
@@ -54,45 +51,8 @@ const item = {
   show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring" as const, stiffness: 200, damping: 20 } },
 };
 
-const DEV_ROLES = [
-  { id: "student", label: "תלמיד" },
-  { id: "parent", label: "הורה" },
-  { id: "staff", label: "צוות" },
-  { id: "management", label: "הנהלה" },
-];
-
 const LandingPage = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [devOpen, setDevOpen] = useState(false);
-  const [devLoading, setDevLoading] = useState<string | null>(null);
-
-  const handleDevSkip = async (role: string) => {
-    setDevLoading(role);
-    try {
-      const { data, error } = await supabase.functions.invoke("dev-skip-registration", {
-        body: { role },
-      });
-
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
-
-      // Sign in with the created credentials
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      });
-
-      if (signInError) throw signInError;
-
-      toast({ title: `נכנסת כ${data.fullName} (${role}) 🚀` });
-      navigate("/dashboard");
-    } catch (err: any) {
-      toast({ title: "שגיאה", description: err.message, variant: "destructive" });
-    } finally {
-      setDevLoading(null);
-    }
-  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-gradient-to-br from-background via-muted to-background">
@@ -165,35 +125,6 @@ const LandingPage = () => {
           כבר רשום? התחבר
         </Button>
       </motion.div>
-
-      {/* Hidden dev skip button - triple click the version text to reveal */}
-      <p
-        className="mt-16 text-[10px] text-muted-foreground/20 cursor-default select-none"
-        onClick={() => setDevOpen((prev) => !prev)}
-      >
-        v0.1.0-dev
-      </p>
-
-      {devOpen && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-2 flex gap-2 flex-wrap justify-center"
-        >
-          {DEV_ROLES.map((r) => (
-            <Button
-              key={r.id}
-              variant="ghost"
-              size="sm"
-              disabled={devLoading !== null}
-              onClick={() => handleDevSkip(r.id)}
-              className="text-xs text-muted-foreground/50 hover:text-foreground"
-            >
-              {devLoading === r.id ? "..." : `דלג → ${r.label}`}
-            </Button>
-          ))}
-        </motion.div>
-      )}
     </div>
   );
 };

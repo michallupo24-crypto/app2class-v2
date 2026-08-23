@@ -31,17 +31,16 @@ const LoginPage = () => {
         .eq("id", data.user.id)
         .single();
 
-      // Proceed to login even if not yet approved
-      // The dashboard (DashboardHome) will handle the approval message display
-      
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", data.user.id);
+      if (!profile?.is_approved) {
+        await supabase.auth.signOut();
+        toast({
+          title: "החשבון ממתין לאישור",
+          description: "תקבל/י גישה מלאה לאחר אישור הגורם המוסמך. נסה/י שוב מאוחר יותר.",
+        });
+        return;
+      }
 
       toast({ title: "התחברת בהצלחה! 🎉" });
-      
-      // For now redirect to a placeholder dashboard
       navigate("/dashboard");
     } catch (error: any) {
       toast({

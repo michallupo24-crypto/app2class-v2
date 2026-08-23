@@ -94,7 +94,11 @@ const ExamArchivePage = () => {
   };
 
   const remove = async (id: string) => {
-    await (supabase as any).from("exam_archive").delete().eq("id", id);
+    const { error } = await (supabase as any).from("exam_archive").delete().eq("id", id);
+    if (error) {
+      toast({ title: "שגיאה במחיקה", description: error.message, variant: "destructive" });
+      return;
+    }
     load();
   };
 

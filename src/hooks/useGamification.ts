@@ -41,6 +41,7 @@ const BADGE_DEFS = {
   streak_30: { label: "חודש רצוף 💎", icon: "💎", category: "streak" },
   community_helper: { label: "עוזר קהילתי 🌸", icon: "🌸", category: "community" },
   faction_guardian: { label: "נאמן פלג 🛡️", icon: "🛡️", category: "status" },
+  perfect_attendance: { label: "נוכחות מושלמת 🎯", icon: "🎯", category: "attendance" },
 };
 
 export function useGamification(userId: string | undefined): GamificationData {
@@ -114,6 +115,34 @@ export function useGamification(userId: string | undefined): GamificationData {
           p_badge_label: "מצוינות מושלמת 💯", p_badge_icon: "💯", p_category: "academic",
         });
         if (perf) toast.success("גאונות! 💯", { description: "קיבלת 100 במבחן והרווחת מדליה!" });
+    }
+
+    // Check for perfect attendance badge (mirrors the unexcused-absence
+    // logic in StudentAttendancePage: absent + no approved justification),
+    // gated on a minimum lesson count so it can't be earned on day one.
+    const { data: profileRow } = await supabase.from("profiles").select("class_id").eq("id", userId).single();
+    if (profileRow?.class_id) {
+      const { count: totalLessons } = await supabase
+        .from("lessons").select("id", { count: "exact", head: true }).eq("class_id", profileRow.class_id);
+      if (totalLessons && totalLessons >= 10) {
+        const { data: absences } = await supabase.from("attendance").select("id").eq("student_id", userId).eq("status", "absent");
+        let unexcused = absences?.length ?? 0;
+        if (absences && absences.length > 0) {
+          const ids = absences.map(a => a.id);
+          const { data: justs } = await (supabase as any)
+            .from("absence_justifications").select("attendance_id, status").in("attendance_id", ids).order("created_at", { ascending: false });
+          const latestByAttendance: Record<string, string> = {};
+          (justs || []).forEach((j: any) => { if (!latestByAttendance[j.attendance_id]) latestByAttendance[j.attendance_id] = j.status; });
+          unexcused = ids.filter(id => latestByAttendance[id] !== "approved").length;
+        }
+        if (unexcused === 0) {
+          const { data: attBadge } = await supabase.rpc("check_and_award_badge", {
+            p_user_id: userId, p_badge_key: "perfect_attendance",
+            p_badge_label: BADGE_DEFS.perfect_attendance.label, p_badge_icon: BADGE_DEFS.perfect_attendance.icon, p_category: BADGE_DEFS.perfect_attendance.category,
+          });
+          if (attBadge) toast.success("נוכחות למופת! 🎯", { description: "אין לך אף חיסור לא מוצדק — מדליה!" });
+        }
+      }
     }
 
     // Ensure reliability record exists

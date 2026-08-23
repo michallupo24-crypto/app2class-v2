@@ -19,6 +19,7 @@ const ALL_BADGE_TYPES = [
   { key: "perfect_score", title: "מצוינות מושלמת", description: "קבלת ציון 100", icon: "💯", category: "academic", color: "from-purple-400 to-fuchsia-600" },
   { key: "early_bird", title: "הציפור המקדימה", description: "הגשת מטלה 3 ימים לפני הדדליין", icon: "🌅", category: "academic", color: "from-amber-300 to-yellow-600" },
   { key: "ai_explorer", title: "חוקר AI", description: "שימוש בתובנות המנטור החכם", icon: "🤖", category: "onboarding", color: "from-indigo-400 to-purple-600" },
+  { key: "perfect_attendance", title: "נוכחות מושלמת", description: "אין חיסורים לא מוצדקים", icon: "🎯", category: "attendance", color: "from-green-400 to-emerald-600" },
 ];
 
 const BadgesPage = () => {

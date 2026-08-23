@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   PenLine, Folders, MessageSquare, Layers,
   FileSpreadsheet, Mountain, Dice5, Flame, Sparkles, Code2,
-  Gamepad2, Plus, Wand2, ChevronRight, Target
+  Gamepad2, Plus, Wand2, ChevronRight, Target, Sprout, GraduationCap
 } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +27,8 @@ import DataHookMode from "@/components/task-studio/DataHookMode";
 import InteractiveTaskBuilderMode from "@/components/task-studio/InteractiveTaskBuilderMode";
 import AIPromptBuilderMode from "@/components/task-studio/AIPromptBuilderMode";
 import BagrutCoverageBar from "@/components/task-studio/BagrutCoverageBar";
+import AdaptiveTierMode from "@/components/task-studio/AdaptiveTierMode";
+import MisconceptionCoachMode from "@/components/task-studio/MisconceptionCoachMode";
 
 interface StudioMode {
   id: string;
@@ -44,6 +46,8 @@ const STUDIO_MODES: StudioMode[] = [
   { id: "live-feedback", title: "Live Feedback", description: "הפיכת שאלות מהשיעור האחרון למטלת חזרה", icon: <MessageSquare className="h-6 w-6" />, category: "create", color: "bg-info/10 text-info" },
   { id: "flashcards", title: "Flashcards", description: "כרטיסיות שינון אוטומטיות מהחומר", icon: <Layers className="h-6 w-6" />, category: "create", color: "bg-success/10 text-success" },
   { id: "smart-template", title: "טמפלטים חכמים", description: "בניית מבחן/דף עבודה עם ייבוא מ-PDF", icon: <FileSpreadsheet className="h-6 w-6" />, category: "create", color: "bg-primary/10 text-primary" },
+  { id: "adaptive-tier", title: "מסלול מותאם אישית", description: "שאלה אחת, שלוש רמות - כל תלמיד מקבל אוטומטית את הרמה שמתאימה לו, בלי עבודת שיבוץ ידנית", icon: <Sprout className="h-6 w-6" />, category: "create", color: "bg-success/10 text-success", badge: "AI" },
+  { id: "misconception-coach", title: "בוחן עם מאמן AI", description: "כשתלמיד טועה, ה-AI מסביר את התפיסה השגויה שלו ומוודא הבנה לפני שממשיכים - ומייצר לך דוח טעויות נפוצות", icon: <GraduationCap className="h-6 w-6" />, category: "create", color: "bg-purple-500/10 text-purple-600", badge: "AI" },
   { id: "mountain-climb", title: "טיפוס על הר", description: "תשובות נכונות מקדמות את האווטאר להצלת נסיכה", icon: <Mountain className="h-6 w-6" />, category: "game", color: "bg-success/10 text-success" },
   { id: "snakes-ladders", title: "נחשים וסולמות", description: "לוח משחק אינטראקטיבי מותנה בפתרון תרגילים", icon: <Dice5 className="h-6 w-6" />, category: "game", color: "bg-destructive/10 text-destructive" },
   { id: "coop-game", title: "בן האש ובת המים", description: "משימת Co-op זוגית עם שיתוף פעולה", icon: <Flame className="h-6 w-6" />, category: "game", color: "bg-warning/10 text-warning" },
@@ -88,6 +92,8 @@ const TaskStudioPage = () => {
       case "live-feedback": return <LiveFeedbackMode {...commonProps} />;
       case "flashcards": return <FlashcardsMode {...commonProps} />;
       case "smart-template": return <SmartTemplateMode {...commonProps} />;
+      case "adaptive-tier": return <AdaptiveTierMode {...commonProps} />;
+      case "misconception-coach": return <MisconceptionCoachMode {...commonProps} />;
       case "mountain-climb": return <MountainClimbMode {...commonProps} />;
       case "snakes-ladders": return <SnakesAndLaddersMode {...commonProps} />;
       case "coop-game": return <CoopGameMode {...commonProps} />;

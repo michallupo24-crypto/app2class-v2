@@ -183,6 +183,7 @@ const SubjectCoordinatorDashboard = () => {
             { icon: GraduationCap, label: "שיבוץ מורים", path: "/dashboard/assign-teachers", color: "text-primary" },
             { icon: BookOpen, label: "תכנון סילבוס", path: "/dashboard/syllabus-planner", color: "text-secondary" },
             { icon: Calendar, label: "לוח זמנים", path: "/dashboard/schedule", color: "text-accent" },
+            { icon: ClipboardList, label: "בניית מערכת שעות", path: "/dashboard/timetable-builder", color: "text-warning" },
           ].map((a, i) => (
             <Card key={i} className="cursor-pointer hover:shadow-md transition-all hover:-translate-y-0.5" onClick={() => navigate(a.path)}>
               <CardContent className="py-5 text-center">

@@ -106,15 +106,23 @@ const NewspaperPage = () => {
 
   const toggleLike = async (article: Article) => {
     const liked = myLikes.has(article.id);
-    if (liked) {
-      await (supabase as any).from("newspaper_article_likes").delete().eq("article_id", article.id).eq("user_id", profile.id);
-      await (supabase as any).from("newspaper_articles").update({ likes: Math.max(0, article.likes - 1) }).eq("id", article.id);
-    } else {
-      await (supabase as any).from("newspaper_article_likes").insert({ article_id: article.id, user_id: profile.id });
-      await (supabase as any).from("newspaper_articles").update({ likes: article.likes + 1 }).eq("id", article.id);
+    try {
+      if (liked) {
+        const { error: unlikeError } = await (supabase as any).from("newspaper_article_likes").delete().eq("article_id", article.id).eq("user_id", profile.id);
+        if (unlikeError) throw unlikeError;
+        const { error: updateError } = await (supabase as any).from("newspaper_articles").update({ likes: Math.max(0, article.likes - 1) }).eq("id", article.id);
+        if (updateError) throw updateError;
+      } else {
+        const { error: likeError } = await (supabase as any).from("newspaper_article_likes").insert({ article_id: article.id, user_id: profile.id });
+        if (likeError) throw likeError;
+        const { error: updateError } = await (supabase as any).from("newspaper_articles").update({ likes: article.likes + 1 }).eq("id", article.id);
+        if (updateError) throw updateError;
+      }
+      load();
+      if (selected?.id === article.id) setSelected({ ...article, likes: article.likes + (liked ? -1 : 1) });
+    } catch (e: any) {
+      toast({ title: "שגיאה", description: e.message, variant: "destructive" });
     }
-    load();
-    if (selected?.id === article.id) setSelected({ ...article, likes: article.likes + (liked ? -1 : 1) });
   };
 
   return (

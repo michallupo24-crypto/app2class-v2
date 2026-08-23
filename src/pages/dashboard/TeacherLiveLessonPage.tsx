@@ -187,7 +187,12 @@ const TeacherLiveLessonPage = () => {
       session = existingSessions[0] as any;
       // Reactivate if needed
       if (!session.is_active) {
-        await supabase.from("live_sessions").update({ is_active: true }).eq("id", session.id);
+        const { error: reactivateError } = await supabase.from("live_sessions").update({ is_active: true }).eq("id", session.id);
+        if (reactivateError) {
+          toast({ title: "שגיאה בהפעלת השיעור", description: reactivateError.message, variant: "destructive" });
+          setLoading(false);
+          return;
+        }
         session.is_active = true;
       }
     } else {
@@ -303,11 +308,17 @@ const TeacherLiveLessonPage = () => {
     const isImage = file.type.startsWith("image/");
     const contentType = isImage ? "image" : "link";
 
-    await supabase.from("live_sessions").update({
+    const { error: updateError } = await supabase.from("live_sessions").update({
       shared_content_type: contentType,
       shared_content_url: urlData.publicUrl,
       shared_content_title: file.name,
     }).eq("id", activeSession.id);
+
+    if (updateError) {
+      toast({ title: "שגיאה בשיתוף הקובץ", description: updateError.message, variant: "destructive" });
+      setUploading(false);
+      return;
+    }
 
     setActiveSession(prev => prev ? {
       ...prev,
@@ -322,11 +333,15 @@ const TeacherLiveLessonPage = () => {
 
   const shareContent = async () => {
     if (!activeSession || !shareUrl) return;
-    await supabase.from("live_sessions").update({
+    const { error } = await supabase.from("live_sessions").update({
       shared_content_type: shareType === "file" ? "link" : shareType,
       shared_content_url: shareUrl,
       shared_content_title: shareTitle || null,
     }).eq("id", activeSession.id);
+    if (error) {
+      toast({ title: "שגיאה בשיתוף התוכן", description: error.message, variant: "destructive" });
+      return;
+    }
     setActiveSession(prev => prev ? { ...prev, shared_content_type: shareType, shared_content_url: shareUrl, shared_content_title: shareTitle } : null);
     setShareUrl("");
     setShareTitle("");
@@ -335,23 +350,31 @@ const TeacherLiveLessonPage = () => {
 
   const clearContent = async () => {
     if (!activeSession) return;
-    await supabase.from("live_sessions").update({
+    const { error } = await supabase.from("live_sessions").update({
       shared_content_type: "none",
       shared_content_url: null,
       shared_content_title: null,
     }).eq("id", activeSession.id);
+    if (error) {
+      toast({ title: "שגיאה בהסרת התוכן", description: error.message, variant: "destructive" });
+      return;
+    }
     setActiveSession(prev => prev ? { ...prev, shared_content_type: "none", shared_content_url: null, shared_content_title: null } : null);
   };
 
   const markAnswered = async (questionId: string) => {
-    await supabase.from("live_questions").update({ is_answered: true }).eq("id", questionId);
+    const { error } = await supabase.from("live_questions").update({ is_answered: true }).eq("id", questionId);
+    if (error) {
+      toast({ title: "שגיאה בסימון השאלה", description: error.message, variant: "destructive" });
+      return;
+    }
     setQuestions(prev => prev.map(q => q.id === questionId ? { ...q, is_answered: true } : q));
   };
 
   const createPoll = async () => {
     if (!activeSession || !pollQuestion || pollOptions.filter(o => o.text).length < 2) return;
     const validOptions = pollOptions.filter(o => o.text.trim());
-    await supabase.from("live_polls").insert({
+    const { error } = await supabase.from("live_polls").insert({
       session_id: activeSession.id,
       question: pollQuestion,
       poll_type: pollType,
@@ -359,6 +382,10 @@ const TeacherLiveLessonPage = () => {
       is_active: true,
       show_results: false,
     });
+    if (error) {
+      toast({ title: "שגיאה ביצירת הסקר", description: error.message, variant: "destructive" });
+      return;
+    }
     setPollQuestion("");
     setPollOptions([{ text: "", isCorrect: false }, { text: "", isCorrect: false }]);
     setShowPollForm(false);
@@ -367,12 +394,20 @@ const TeacherLiveLessonPage = () => {
   };
 
   const togglePollResults = async (pollId: string, show: boolean) => {
-    await supabase.from("live_polls").update({ show_results: show }).eq("id", pollId);
+    const { error } = await supabase.from("live_polls").update({ show_results: show }).eq("id", pollId);
+    if (error) {
+      toast({ title: "שגיאה", description: error.message, variant: "destructive" });
+      return;
+    }
     setPolls(prev => prev.map(p => p.id === pollId ? { ...p, show_results: show } : p));
   };
 
   const closePoll = async (pollId: string) => {
-    await supabase.from("live_polls").update({ is_active: false }).eq("id", pollId);
+    const { error } = await supabase.from("live_polls").update({ is_active: false }).eq("id", pollId);
+    if (error) {
+      toast({ title: "שגיאה בסגירת הסקר", description: error.message, variant: "destructive" });
+      return;
+    }
     setPolls(prev => prev.filter(p => p.id !== pollId));
   };
 

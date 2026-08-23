@@ -32,6 +32,7 @@ import {
   FileCheck2,
   CalendarClock,
   LayoutGrid,
+  Wand2,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
@@ -135,6 +136,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
   // Grade coordinator
   const gradeCoordinatorItems: { title: string; url: string; icon: any }[] = [
     { title: "דאשבורד", url: "/dashboard/grade-coordinator-home", icon: LayoutDashboard },
+    { title: "בניית מערכת שעות", url: "/dashboard/timetable-builder", icon: Wand2 },
     { title: "לוח מבחנים", url: "/dashboard/master-scheduler", icon: Calendar },
     { title: "דופק שכבתי", url: "/dashboard/grade-progress", icon: BarChart3 },
     { title: "אישורי טיולים", url: "/dashboard/event-approvals", icon: FileSignature },
@@ -180,6 +182,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
   adminItems.push({ title: "שיחות", url: "/dashboard/chat", icon: MessageCircle });
   adminItems.push({ title: "לוח זמנים", url: "/dashboard/schedule", icon: Calendar });
   if (isManagement || isAdmin) {
+    adminItems.push({ title: "בניית מערכת שעות", url: "/dashboard/timetable-builder", icon: Wand2 });
     adminItems.push({ title: "מועצת תלמידים", url: "/dashboard/council", icon: Landmark });
     adminItems.push({ title: "עיתון בית הספר", url: "/dashboard/newspaper", icon: Newspaper });
     adminItems.push({ title: "מרכז תשלומים", url: "/dashboard/finance-hub", icon: Wallet });

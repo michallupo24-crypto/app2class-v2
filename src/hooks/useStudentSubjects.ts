@@ -11,7 +11,8 @@ const CORE_SUBJECTS = [
 
 export interface StudentTrackInfo {
   trackName: string;
-  trackType: string; // "megama_a" | "megama_b" | "hakbatza"
+  trackType: string; // "megama" | "megama_a" | "megama_b" | "hakbatza"
+  clusterName: string | null;
 }
 
 export interface StudentSubjectsResult {
@@ -46,19 +47,36 @@ export const useStudentSubjects = (userId: string | undefined, schoolId: string 
     const load = async () => {
       const { data } = await supabase
         .from("student_tracks")
-        .select("track_name, track_type")
+        .select("track_name, track_type, cluster_name")
         .eq("user_id", userId)
         .eq("school_id", schoolId);
 
-      setTracks((data || []).map(t => ({ trackName: t.track_name, trackType: t.track_type })));
+      setTracks((data || []).map(t => ({ trackName: t.track_name, trackType: t.track_type, clusterName: (t as any).cluster_name ?? null })));
       setLoading(false);
     };
     load();
   }, [userId, schoolId]);
 
   const trackNames = useMemo(() => tracks.map(t => t.trackName), [tracks]);
-  const hasMegamaA = useMemo(() => tracks.some(t => t.trackType === "megama_a"), [tracks]);
-  const hasMegamaB = useMemo(() => tracks.some(t => t.trackType === "megama_b"), [tracks]);
+  // Clusters are school-defined now (subject_requirements.track_group), not
+  // a fixed pair - megama_a/megama_b only exist on rows saved before that
+  // change. For current data (track_type "megama" + cluster_name), fall
+  // back to treating the first distinct cluster a student has as "A" and
+  // any further one as "B", since every consumer of these two flags still
+  // only distinguishes "at least one track" vs "a second, different track"
+  // rather than needing the real cluster name.
+  const distinctClusters = useMemo(
+    () => Array.from(new Set(tracks.filter(t => t.trackType === "megama").map(t => t.clusterName).filter((c): c is string => !!c))),
+    [tracks]
+  );
+  const hasMegamaA = useMemo(
+    () => tracks.some(t => t.trackType === "megama_a") || distinctClusters.length > 0,
+    [tracks, distinctClusters]
+  );
+  const hasMegamaB = useMemo(
+    () => tracks.some(t => t.trackType === "megama_b") || distinctClusters.length > 1,
+    [tracks, distinctClusters]
+  );
   const subjects = useMemo(() => [...new Set([...CORE_SUBJECTS, ...trackNames])], [trackNames]);
 
   return { subjects, trackNames, tracks, hasMegamaA, hasMegamaB, loading };

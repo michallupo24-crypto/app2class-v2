@@ -104,7 +104,8 @@ const AITutorPage = () => {
       const replyText: string = data?.response || data?.error || "לא הצלחתי לענות כרגע, נסה שוב";
       setMessages(prev => [...prev, { role: "assistant", content: replyText }]);
       if (currentSessionId && isStudent) {
-        await supabase.from('ai_chat_messages').insert({ session_id: currentSessionId, role: "assistant", content: replyText });
+        const { error: historyError } = await supabase.from('ai_chat_messages').insert({ session_id: currentSessionId, role: "assistant", content: replyText });
+        if (historyError) console.error("Failed to save chat history:", historyError);
       }
     } catch (e: any) {
       toast.error(e.message || "שגיאה בחיבור ל-AI");

@@ -34,6 +34,10 @@ interface Task {
   feedback?: string | null;
   hasQuestions: boolean;
   isBlankHtml: boolean;
+  // Adaptive-tier / AI-coach questions need the full practice page (tier
+  // filtering + live per-answer coaching) - the lightweight dialog below
+  // fetches all questions unfiltered and can't do either.
+  needsFullPractice: boolean;
   fileUrl?: string | null;
   content?: string | null;
 }
@@ -110,7 +114,7 @@ const TasksPage = () => {
         .eq("student_id", profile.id)
         .in("assignment_id", aIds),
       supabase.from("task_questions")
-        .select("assignment_id")
+        .select("assignment_id, tier, coaching_enabled")
         .in("assignment_id", aIds),
       supabase.from("interactive_tasks")
         .select("assignment_id")
@@ -119,6 +123,9 @@ const TasksPage = () => {
 
     const subMap = new Map((subsRes.data || []).map((s: any) => [s.assignment_id, s]));
     const qSet = new Set((qRes.data || []).map((q: any) => q.assignment_id));
+    const fullPracticeSet = new Set(
+      (qRes.data || []).filter((q: any) => q.tier != null || q.coaching_enabled).map((q: any) => q.assignment_id)
+    );
     const interactiveSet = new Set((itRes.data || []).map((t: any) => t.assignment_id));
 
     const mapped: Task[] = assignments.map((a: any) => {
@@ -153,6 +160,7 @@ const TasksPage = () => {
         maxGrade: a.max_grade || 100,
         feedback: sub?.feedback ?? null,
         hasQuestions: qSet.has(a.id),
+        needsFullPractice: fullPracticeSet.has(a.id),
         isBlankHtml,
         fileUrl: sub?.file_url ?? null,
         content: sub?.content ?? null,
@@ -242,15 +250,17 @@ const TasksPage = () => {
 
       if (submitTask.id) {
         // Update existing submission
-        await supabase.from("submissions").update({
+        const { error } = await supabase.from("submissions").update({
           content: payload.content,
           file_url: fileUrl ?? undefined,
           submitted_at: payload.submitted_at,
           status: payload.status,
         }).eq("id", submitTask.id);
+        if (error) throw error;
       } else {
         // Insert new
-        await supabase.from("submissions").insert(payload);
+        const { error } = await supabase.from("submissions").insert(payload);
+        if (error) throw error;
       }
 
       toast({ title: "הוגש בהצלחה! ✅" });
@@ -486,8 +496,8 @@ const TasksPage = () => {
                             🃏 פלאשקארדס
                           </Button>
                           <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1 font-heading"
-                            onClick={() => openQuiz(task, "quiz")}>
-                            <Play className="h-3 w-3" />בוחן
+                            onClick={() => task.needsFullPractice ? navigate(`/dashboard/practice/${task.assignmentId}`) : openQuiz(task, "quiz")}>
+                            <Play className="h-3 w-3" />בוחן{task.needsFullPractice ? " 🧠" : ""}
                           </Button>
                           {/* FIX: use assignmentId not submission id */}
                           <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1 font-heading text-green-600 border-green-300 hover:bg-green-50 dark:hover:bg-green-900/20"

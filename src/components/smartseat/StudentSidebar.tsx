@@ -1,7 +1,6 @@
-import React from 'react';
 import { Student, AppMode } from '@/types/smartseat';
 import { Button } from '@/components/ui/button';
-import { User, Plus, X, Trash2, Import, UserMinus, Volume2 } from 'lucide-react';
+import { User, UserMinus, Volume2 } from 'lucide-react';
 import AvatarPreview from "@/components/avatar/AvatarPreview";
 
 interface Props {
@@ -9,18 +8,13 @@ interface Props {
     unseated: Student[];
     mode: AppMode;
     highlightedId: string | null;
-    onAdd: (name: string) => void;
-    onRemove: (id: string) => void;
     onHighlight: (id: string | null) => void;
     onSpeak: (s: Student) => void;
     onCycleAttendance: (id: string) => void;
-    onImport: (text: string) => void;
     onUnassign: (id: string) => void;
 }
 
-export function StudentSidebar({ students, unseated, mode, highlightedId, onAdd, onRemove, onHighlight, onSpeak, onCycleAttendance, onImport, onUnassign }: Props) {
-    const [name, setName] = React.useState('');
-
+export function StudentSidebar({ students, unseated, mode, highlightedId, onHighlight, onSpeak, onCycleAttendance, onUnassign }: Props) {
     const handleDragStart = (e: React.DragEvent, id: string) => {
         e.dataTransfer.setData('studentId', id);
         e.dataTransfer.setData('text/plain', id); // Cross-browser fallback
@@ -33,23 +27,6 @@ export function StudentSidebar({ students, unseated, mode, highlightedId, onAdd,
                 <h3 className="font-heading font-bold text-lg mb-4 flex items-center gap-2">
                     תלמידים ({students.length})
                 </h3>
-                
-                {mode === 'edit' && (
-                    <div className="space-y-4">
-                        <div className="flex gap-2">
-                            <input
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && (onAdd(name), setName(''))}
-                                placeholder="שם תלמיד/ה..."
-                                className="flex-1 px-3 py-2 rounded-lg border bg-background text-sm"
-                            />
-                            <Button size="icon" onClick={() => (onAdd(name), setName(''))}>
-                                <Plus className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    </div>
-                )}
             </div>
 
             <div className="flex-1 overflow-auto space-y-2">
@@ -87,16 +64,11 @@ export function StudentSidebar({ students, unseated, mode, highlightedId, onAdd,
                                     <Volume2 className="h-4 w-4" />
                                 </Button>
                             ) : (
-                                <>
-                                    {s.seatRow !== undefined && (
-                                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => onUnassign(s.id)}>
-                                            <UserMinus className="h-4 w-4" />
-                                        </Button>
-                                    )}
-                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => onRemove(s.id)}>
-                                        <Trash2 className="h-4 w-4" />
+                                s.seatRow !== undefined && (
+                                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => onUnassign(s.id)}>
+                                        <UserMinus className="h-4 w-4" />
                                     </Button>
-                                </>
+                                )
                             )}
                         </div>
                     </div>

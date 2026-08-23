@@ -3,7 +3,7 @@ import { useOutletContext, useLocation } from "react-router-dom";
 import {
   MessageCircle, Send, Search, Users, ArrowRight, Moon,
   AlertTriangle, BookOpen, UserPlus, Lock, Check, X, Plus,
-  School, HeartHandshake, UserRound,
+  School, HeartHandshake, UserRound, CalendarClock, XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
@@ -144,6 +146,9 @@ const ChatPage = () => {
   const { toast } = useToast();
   const location = useLocation();
   const navState = location.state as { targetUserId?: string; initialType?: ConversationType; targetConversationId?: string } | null;
+  // A notification click lands here as /dashboard/chat?conversation=<id> (no
+  // router state, since it's a plain link navigation from NotificationBell).
+  const queryConversationId = new URLSearchParams(location.search).get("conversation");
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -162,6 +167,18 @@ const ChatPage = () => {
   const [peerPresence, setPeerPresence] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const realtimeRef = useRef<any>(null);
+
+  // Group creation
+  const [showNewGroup, setShowNewGroup] = useState(false);
+  const [groupName, setGroupName] = useState("");
+  const [groupMembers, setGroupMembers] = useState<SearchUser[]>([]);
+  const [creatingGroup, setCreatingGroup] = useState(false);
+
+  // Message scheduling
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleAt, setScheduleAt] = useState("");
+  const [scheduling, setScheduling] = useState(false);
+  const [scheduledMessages, setScheduledMessages] = useState<{ id: string; content: string; send_at: string }[]>([]);
 
   const canSetPresence = profile.roles.some((r) => STAFF_PRESENCE_ROLES.has(r));
 
@@ -183,6 +200,33 @@ const ChatPage = () => {
     const iv = setInterval(check, 60000);
     return () => clearInterval(iv);
   }, [profile.schoolId]);
+
+  /* ── Deliver due scheduled messages while chat is open ── */
+  useEffect(() => {
+    const processDue = async () => {
+      const { data: deliveredCount } = await supabase.rpc("process_due_scheduled_messages");
+      if ((deliveredCount || 0) > 0) {
+        loadConversations();
+        setScheduledMessages((prev) => prev.filter((m) => new Date(m.send_at).getTime() > Date.now()));
+      }
+    };
+    processDue();
+    const iv = setInterval(processDue, 60000);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* ── Load this conversation's pending scheduled messages ── */
+  useEffect(() => {
+    if (!selectedId) { setScheduledMessages([]); return; }
+    supabase.from("scheduled_chat_messages")
+      .select("id, content, send_at")
+      .eq("conversation_id", selectedId)
+      .eq("sender_id", profile.id)
+      .is("sent_at", null)
+      .order("send_at", { ascending: true })
+      .then(({ data }) => setScheduledMessages(data || []));
+  }, [selectedId, profile.id]);
 
   /* ── Staff: own chat presence ───────────────────────── */
   useEffect(() => {
@@ -385,6 +429,18 @@ const ChatPage = () => {
     };
   }, [selectedPrivatePeerId]);
 
+  // Clears the "new message" bell notifications for this conversation once
+  // its messages have actually been read here, so they don't keep sitting
+  // in the bell as unread after the user already saw them in the chat.
+  const markConversationNotificationsRead = async (conversationId: string) => {
+    await supabase.from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", profile.id)
+      .eq("type", "new_message")
+      .eq("link", `/dashboard/chat?conversation=${conversationId}`)
+      .eq("is_read", false);
+  };
+
   /* ── Load messages for selected conversation ──────────── */
   useEffect(() => {
     if (!selectedId) return;
@@ -444,6 +500,7 @@ const ChatPage = () => {
         .update({ last_read_at: new Date().toISOString() })
         .eq("conversation_id", selectedId)
         .eq("user_id", profile.id);
+      markConversationNotificationsRead(selectedId);
 
       setConversations(prev => prev.map(c => c.id === selectedId ? { ...c, unreadCount: 0 } : c));
       refresh();
@@ -487,6 +544,7 @@ const ChatPage = () => {
         await supabase.from("conversation_participants")
           .update({ last_read_at: new Date().toISOString() })
           .eq("conversation_id", selectedId).eq("user_id", profile.id);
+        markConversationNotificationsRead(selectedId);
         refresh();
       })
       .subscribe();
@@ -500,9 +558,11 @@ const ChatPage = () => {
   // exactly the common case for "message my teacher for the first time",
   // and the old length check silently no-opped for them.
   useEffect(() => {
-    if (loadingConvos || !navState) return;
+    if (loadingConvos || (!navState && !queryConversationId)) return;
 
-    const { targetUserId, initialType, targetConversationId } = navState;
+    const targetUserId = navState?.targetUserId;
+    const initialType = navState?.initialType;
+    const targetConversationId = navState?.targetConversationId || queryConversationId || undefined;
 
     if (targetUserId) {
       const existing = conversations.find(c => c.otherUserId === targetUserId);
@@ -536,7 +596,7 @@ const ChatPage = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadingConvos, navState]);
+  }, [loadingConvos, navState, queryConversationId]);
 
   // Scroll to bottom
   useEffect(() => {
@@ -654,6 +714,51 @@ const ChatPage = () => {
     if (!sharesGroup) toast({ title: "📩 בקשת הודעה", description: "ניתן לשלוח הודעה אחת עד שיקבלו" });
   };
 
+  /* ── Create group ─────────────────────────────────────── */
+  const resetGroupDialog = () => {
+    setGroupName("");
+    setGroupMembers([]);
+    setSearchQuery("");
+  };
+
+  const createGroup = async () => {
+    if (!groupName.trim() || groupMembers.length === 0 || creatingGroup) return;
+    setCreatingGroup(true);
+
+    let schoolId = profile.schoolId;
+    if (!schoolId) {
+      const { data: s } = await supabase.from("schools").select("id").limit(1).single();
+      schoolId = s?.id;
+    }
+    if (!schoolId) { setCreatingGroup(false); return; }
+
+    const { data: convo, error } = await supabase.from("conversations")
+      .insert({ school_id: schoolId, type: "group", title: groupName.trim(), created_by: profile.id, is_accepted: true })
+      .select("id").single();
+    if (error || !convo) {
+      toast({ title: "שגיאה ביצירת קבוצה", description: error?.message, variant: "destructive" });
+      setCreatingGroup(false);
+      return;
+    }
+
+    const { error: partErr } = await supabase.from("conversation_participants").insert([
+      { conversation_id: convo.id, user_id: profile.id },
+      ...groupMembers.map((m) => ({ conversation_id: convo.id, user_id: m.user_id })),
+    ]);
+    if (partErr) {
+      toast({ title: "שגיאה בהוספת חברים לקבוצה", description: partErr.message, variant: "destructive" });
+      setCreatingGroup(false);
+      return;
+    }
+
+    await loadConversations();
+    selectConvo(convo.id);
+    setShowNewGroup(false);
+    resetGroupDialog();
+    setCreatingGroup(false);
+    toast({ title: "✅ הקבוצה נוצרה" });
+  };
+
   /* ── Send message ─────────────────────────────────────── */
   const sendMessage = async () => {
     if (!input.trim() || !selectedId || sending) return;
@@ -744,6 +849,74 @@ const ChatPage = () => {
     } finally {
       setSending(false);
     }
+  };
+
+  /* ── Schedule message for later ───────────────────────── */
+  const scheduleMessage = async () => {
+    if (!input.trim() || !selectedId || !scheduleAt || scheduling) return;
+    const sendAtDate = new Date(scheduleAt);
+    if (isNaN(sendAtDate.getTime()) || sendAtDate.getTime() <= Date.now()) {
+      toast({ title: "יש לבחור זמן עתידי", variant: "destructive" });
+      return;
+    }
+
+    setScheduling(true);
+    const content = input.trim();
+
+    try {
+      // Same moderation gate as an immediate send - a plpgsql function can't
+      // call the chat-moderate edge function, so this has to happen now,
+      // at schedule time, with the result stored for delivery time.
+      const { data: modResult } = await supabase.functions.invoke("chat-moderate", {
+        body: {
+          message: content,
+          sender_name: profile.fullName,
+          sender_id: profile.id,
+          conversation_id: selectedId,
+        },
+      });
+      const mr = modResult as {
+        blocked?: boolean; block_reason?: string | null;
+        flag?: boolean; flag_reason?: string | null;
+        safe?: boolean; reason?: string | null;
+      } | null;
+      const blocked = mr?.blocked === true;
+      if (blocked) {
+        toast({
+          title: "לא ניתן לתזמן",
+          description: mr?.block_reason || "ההודעה שכתבת לא עומדת בסטנדרט הקהילה שלנו. נסה/י לנסח מחדש בנימוס ובכבוד.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const legacyUnsafe = Boolean(mr && mr.blocked !== true && mr.safe === false);
+      const flagged = mr?.flag === true || legacyUnsafe;
+      const flagReason = mr?.flag_reason || mr?.reason || null;
+
+      const { data, error } = await supabase.from("scheduled_chat_messages")
+        .insert({
+          conversation_id: selectedId, sender_id: profile.id, content,
+          send_at: sendAtDate.toISOString(), is_flagged: flagged, flag_reason: flagged ? flagReason : null,
+        })
+        .select("id, content, send_at").single();
+      if (error || !data) throw error;
+
+      setScheduledMessages((prev) => [...prev, data].sort((a, b) => a.send_at.localeCompare(b.send_at)));
+      setInput("");
+      setScheduleOpen(false);
+      setScheduleAt("");
+      toast({ title: "⏰ ההודעה תוזמנה", description: `תישלח ב-${sendAtDate.toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" })}` });
+    } catch (err: any) {
+      toast({ title: "שגיאה בתזמון ההודעה", description: err?.message, variant: "destructive" });
+    } finally {
+      setScheduling(false);
+    }
+  };
+
+  const cancelScheduledMessage = async (id: string) => {
+    setScheduledMessages((prev) => prev.filter((m) => m.id !== id));
+    const { error } = await supabase.from("scheduled_chat_messages").delete().eq("id", id);
+    if (error) toast({ title: "שגיאה בביטול התזמון", description: error.message, variant: "destructive" });
   };
 
   const selectConvo = (id: string) => {

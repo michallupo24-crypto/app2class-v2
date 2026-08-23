@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { fetchFileFromUrl, extractDocumentText, isExtractableDocument, isImageFile } from "@/lib/fileExtraction";
 import { requestImageOcr } from "@/lib/fileOcr";
+import MisconceptionInsights from "@/components/task-studio/MisconceptionInsights";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   LineChart, Line, ReferenceLine,
@@ -608,6 +609,8 @@ const TeacherGradesPage = () => {
                 </div>
               </>
             )}
+
+            {selectedAssignment && <MisconceptionInsights assignmentId={selectedAssignment} />}
           </TabsContent>
         </Tabs>
       </motion.div>

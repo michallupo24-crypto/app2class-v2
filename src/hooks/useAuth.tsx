@@ -34,23 +34,25 @@ export const useAuth = () => {
       supabase.from("avatars").select("*").eq("user_id", user.id).single(),
     ]);
 
-    // GRACEFUL DEGRADATION: Do not kick the user out if profile fetch is blocked.
-    // Give them a valid profile using user auth metadata so the app can remain functional.
     if (!profileRes.data && profileRes.error) {
       console.error("Profile fetch error:", profileRes.error);
     }
 
     const roles = (rolesRes.data || []).map((r: any) => r.role);
-    
-    // Construct identity variables, defaulting to auth instance payload if SQL fails
+
+    // profiles' own-row SELECT policy is `auth.uid() = id`, always allowed - a
+    // missing profileRes.data here means the row genuinely doesn't exist yet
+    // (e.g. a signup race) or fetch errored, never "access denied". Fail
+    // closed (unapproved, no roles) rather than fabricating an approved
+    // parent identity, which previously gave full parent-dashboard access to
+    // anyone caught in that state.
     const fullName = profileRes.data?.full_name || user.user_metadata?.full_name || "משתמש אנונימי";
     const userEmail = profileRes.data?.email || user.email || "";
-    const isApproved = profileRes.data ? profileRes.data.is_approved : true;
+    const isApproved = profileRes.data ? profileRes.data.is_approved : false;
     const schoolId = profileRes.data?.school_id || null;
     const schoolName = profileRes.data ? (profileRes.data as any).schools?.name : null;
-    
-    // Fallback roles for emergency access to avoid blank dashboards
-    const validRoles = roles.length > 0 ? roles : ["parent"];
+
+    const validRoles = profileRes.data ? roles : [];
 
     // Count pending approvals — single query with IN filter
     let pendingCount = 0;
@@ -126,6 +128,14 @@ export const useAuth = () => {
         p_category: "onboarding",
       });
     } catch { /* gamification is best-effort */ }
+
+    // No cron infra for scheduled_chat_messages delivery - flush whichever of
+    // the user's own scheduled messages are due, opportunistically, on every
+    // auth refresh (i.e. whenever they're active anywhere in the dashboard),
+    // not just while ChatPage happens to be open.
+    try {
+      await supabase.rpc("process_due_scheduled_messages");
+    } catch { /* best-effort */ }
 
     setLoading(false);
   };

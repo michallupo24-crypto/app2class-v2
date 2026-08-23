@@ -189,12 +189,13 @@ const StudentLiveLessonPage = () => {
         return;
       }
 
-      await supabase.from("live_questions").insert({
+      const { error } = await supabase.from("live_questions").insert({
         session_id: session.id,
         student_id: profile.id,
         content: questionText.trim(),
         is_anonymous: isAnonymous,
       });
+      if (error) throw error;
 
       setSentQuestions(prev => [...prev, questionText.trim()]);
       setQuestionText("");
@@ -210,14 +211,17 @@ const StudentLiveLessonPage = () => {
   const answerPoll = async (pollId: string, optionIdx: number) => {
     if (myPollResponses[pollId] !== undefined) return; // already answered
     try {
-      await supabase.from("live_poll_responses").insert({
+      const { error } = await supabase.from("live_poll_responses").insert({
         poll_id: pollId,
         student_id: profile.id,
         selected_option: optionIdx,
       });
+      if (error) throw error;
       setMyPollResponses(prev => ({ ...prev, [pollId]: optionIdx }));
       toast({ title: "תגובתך נשלחה! 📊" });
-    } catch { /* best effort */ }
+    } catch (e: any) {
+      toast({ title: "שגיאה", description: e.message, variant: "destructive" });
+    }
   };
 
   if (loading) return (

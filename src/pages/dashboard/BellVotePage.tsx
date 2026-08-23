@@ -107,7 +107,8 @@ const BellVotePage = () => {
   };
 
   const removeSuggestion = async (id: string) => {
-    await (supabase as any).from("bell_song_suggestions").update({ is_active: false }).eq("id", id);
+    const { error } = await (supabase as any).from("bell_song_suggestions").update({ is_active: false }).eq("id", id);
+    if (error) return toast({ title: "שגיאה", description: error.message, variant: "destructive" });
     load();
   };
 

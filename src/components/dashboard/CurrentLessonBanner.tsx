@@ -114,28 +114,18 @@ const CurrentLessonBanner = ({ profile }: CurrentLessonBannerProps) => {
     load();
   }, [profile.id, profile.schoolId, profile.roles]);
 
-  // Pick correct slot based on student tracks (same logic as WeeklyTimetable)
+  // Pick correct slot based on student tracks (same logic as WeeklyTimetable).
+  // group_name is always the plain option/level subject string (see
+  // tryPlaceTrackBlock in timetableGenerator.ts) - there's no "א:"/"ב:"
+  // cluster prefix on it, so match on track_name alone.
   const pickSlot = useCallback(
     (candidates: TimetableSlot[]): TimetableSlot | undefined => {
       if (candidates.length === 0) return undefined;
       if (studentTracks.length > 0) {
-        for (const slot of candidates) {
-          if (!slot.group_name) continue;
-          const colonIdx = slot.group_name.indexOf(":");
-          if (colonIdx === -1) continue;
-          const prefix = slot.group_name.substring(0, colonIdx);
-          const name = slot.group_name.substring(colonIdx + 1);
-          const trackType =
-            prefix === "א" ? "megama_a" : prefix === "ב" ? "megama_b" : null;
-          if (
-            trackType &&
-            studentTracks.some(
-              (t) => t.track_type === trackType && t.track_name === name
-            )
-          ) {
-            return slot;
-          }
-        }
+        const match = candidates.find(
+          (slot) => slot.group_name && studentTracks.some((t) => t.track_name === slot.group_name)
+        );
+        if (match) return match;
       }
       return candidates.find((s) => !s.group_name);
     },

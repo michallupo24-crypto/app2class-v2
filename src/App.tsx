@@ -63,6 +63,7 @@ import SupportPage from "./pages/dashboard/SupportPage";
 import FinanceHubPage from "./pages/dashboard/FinanceHubPage";
 import ExamArchivePage from "./pages/dashboard/ExamArchivePage";
 import MyClassesPage from "./pages/dashboard/MyClassesPage";
+import TimetableBuilderPage from "./pages/dashboard/TimetableBuilderPage";
 
 const queryClient = new QueryClient();
 
@@ -125,6 +126,7 @@ const App = () => (
             <Route path="exam-archive" element={<ExamArchivePage />} />
             {/* Grade Coordinator routes */}
             <Route path="grade-coordinator-home" element={<GradeCoordinatorDashboard />} />
+            <Route path="timetable-builder" element={<TimetableBuilderPage />} />
             <Route path="master-scheduler" element={<MasterSchedulerPage />} />
             <Route path="grade-progress" element={<GradeProgressPage />} />
             <Route path="tutoring" element={<TutoringManagementPage />} />

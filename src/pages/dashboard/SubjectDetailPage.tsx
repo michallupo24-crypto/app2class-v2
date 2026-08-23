@@ -179,14 +179,16 @@ const SubjectDetailPage = () => {
         (classStudents || []).forEach((s: any) => memberIds.add(s.id));
         (teacherRows || []).forEach((t: any) => memberIds.add(t.teacher_id));
 
-        await supabase.from("conversation_participants").insert(
+        const { error: participantsError } = await supabase.from("conversation_participants").insert(
           Array.from(memberIds).map((user_id) => ({ conversation_id: convoId, user_id }))
         );
+        if (participantsError) throw participantsError;
       } else {
         // Self-join in case this group already existed before I was in this
         // class/before this subject had a teacher assigned yet.
-        await supabase.from("conversation_participants")
+        const { error: joinError } = await supabase.from("conversation_participants")
           .upsert({ conversation_id: convoId, user_id: profile.id }, { onConflict: "conversation_id,user_id" });
+        if (joinError) throw joinError;
       }
 
       navigate("/dashboard/chat", { state: { targetConversationId: convoId } });

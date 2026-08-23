@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import RegistrationLayout from "@/components/registration/RegistrationLayout";
 import EmailInput from "@/components/registration/EmailInput";
 import AvatarStudio, { defaultAvatarConfig, type AvatarConfig } from "@/components/avatar/AvatarStudio";
-import TrackSelector, { type TrackSelection } from "@/components/registration/TrackSelector";
+import TrackSelector, { type TrackSelection, EMPTY_TRACK_SELECTION } from "@/components/registration/TrackSelector";
 import { GRADES } from "@/lib/constants";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -31,7 +31,7 @@ const StudentRegistration = () => {
   const [dateOfBirth, setDateOfBirth] = useState("");
 
   // Step 2 - tracks
-  const [tracks, setTracks] = useState<TrackSelection>({ megama_a: null, megama_b: null, hakbatzot: [] });
+  const [tracks, setTracks] = useState<TrackSelection>(EMPTY_TRACK_SELECTION);
 
   // Step 3
   const [avatar, setAvatar] = useState<AvatarConfig>(defaultAvatarConfig);
@@ -83,7 +83,7 @@ const StudentRegistration = () => {
       const userId = authData.user.id;
 
       // Update profile (including date_of_birth)
-      await supabase.from("profiles").update({
+      const { error: profileError } = await supabase.from("profiles").update({
         full_name: fullName,
         phone: null,
         id_number: idNumber,
@@ -91,15 +91,17 @@ const StudentRegistration = () => {
         class_id: classData.id,
         date_of_birth: dateOfBirth || null,
       } as any).eq("id", userId);
+      if (profileError) throw profileError;
 
       // Add student role
-      await supabase.from("user_roles").insert({
+      const { error: roleError } = await supabase.from("user_roles").insert({
         user_id: userId,
         role: "student" as any,
       });
+      if (roleError) throw roleError;
 
       // Save avatar
-      await supabase.from("avatars").insert({
+      const { error: avatarError } = await supabase.from("avatars").insert({
         user_id: userId,
         face_shape: avatar.body_type || "basic",
         skin_color: avatar.skin || "#FDDBB4",
@@ -114,29 +116,37 @@ const StudentRegistration = () => {
         expression: avatar.expression || "happy",
         background: avatar.background || "#E0F2FE",
       });
+      if (avatarError) throw avatarError;
 
       // Save tracks
-      const trackRows: any[] = [];
-      if (tracks.megama_a) trackRows.push({ user_id: userId, school_id: schoolId, track_type: "megama_a", track_name: tracks.megama_a, approved: false });
-      if (tracks.megama_b) trackRows.push({ user_id: userId, school_id: schoolId, track_type: "megama_b", track_name: tracks.megama_b, approved: false });
-      for (const h of tracks.hakbatzot) {
-        trackRows.push({ user_id: userId, school_id: schoolId, track_type: "hakbatza", track_name: h.subject, level: h.level, approved: false });
-      }
+      const trackRows: any[] = [
+        ...tracks.megamot.map(m => ({
+          user_id: userId, school_id: schoolId, track_type: "megama",
+          cluster_name: m.clusterName, track_name: m.subject, approved: false,
+        })),
+        ...tracks.hakbatzot.map(h => ({
+          user_id: userId, school_id: schoolId, track_type: "hakbatza",
+          base_subject: h.baseSubject, track_name: h.subject, approved: false,
+        })),
+      ];
       if (trackRows.length > 0) {
-        await supabase.from("student_tracks").insert(trackRows);
+        const { error: tracksError } = await supabase.from("student_tracks").insert(trackRows);
+        if (tracksError) throw tracksError;
       }
 
       // Create approval request
-      const megamotParts = [tracks.megama_a, tracks.megama_b].filter(Boolean);
-      const tracksSummary = megamotParts.length > 0 ? ` | מגמות: ${megamotParts.join(", ")}` : "";
-      const hakbatzotSummary = tracks.hakbatzot.length > 0
-        ? ` | הקבצות: ${tracks.hakbatzot.map(h => `${h.subject} ${h.level}`).join(", ")}`
+      const tracksSummary = tracks.megamot.length > 0
+        ? ` | מגמות: ${tracks.megamot.map(m => m.subject).join(", ")}`
         : "";
-      await supabase.from("approvals").insert({
+      const hakbatzotSummary = tracks.hakbatzot.length > 0
+        ? ` | הקבצות: ${tracks.hakbatzot.map(h => h.subject).join(", ")}`
+        : "";
+      const { error: approvalError } = await supabase.from("approvals").insert({
         user_id: userId,
         required_role: "educator" as any,
         notes: `תלמיד/ה חדש/ה: ${fullName}${tracksSummary}${hakbatzotSummary}`,
       });
+      if (approvalError) throw approvalError;
 
       // Sign out since not approved yet
       await supabase.auth.signOut();
@@ -289,7 +299,7 @@ const StudentRegistration = () => {
         <div>
           <h3 className="text-xl font-heading font-bold mb-4">הקבצות ומגמות 📋</h3>
           <p className="text-sm text-muted-foreground mb-6">סמן/י את המגמות וההקבצות שלך</p>
-          <TrackSelector grade={grade} value={tracks} onChange={setTracks} />
+          <TrackSelector grade={grade} schoolId={schoolId} value={tracks} onChange={setTracks} />
         </div>
       )}
 

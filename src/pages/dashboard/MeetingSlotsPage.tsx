@@ -154,8 +154,9 @@ const MeetingSlotsPage = () => {
 
   const deleteSlot = async (id: string) => {
     setProcessingId(id);
-    await supabase.from("meeting_slots").delete().eq("id", id);
-    setSlots((prev) => prev.filter((s) => s.id !== id));
+    const { error } = await supabase.from("meeting_slots").delete().eq("id", id);
+    if (error) toast({ title: "שגיאה", description: error.message, variant: "destructive" });
+    else setSlots((prev) => prev.filter((s) => s.id !== id));
     setProcessingId(null);
   };
 

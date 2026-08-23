@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { supabase } from "@/integrations/supabase/client";
 import type { UserProfile } from "@/hooks/useAuth";
 import { HEBREW_DAYS } from "@/lib/constants";
+import { useSchoolDays } from "@/hooks/useSchoolDays";
 
 interface TimetableSlot {
   id: string;
@@ -34,13 +35,12 @@ interface StudentTrack {
   track_name: string;
 }
 
-const SCHOOL_DAYS = [0, 1, 2, 3, 4];
-
 interface DailyTimetableProps {
   profile: UserProfile;
 }
 
 const DailyTimetable = ({ profile }: DailyTimetableProps) => {
+  const SCHOOL_DAYS = useSchoolDays(profile.schoolId);
   const [slots, setSlots] = useState<TimetableSlot[]>([]);
   const [bell, setBell] = useState<BellSlot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +52,11 @@ const DailyTimetable = ({ profile }: DailyTimetableProps) => {
     const d = new Date().getDay();
     return d >= 0 && d <= 4 ? d : 0;
   });
+
+  useEffect(() => {
+    if (!SCHOOL_DAYS.includes(currentDay)) setCurrentDay(SCHOOL_DAYS[0] ?? 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [SCHOOL_DAYS.join(",")]);
 
   const isStudent = profile.roles.includes("student");
   const isParent = profile.roles.includes("parent");
@@ -187,30 +192,25 @@ const DailyTimetable = ({ profile }: DailyTimetableProps) => {
 
   const pickSlot = useCallback((candidates: TimetableSlot[]): TimetableSlot | undefined => {
     if (candidates.length === 0) return undefined;
+    // A track/מגמה or הקבצה block has multiple rows at this slot (one per
+    // option/level), distinguished by group_name = the option's subject
+    // name (see tryPlaceTrackBlock in timetableGenerator.ts, which sets
+    // group_name to that same string regardless of track_type). Match on
+    // track_name alone rather than also requiring a specific track_type -
+    // track_type varies ('megama', 'megama_a', 'megama_b', 'hakbatza') but
+    // track_name is always the compound subject/level string that equals
+    // group_name, so filtering on an exact type here only ever excluded
+    // real matches instead of narrowing anything.
     if (studentTracks.length > 0) {
-      for (const slot of candidates) {
-        if (!slot.group_name) continue;
-        const colonIdx = slot.group_name.indexOf(':');
-        if (colonIdx === -1) continue;
-        const prefix = slot.group_name.substring(0, colonIdx);
-        const name = slot.group_name.substring(colonIdx + 1);
-        const trackType = prefix === 'א' ? 'megama_a' : prefix === 'ב' ? 'megama_b' : null;
-        if (trackType && studentTracks.some(t => t.track_type === trackType && t.track_name === name)) {
-          return slot;
-        }
-      }
+      const match = candidates.find(slot =>
+        slot.group_name && studentTracks.some(t => t.track_name === slot.group_name)
+      );
+      if (match) return match;
     }
     const ungrouped = candidates.find(s => !s.group_name);
     if (ungrouped) return ungrouped;
     if ((isAdmin || isCoordinator || isTeacher) && candidates.length > 0) {
-      const prefix = candidates[0].group_name?.charAt(0);
-      return {
-        ...candidates[0],
-        subject: prefix === 'א' ? "אשכול א'" : prefix === 'ב' ? "אשכול ב'" : "בחירה",
-        group_name: null,
-        teacher_name: null,
-        color: prefix === 'א' ? '#F97316' : '#6366F1',
-      };
+      return { ...candidates[0], subject: "מגמה/בחירה", teacher_name: null, room: null };
     }
     return undefined;
   }, [studentTracks, isAdmin, isCoordinator, isTeacher]);
@@ -234,7 +234,7 @@ const DailyTimetable = ({ profile }: DailyTimetableProps) => {
   const nowTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
   const todayDow = now.getDay();
   const isToday = currentDay === todayDow;
-  const isSchoolDay = todayDow >= 0 && todayDow <= 4;
+  const isSchoolDay = SCHOOL_DAYS.includes(todayDow);
 
   // Compute next break info
   const nextBreakInfo = useMemo(() => {
@@ -291,8 +291,14 @@ const DailyTimetable = ({ profile }: DailyTimetableProps) => {
     );
   };
 
-  const prevDay = () => setCurrentDay(d => d > 0 ? d - 1 : 4);
-  const nextDay = () => setCurrentDay(d => d < 4 ? d + 1 : 0);
+  const prevDay = () => setCurrentDay(d => {
+    const idx = SCHOOL_DAYS.indexOf(d);
+    return SCHOOL_DAYS[idx > 0 ? idx - 1 : SCHOOL_DAYS.length - 1] ?? d;
+  });
+  const nextDay = () => setCurrentDay(d => {
+    const idx = SCHOOL_DAYS.indexOf(d);
+    return SCHOOL_DAYS[idx >= 0 && idx < SCHOOL_DAYS.length - 1 ? idx + 1 : 0] ?? d;
+  });
 
   return (
     <div className="space-y-4">

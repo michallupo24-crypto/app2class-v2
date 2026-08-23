@@ -127,11 +127,12 @@ const SyllabusPlannerPage = () => {
       const cls = classes.find(c => c.id === selectedClass);
       
       // Delete old entries for this school/subject/grade mix
-      await supabase.from("syllabi")
+      const { error: deleteError } = await supabase.from("syllabi")
         .delete()
         .eq("school_id", profile.schoolId)
         .eq("subject", selectedSubject)
         .eq("grade", cls?.grade as any);
+      if (deleteError) throw deleteError;
 
       // Insert new ones
       const toInsert = topics.map((t, i) => ({
@@ -144,8 +145,18 @@ const SyllabusPlannerPage = () => {
         order_index: i
       }));
 
-      const { error } = await supabase.from("syllabi").insert(toInsert);
-      if (error) throw error;
+      const { error: insertError } = await supabase.from("syllabi").insert(toInsert);
+      if (insertError) {
+        // The old syllabus rows were already deleted above, so a failure
+        // here leaves the subject/grade with no syllabus at all — make
+        // sure the user knows it wasn't just left as-is.
+        toast({
+          title: "שגיאה בשמירה — הסילבוס הישן נמחק ולא הוחלף",
+          description: `${insertError.message}. נסה/י לשמור שוב.`,
+          variant: "destructive",
+        });
+        return;
+      }
 
       toast({ title: "הסילבוס נשמר בהצלחה! 💾", description: "כל המורים המלמדים מקצוע זה יוכלו לצפות בתכנון עכשיו." });
     } catch (e: any) {

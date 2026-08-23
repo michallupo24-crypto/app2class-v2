@@ -162,7 +162,7 @@ const SeatingMapPage = () => {
           >
             <LessonControls
               isSpeaking={ss.isSpeaking}
-              onAutoScan={()=>{}}
+              onAutoScan={ss.autoScan}
               onStop={ss.stopSpeaking}
               onResetAttendance={ss.resetAttendance}
               studentCount={ss.students.length}
@@ -191,12 +191,9 @@ const SeatingMapPage = () => {
             unseated={ss.unseatedStudents}
             mode={ss.mode}
             highlightedId={ss.highlightedId}
-            onAdd={()=>{}}
-            onRemove={()=>{}}
             onHighlight={ss.setHighlightedId}
-            onSpeak={()=>{}}
+            onSpeak={ss.speakStudent}
             onCycleAttendance={ss.cycleAttendance}
-            onImport={()=>{}}
             onUnassign={ss.unassignSeat}
         />
       </div>

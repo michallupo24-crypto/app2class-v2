@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Student, ClassroomConfig, AppMode, AttendanceStatus } from '@/types/smartseat';
 
@@ -159,6 +159,7 @@ export function useSmartSeat(classId?: string, lessonId?: string) {
     };
 
     const [isSpeaking, setIsSpeaking] = useState(false);
+    const autoScanCancelledRef = useRef(false);
 
     const speakStudent = (student: Student) => {
         if (!student.name) return;
@@ -166,6 +167,32 @@ export function useSmartSeat(classId?: string, lessonId?: string) {
         const utterance = new SpeechSynthesisUtterance(student.name);
         utterance.onend = () => setIsSpeaking(false);
         window.speechSynthesis.speak(utterance);
+    };
+
+    const speakStudentAsync = (student: Student) => new Promise<void>((resolve) => {
+        if (!student.name) { resolve(); return; }
+        const utterance = new SpeechSynthesisUtterance(student.name);
+        utterance.onend = () => resolve();
+        utterance.onerror = () => resolve();
+        window.speechSynthesis.speak(utterance);
+    });
+
+    const autoScan = async () => {
+        autoScanCancelledRef.current = false;
+        setIsSpeaking(true);
+        for (const student of students) {
+            if (autoScanCancelledRef.current) break;
+            await speakStudentAsync(student);
+            if (autoScanCancelledRef.current) break;
+            await new Promise((r) => setTimeout(r, 600));
+        }
+        setIsSpeaking(false);
+    };
+
+    const stopAutoScan = () => {
+        autoScanCancelledRef.current = true;
+        window.speechSynthesis.cancel();
+        setIsSpeaking(false);
     };
 
     return {
@@ -179,8 +206,9 @@ export function useSmartSeat(classId?: string, lessonId?: string) {
         highlightedId,
         setHighlightedId,
         isSpeaking,
-        stopSpeaking: () => window.speechSynthesis.cancel(),
+        stopSpeaking: stopAutoScan,
         speakStudent,
+        autoScan,
         assignSeat,
         unassignSeat: (id: string) => assignSeat(id, -1, -1),
         cycleAttendance,

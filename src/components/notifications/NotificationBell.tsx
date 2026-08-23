@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, CheckCheck } from "lucide-react";
+import {
+  Bell, CheckCheck, AlertTriangle, CalendarCheck, MessageCircle, ClipboardList,
+  GraduationCap, Video, Megaphone, ShieldAlert, FileWarning, Clock, UserCheck,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -20,11 +24,45 @@ interface NotificationRow {
   created_at: string;
 }
 
+const TYPE_ICONS: Record<string, LucideIcon> = {
+  emergency_announcement: AlertTriangle,
+  attendance_red_line: ShieldAlert,
+  approval_decided: CheckCheck,
+  grade_event_approved: CalendarCheck,
+  grade_announcement: Megaphone,
+  class_announcement: Megaphone,
+  meeting_booked: CalendarCheck,
+  meeting_cancelled: CalendarCheck,
+  absence_justification_decided: CheckCheck,
+  new_message: MessageCircle,
+  assignment_published: ClipboardList,
+  submission_graded: GraduationCap,
+  submission_reminder: Clock,
+  missing_exam_material: FileWarning,
+  counselor_referral: UserCheck,
+  live_lesson_started: Video,
+};
+
+const NotificationIcon = ({ type }: { type: string }) => {
+  const Icon = TYPE_ICONS[type] || Bell;
+  return <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />;
+};
+
 const NotificationBell = ({ userId }: { userId: string }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const loadUnreadCount = async () => {
+    const { count } = await supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("is_read", false);
+    setUnreadCount(count || 0);
+  };
 
   const load = async () => {
     const { data } = await supabase
@@ -34,6 +72,7 @@ const NotificationBell = ({ userId }: { userId: string }) => {
       .order("created_at", { ascending: false })
       .limit(30);
     setNotifications(data || []);
+    loadUnreadCount();
   };
 
   useEffect(() => {
@@ -43,20 +82,35 @@ const NotificationBell = ({ userId }: { userId: string }) => {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
-        (payload) => setNotifications((prev) => [payload.new as NotificationRow, ...prev])
+        (payload) => {
+          setNotifications((prev) => [payload.new as NotificationRow, ...prev]);
+          setUnreadCount((prev) => prev + 1);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+        (payload) => {
+          // Keeps the bell in sync when something read outside the bell itself
+          // (e.g. opening the relevant conversation in ChatPage) marks a
+          // notification read server-side.
+          const updated = payload.new as NotificationRow;
+          setNotifications((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
+          loadUnreadCount();
+        }
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [userId]);
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
-
   const markRead = async (n: NotificationRow) => {
     if (!n.is_read) {
       setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)));
+      setUnreadCount((prev) => Math.max(0, prev - 1));
       const { error } = await supabase.from("notifications").update({ is_read: true }).eq("id", n.id);
       if (error) {
         setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, is_read: false } : x)));
+        setUnreadCount((prev) => prev + 1);
         toast({ title: "שגיאה בסימון ההתראה כנקראה", variant: "destructive" });
       }
     }
@@ -68,11 +122,12 @@ const NotificationBell = ({ userId }: { userId: string }) => {
 
   const markAllRead = async () => {
     const unreadIds = notifications.filter((n) => !n.is_read).map((n) => n.id);
-    if (unreadIds.length === 0) return;
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    const { error } = await supabase.from("notifications").update({ is_read: true }).in("id", unreadIds);
+    setUnreadCount(0);
+    const { error } = await supabase.from("notifications").update({ is_read: true }).eq("user_id", userId).eq("is_read", false);
     if (error) {
       setNotifications((prev) => prev.map((n) => (unreadIds.includes(n.id) ? { ...n, is_read: false } : n)));
+      loadUnreadCount();
       toast({ title: "שגיאה בסימון ההתראות כנקראו", variant: "destructive" });
     }
   };
@@ -112,6 +167,7 @@ const NotificationBell = ({ userId }: { userId: string }) => {
                 >
                   <div className="flex items-start gap-2">
                     {!n.is_read && <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />}
+                    <NotificationIcon type={n.type} />
                     <div className="min-w-0">
                       <p className="font-medium leading-tight">{n.title}</p>
                       {n.body && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>}

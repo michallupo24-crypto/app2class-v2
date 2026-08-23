@@ -60,7 +60,8 @@ const ParentDashboardPage = () => {
 
       if (convos?.length) {
         const participants = convos.map(c => ({ conversation_id: c.id, user_id: profile.id }));
-        await supabase.from("conversation_participants").upsert(participants, { onConflict: 'conversation_id,user_id' });
+        const { error } = await supabase.from("conversation_participants").upsert(participants, { onConflict: 'conversation_id,user_id' });
+        if (error) throw error;
       }
     } catch (e) { console.error("Sync error", e); }
   }, [profile.id]);
