@@ -56,7 +56,7 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-background via-muted to-background">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-background">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -67,7 +67,7 @@ const LoginPage = () => {
           <h1 className="text-3xl font-heading font-bold">התחברות</h1>
         </div>
 
-        <Card className="shadow-xl border-border/50">
+        <Card>
           <CardContent className="pt-6">
             <form onSubmit={handleLogin} className="space-y-5">
               <div className="space-y-2">
@@ -108,6 +108,14 @@ const LoginPage = () => {
                 <LogIn className="w-5 h-5" />
                 {loading ? "מתחבר..." : "התחבר"}
               </Button>
+
+              <button
+                type="button"
+                onClick={() => navigate("/forgot-password")}
+                className="w-full text-center text-sm text-muted-foreground hover:text-foreground font-body underline underline-offset-2"
+              >
+                שכחת/י סיסמה?
+              </button>
             </form>
           </CardContent>
         </Card>

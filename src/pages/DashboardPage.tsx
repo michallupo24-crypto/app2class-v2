@@ -78,7 +78,7 @@ const DashboardPage = () => {
       }
     }
 
-    toast({ title: approved ? "המשתמש אושר ✅" : "המשתמש נדחה ❌" });
+    toast({ title: approved ? "המשתמש אושר" : "המשתמש נדחה" });
     loadData();
   };
 
@@ -104,14 +104,14 @@ const DashboardPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background p-4 md:p-8">
+    <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             {avatar && <AvatarPreview config={avatar} size={64} />}
             <div>
-              <h1 className="text-2xl font-heading font-bold">שלום, {profile?.full_name} 👋</h1>
+              <h1 className="text-2xl font-heading font-bold">שלום, {profile?.full_name}</h1>
               <div className="flex gap-2 mt-1">
                 {roles.map((r) => (
                   <span key={r.id} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-heading">
@@ -175,7 +175,7 @@ const DashboardPage = () => {
           <CardContent className="space-y-2">
             <p><span className="text-muted-foreground">בית ספר:</span> {(profile as any)?.schools?.name || "—"}</p>
             <p><span className="text-muted-foreground">אימייל:</span> {profile?.email}</p>
-            <p><span className="text-muted-foreground">סטטוס:</span> {profile?.is_approved ? "✅ מאושר" : "⏳ ממתין לאישור"}</p>
+            <p><span className="text-muted-foreground">סטטוס:</span> {profile?.is_approved ? "מאושר" : "ממתין לאישור"}</p>
           </CardContent>
         </Card>
       </div>

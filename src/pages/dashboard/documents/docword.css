@@ -1,0 +1,191 @@
+/* DocWord Hybrid editor - scoped styles, imported only by DocumentsPage.
+   Ported from the original standalone app's index.css, minus the
+   `@import "tailwindcss"` (App2Class already loads Tailwind globally). */
+
+@media print {
+  .docword-root header, .docword-root nav, .docword-root footer, .docword-root aside,
+  .docword-root .select-none, .docword-root button, .docword-root input, .docword-root select,
+  .docword-root .no-print {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+  .docword-root .prose {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
+
+.docword-root ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.docword-root ::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+.docword-root ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+.docword-root ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+[contenteditable="true"] table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  border: 1px solid #cbd5e1;
+}
+
+[contenteditable="true"] table th,
+[contenteditable="true"] table td {
+  border: 1px solid #cbd5e1;
+  padding: 8px 12px;
+  min-width: 60px;
+  min-height: 32px;
+}
+
+[contenteditable="true"] table tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+
+.spell-error,
+[data-spell-word] {
+  text-decoration: underline wavy #dc2626 !important;
+  -webkit-text-decoration: underline wavy #dc2626 !important;
+  text-decoration-thickness: 2px !important;
+  text-underline-offset: 4px !important;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  border-radius: 2px;
+}
+
+.spell-error:hover,
+[data-spell-word]:hover {
+  background-color: rgba(254, 226, 226, 0.7) !important;
+}
+
+.spell-error.active-spell-target,
+[data-spell-word].active-spell-target {
+  background-color: #fee2e2 !important;
+  outline: 2px solid #dc2626 !important;
+  outline-offset: 2px;
+}
+
+.docword-page-break {
+  display: block;
+  position: relative;
+  width: calc(100% + 50mm);
+  margin-left: -25mm;
+  margin-right: -25mm;
+  margin-top: 2.5rem;
+  margin-bottom: 2.5rem;
+  user-select: none;
+  cursor: default;
+  background: transparent;
+  page-break-before: always;
+  break-before: page;
+}
+
+.docword-page-footer-prev {
+  background-color: #ffffff;
+  padding: 12px 25mm;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: #64748b;
+  font-family: inherit;
+  box-shadow: 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+}
+
+.docword-page-gap {
+  height: 36px;
+  background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%);
+  border-top: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+  box-shadow: inset 0 4px 8px -2px rgba(0, 0, 0, 0.08), inset 0 -4px 8px -2px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.docword-page-gap-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #334155;
+  background: #ffffff;
+  border: 1px solid #94a3b8;
+  padding: 3px 14px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  transition: all 0.15s ease;
+}
+
+.docword-page-gap:hover .docword-page-gap-label {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #3b82f6;
+  transform: scale(1.03);
+}
+
+.docword-page-header-next {
+  background-color: #ffffff;
+  padding: 12px 25mm;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: #64748b;
+  font-family: inherit;
+  box-shadow: 0 -4px 6px -2px rgba(0, 0, 0, 0.04);
+}
+
+.docword-page-num-badge {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+@media print {
+  .docword-page-break {
+    page-break-before: always !important;
+    break-before: page !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 0 !important;
+    width: 100% !important;
+    border: none !important;
+    background: transparent !important;
+  }
+  .docword-page-footer-prev,
+  .docword-page-gap,
+  .docword-page-header-next {
+    display: none !important;
+  }
+}

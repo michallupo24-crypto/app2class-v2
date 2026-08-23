@@ -344,21 +344,13 @@ ${birthdayText}
       {/* Birthday Banner */}
       {isBirthday && (
         <motion.div variants={item}>
-          <Card className="border-secondary/30 bg-gradient-to-r from-secondary/10 via-primary/5 to-accent/10 overflow-hidden relative">
+          <Card className="border-secondary/30 bg-secondary/10">
             <CardContent className="py-5 flex items-center gap-4">
-              <motion.div
-                animate={{ scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              >
-                <Cake className="h-10 w-10 text-secondary" />
-              </motion.div>
+              <Cake className="h-10 w-10 text-secondary shrink-0" />
               <div>
-                <h2 className="text-xl font-heading font-bold">יום הולדת שמח! 🎂🎈🎉</h2>
+                <h2 className="text-xl font-heading font-bold">יום הולדת שמח!</h2>
                 <p className="text-sm text-muted-foreground font-body">כל הכבוד שהגעת לעוד שנה! מאחלים לך שנה מלאה בהצלחות!</p>
               </div>
-              <div className="absolute -top-2 -left-2 text-4xl animate-bounce">🎈</div>
-              <div className="absolute -bottom-1 left-8 text-3xl animate-bounce" style={{ animationDelay: "0.3s" }}>🎈</div>
-              <div className="absolute top-1 left-20 text-2xl animate-bounce" style={{ animationDelay: "0.6s" }}>🎈</div>
             </CardContent>
           </Card>
         </motion.div>
@@ -368,7 +360,7 @@ ${birthdayText}
       <motion.div variants={item} className="flex items-center gap-4">
         {profile.avatar && <AvatarPreview config={profile.avatar} size={72} />}
         <div>
-          <h1 className="text-2xl md:text-3xl font-heading font-bold">שלום, {profile.fullName} 👋</h1>
+          <h1 className="text-2xl md:text-3xl font-heading font-bold">שלום, {profile.fullName}</h1>
           {profile.schoolName && (
             <p className="text-sm text-muted-foreground font-body mt-0.5">{profile.schoolName}</p>
           )}
@@ -390,13 +382,13 @@ ${birthdayText}
           {/* AI Insight */}
           {(aiLoading || aiInsight) && (
             <motion.div variants={item}>
-              <Card className="border-primary/20 bg-primary/5 shadow-inner">
+              <Card className="border-primary/20 bg-primary/5">
                 <CardContent className="py-4 flex items-start gap-4">
-                  <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                      <Brain className="h-5 w-5 text-primary shrink-0" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-heading font-black text-sm text-primary mb-1 uppercase tracking-tighter">תובנת מנטור לשבוע 🎯</p>
+                    <p className="font-heading font-black text-sm text-primary mb-1 uppercase tracking-tighter">תובנת מנטור לשבוע</p>
                     {aiLoading ? (
                       <div className="flex items-center gap-2 text-sm text-muted-foreground mr-1">
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -413,9 +405,9 @@ ${birthdayText}
 
           {/* This week events */}
           <motion.div variants={item}>
-            <Card className="border-none shadow-xl bg-white/60 backdrop-blur-md overflow-hidden ring-1 ring-black/[0.03]">
-              <CardHeader className="pb-2 border-b border-slate-50 bg-slate-50/30">
-                <CardTitle className="text-sm font-heading font-black flex items-center gap-2 text-slate-700">
+            <Card className="bg-card border border-border overflow-hidden">
+              <CardHeader className="pb-2 border-b border-border bg-muted/30">
+                <CardTitle className="text-sm font-heading font-black flex items-center gap-2 text-foreground">
                   <Clock className="h-5 w-5 text-primary" />
                   מה קורה השבוע
                 </CardTitle>
@@ -550,9 +542,9 @@ ${birthdayText}
 
       {/* This week events */}
       <motion.div variants={item}>
-        <Card className="border-none shadow-xl bg-white/60 backdrop-blur-md overflow-hidden ring-1 ring-black/[0.03]">
-          <CardHeader className="pb-2 border-b border-slate-50 bg-slate-50/30">
-            <CardTitle className="text-sm font-heading font-black flex items-center gap-2 text-slate-700">
+        <Card className="bg-card border border-border overflow-hidden">
+          <CardHeader className="pb-2 border-b border-border bg-muted/30">
+            <CardTitle className="text-sm font-heading font-black flex items-center gap-2 text-foreground">
               <Clock className="h-5 w-5 text-primary" />
               מה קורה השבוע
               {holidayThisWeek && !activeHoliday && (

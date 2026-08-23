@@ -7,11 +7,43 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Requests per user per hour before this function starts refusing calls.
+const RATE_LIMIT_PER_HOUR = 60;
+
 serve(async (req) => {
   if (req.method === "OPTIONS")
     return new Response(null, { headers: corsHeaders });
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const sb = createClient(supabaseUrl, supabaseKey);
+
+    // ── Authenticate the caller ────────────────────────────────────────────
+    const authHeader = req.headers.get("Authorization") || "";
+    const jwt = authHeader.replace(/^Bearer\s+/i, "");
+    const { data: authData, error: authErr } = await sb.auth.getUser(jwt);
+    const callerId = authData?.user?.id;
+    if (authErr || !callerId) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Basic per-user rate limit ──────────────────────────────────────────
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count: recentCount } = await sb
+      .from("ai_usage_log")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", callerId)
+      .gte("created_at", oneHourAgo);
+    if ((recentCount || 0) >= RATE_LIMIT_PER_HOUR) {
+      return new Response(JSON.stringify({ error: "יותר מדי בקשות, נסה/י שוב בעוד שעה 🕐" }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    await sb.from("ai_usage_log").insert({ user_id: callerId, function_name: "ai-tutor" });
+
     const {
       message,        // primary field sent by task-studio callers & StudentPracticePage
       messages,        // legacy array shape, kept for backward compat
@@ -25,6 +57,24 @@ serve(async (req) => {
       context,         // some callers pass the action name here instead of `action`
       topic,
     } = await req.json();
+
+    // ── Authorize studentId: caller may only request their own data, or
+    // (for the parent_insight flow) data of a student linked to them via
+    // parent_student. Prevents any authenticated user from pulling another
+    // student's grades/profile by passing an arbitrary studentId. ──────────
+    if (studentId && studentId !== callerId) {
+      const { data: link } = await sb
+        .from("parent_student")
+        .select("student_id")
+        .eq("parent_id", callerId)
+        .eq("student_id", studentId)
+        .maybeSingle();
+      if (!link) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     // Real callers send different field combinations (`message` + `context`,
     // or `messages` + `action`) - normalize both onto one shape.
@@ -73,10 +123,6 @@ serve(async (req) => {
     let studentContext = "";
     if (studentId) {
       try {
-        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const sb = createClient(supabaseUrl, supabaseKey);
-
         const { data: profile } = await sb
           .from('profiles')
           .select('full_name, date_of_birth')

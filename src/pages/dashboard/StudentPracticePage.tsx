@@ -293,6 +293,8 @@ const StudentPracticePage = () => {
     if (!interactiveTaskId || !assignmentId) return;
     const pct = Math.round((autoScore / autoTotal) * 100);
     try {
+      // Best-effort - the Task Studio analytics dashboard reads this separately,
+      // so a failure here shouldn't block the gradebook write below.
       await supabase.from("interactive_task_progress").upsert({
         task_id: interactiveTaskId, student_id: profile.id,
         score: autoScore, total: autoTotal, last_active_at: new Date().toISOString(),
@@ -306,16 +308,23 @@ const StudentPracticePage = () => {
       // its own explicit submit step (handleSolveSubmit) - so only the grade
       // value is pre-filled here; status/submitted_at stay untouched (default
       // 'draft' on insert) until the student actually clicks "הגש".
+      // This write is NOT best-effort: a silent failure here would show the
+      // student a false "grade reported" toast while the teacher's gradebook
+      // never receives it, so any error must surface instead of being swallowed.
       const { data: existing } = await supabase.from("submissions")
         .select("id").eq("assignment_id", assignmentId).eq("student_id", profile.id).maybeSingle();
       if (existing) {
-        await supabase.from("submissions").update({ grade: pct }).eq("id", existing.id);
+        const { error } = await supabase.from("submissions").update({ grade: pct }).eq("id", existing.id);
+        if (error) throw error;
       } else {
-        await supabase.from("submissions").insert({ assignment_id: assignmentId, student_id: profile.id, grade: pct });
+        const { error } = await supabase.from("submissions").insert({ assignment_id: assignmentId, student_id: profile.id, grade: pct });
+        if (error) throw error;
       }
 
       toast({ title: "🎯 הקוד שלך דיווח ציון", description: `${autoScore}/${autoTotal}` });
-    } catch { /* best effort */ }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "שגיאה בשמירת הציון", description: e.message || "נסה/י שוב, או פנה/י למורה אם זה חוזר על עצמו." });
+    }
   };
 
   const startPractice = () => {

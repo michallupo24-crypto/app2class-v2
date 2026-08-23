@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import RegistrationLayout from "@/components/registration/RegistrationLayout";
 import EmailInput from "@/components/registration/EmailInput";
@@ -35,6 +36,7 @@ const StudentRegistration = () => {
 
   // Step 3
   const [avatar, setAvatar] = useState<AvatarConfig>(defaultAvatarConfig);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   // Schools list
   const [schools, setSchools] = useState<{ id: string; name: string }[]>([]);
@@ -208,7 +210,7 @@ const StudentRegistration = () => {
       totalSteps={totalSteps}
       onNext={step === totalSteps ? handleSubmit : () => setStep(step + 1)}
       onBack={() => setStep(step - 1)}
-      nextDisabled={step === 1 ? !step1Valid : false}
+      nextDisabled={step === 1 ? !step1Valid : step === totalSteps ? !agreedToTerms : false}
       nextLabel={step === totalSteps ? "סיום רישום" : "המשך"}
       loading={loading}
     >
@@ -308,6 +310,16 @@ const StudentRegistration = () => {
           <h3 className="text-xl font-heading font-bold mb-4">עיצוב הדמות שלך 🎨</h3>
           <p className="text-sm text-muted-foreground mb-6">בחר/י את המראה שלך - תוכל/י לשנות בכל עת!</p>
           <AvatarStudio config={avatar} onChange={setAvatar} variant="student" />
+
+          <div className="flex items-start gap-2 mt-6 p-3 rounded-lg border border-border bg-muted/20">
+            <Checkbox id="agree" checked={agreedToTerms} onCheckedChange={(v) => setAgreedToTerms(!!v)} className="mt-0.5" />
+            <Label htmlFor="agree" className="text-sm font-body font-normal leading-snug cursor-pointer">
+              קראתי ואני מאשר/ת את{" "}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline text-primary">תנאי השימוש</a>
+              {" "}ואת{" "}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline text-primary">מדיניות הפרטיות</a>
+            </Label>
+          </div>
         </div>
       )}
     </RegistrationLayout>

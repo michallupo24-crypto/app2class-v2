@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
   Radio, MessageSquare, Send, Loader2, BookOpen, BarChart3,
-  Eye, EyeOff, Wifi, WifiOff, CheckCircle2, Monitor,
+  Eye, EyeOff, Wifi, WifiOff, CheckCircle2, Monitor, AlertTriangle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { UserProfile } from "@/hooks/useAuth";
@@ -61,6 +61,11 @@ const StudentLiveLessonPage = () => {
   const [isAnonymous, setIsAnonymous] = useState(true);
   const [sendingQ, setSendingQ] = useState(false);
   const [sentQuestions, setSentQuestions] = useState<string[]>([]);
+
+  // Report a technical issue - no form, one click, since the whole point
+  // is reporting fast while the live lesson is still happening.
+  const [reportingIssue, setReportingIssue] = useState(false);
+  const [issueReported, setIssueReported] = useState(false);
 
   const focusLabels = ["🫤 אבוד", "😐 מתקשה", "🙂 בעניין", "😊 מרוכז", "🔥 מעולה"];
   const focusColors = ["bg-destructive", "bg-orange-500", "bg-yellow-500", "bg-primary", "bg-green-500"];
@@ -207,6 +212,25 @@ const StudentLiveLessonPage = () => {
     }
   };
 
+  const reportTechnicalIssue = async () => {
+    if (!session || reportingIssue) return;
+    setReportingIssue(true);
+    const { error } = await supabase.from("support_tickets").insert({
+      school_id: profile.schoolId,
+      user_id: profile.id,
+      subject: `בעיה טכנית בשיעור חי — ${session.subject}`,
+      description: `דווח אוטומטית מתוך שיעור חי פעיל (${session.subject}, session ${session.id}).`,
+      category: "bug",
+    });
+    setReportingIssue(false);
+    if (error) {
+      toast({ title: "שגיאה בשליחת הדיווח", description: error.message, variant: "destructive" });
+      return;
+    }
+    setIssueReported(true);
+    toast({ title: "✅ הדיווח נשלח לצוות התמיכה" });
+  };
+
   // Answer poll
   const answerPoll = async (pollId: string, optionIdx: number) => {
     if (myPollResponses[pollId] !== undefined) return; // already answered
@@ -257,10 +281,25 @@ const StudentLiveLessonPage = () => {
           </h1>
           <p className="text-sm text-muted-foreground font-body">אתה בשידור עם הכיתה</p>
         </div>
-        <Badge variant={connected ? "default" : "outline"} className={`gap-1 text-xs ${connected ? "bg-green-500" : ""}`}>
-          {connected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-          {connected ? "מחובר" : "מתחבר..."}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm" variant="ghost"
+            className="h-7 gap-1 text-[11px] text-muted-foreground"
+            onClick={reportTechnicalIssue}
+            disabled={reportingIssue || issueReported}
+          >
+            {reportingIssue
+              ? <Loader2 className="h-3 w-3 animate-spin" />
+              : issueReported
+                ? <CheckCircle2 className="h-3 w-3 text-green-500" />
+                : <AlertTriangle className="h-3 w-3" />}
+            {issueReported ? "דווח" : "דווח על בעיה טכנית"}
+          </Button>
+          <Badge variant={connected ? "default" : "outline"} className={`gap-1 text-xs ${connected ? "bg-green-500" : ""}`}>
+            {connected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+            {connected ? "מחובר" : "מתחבר..."}
+          </Badge>
+        </div>
       </div>
 
       {/* Shared content */}

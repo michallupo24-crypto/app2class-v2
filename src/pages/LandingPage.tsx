@@ -55,15 +55,15 @@ const LandingPage = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-gradient-to-br from-background via-muted to-background">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-background">
       {/* Logo */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.5, y: -30 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 200, damping: 15 }}
+        initial={{ opacity: 0, y: -12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
         className="mb-6"
       >
-        <img src="/logo.png" alt="App2Class" className="w-28 h-28 object-contain drop-shadow-lg" />
+        <img src="/logo.png" alt="App2Class" className="w-24 h-24 object-contain" />
       </motion.div>
 
       <motion.h1
@@ -95,13 +95,12 @@ const LandingPage = () => {
           <motion.button
             key={role.id}
             variants={item}
-            whileHover={{ scale: 1.06, y: -4 }}
-            whileTap={{ scale: 0.97 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => navigate(role.path)}
-            className="group relative flex flex-col items-center gap-3 p-6 rounded-2xl bg-card border border-border shadow-md hover:shadow-xl transition-shadow cursor-pointer"
+            className="group flex flex-col items-center gap-3 p-6 rounded-lg bg-card border border-border hover:border-primary/50 transition-colors cursor-pointer"
           >
-            <div className={`w-16 h-16 rounded-2xl ${role.color} flex items-center justify-center shadow-lg group-hover:animate-pulse-glow transition-all`}>
-              <role.icon className="w-8 h-8 text-primary-foreground" />
+            <div className={`w-14 h-14 rounded-lg ${role.color} flex items-center justify-center`}>
+              <role.icon className="w-7 h-7 text-primary-foreground" />
             </div>
             <span className="font-heading font-bold text-lg text-foreground">{role.label}</span>
             <span className="text-xs text-muted-foreground text-center leading-tight">{role.description}</span>
@@ -125,6 +124,15 @@ const LandingPage = () => {
           כבר רשום? התחבר
         </Button>
       </motion.div>
+
+      <div className="mt-8 flex gap-4 text-xs text-muted-foreground">
+        <button onClick={() => navigate("/terms")} className="hover:text-foreground underline underline-offset-2">
+          תנאי שימוש
+        </button>
+        <button onClick={() => navigate("/privacy")} className="hover:text-foreground underline underline-offset-2">
+          מדיניות פרטיות
+        </button>
+      </div>
     </div>
   );
 };

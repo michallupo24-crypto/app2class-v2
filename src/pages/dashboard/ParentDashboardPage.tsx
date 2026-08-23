@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import {
   Users, Heart, ChevronLeft, UserRound,
   HeartHandshake, MessageSquare, Activity, Percent,
-  FileText, ArrowLeft, Sparkles, GraduationCap, 
-  XCircle, CalendarDays, ShieldCheck
+  FileText, ArrowLeft, GraduationCap,
+  XCircle, CalendarDays, ShieldCheck, Scale, Eye, ClipboardCheck,
 } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,6 +47,11 @@ const ParentDashboardPage = () => {
     absentCount: 0,
     weeklyRoadmap: [] as WeeklyItem[],
     educators: { teacherId: "", educatorName: "", counselorId: "", counselorName: "" },
+    classComparison: null as {
+      childAbsenceRate: number; classAbsenceRate: number;
+      childFocusAvg: number; classFocusAvg: number;
+      childSubmissionRate: number; classSubmissionRate: number;
+    } | null,
   });
   const [aiInsight, setAiInsight] = useState<string>("");
   const [aiInsightLoading, setAiInsightLoading] = useState(false);
@@ -137,13 +142,28 @@ const ParentDashboardPage = () => {
       classAvg = avgData ?? null;
     }
 
+    // "Soft" comparisons alongside grades: is my kid's attendance/focus/
+    // homework-follow-through normal for this class, or a real outlier?
+    // Previously each showed only the child's own raw number.
+    const { data: cmpRows } = await supabase.rpc("get_child_class_comparison", { p_student_id: child.id });
+    const cmp = cmpRows?.[0];
+    const classComparison = cmp ? {
+      childAbsenceRate: cmp.child_absence_rate,
+      classAbsenceRate: cmp.class_absence_rate,
+      childFocusAvg: cmp.child_focus_avg,
+      classFocusAvg: cmp.class_focus_avg,
+      childSubmissionRate: cmp.child_submission_rate,
+      classSubmissionRate: cmp.class_submission_rate,
+    } : null;
+
     setState({
       overallAvg: cAvg,
       classAvg,
       attendancePct: attPct,
       absentCount: absences,
       weeklyRoadmap: finalRoadmap,
-      educators: staff
+      educators: staff,
+      classComparison,
     });
 
     setAiInsightLoading(true);
@@ -216,34 +236,31 @@ const ParentDashboardPage = () => {
   const goToChat = (id?: string) => id && navigate("/dashboard/chat", { state: { targetUserId: id } });
   const goToCommunity = (type: string) => navigate("/dashboard/chat", { state: { initialType: type } });
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-indigo-600 animate-pulse text-xl">COMMAND_CENTER SYNC</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center text-muted-foreground">טוען...</div>;
 
   return (
-    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 p-4 md:p-10 pb-40 text-right" dir="rtl">
-      <div className="max-w-6xl mx-auto space-y-12">
-        
+    <div className="min-h-screen bg-background p-4 md:p-8 pb-24 text-right" dir="rtl">
+      <div className="max-w-6xl mx-auto space-y-10">
+
         {/* HEADER */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
            <div className="space-y-4">
-              <h1 className="text-4xl md:text-5xl font-black tracking-tight flex items-center gap-4">
-                 <div className="w-14 h-14 bg-indigo-600 rounded-3xl flex items-center justify-center text-white shadow-2xl shadow-indigo-100"><Heart className="h-7 w-7" /></div>
-                 <div className="flex flex-row gap-3 items-baseline">
-                    <span className="text-slate-800 dark:text-white font-heading">Guardian</span>
-                    <span className="text-indigo-600 font-heading">Cockpit</span>
-                 </div>
+              <h1 className="text-3xl md:text-4xl font-black tracking-tight flex items-center gap-4">
+                 <div className="w-14 h-14 bg-primary rounded-lg flex items-center justify-center text-primary-foreground"><Heart className="h-7 w-7" /></div>
+                 <span className="text-foreground font-heading">אזור ההורה</span>
               </h1>
               <div className="flex flex-wrap gap-3">
                  {children.map(c => (
-                   <button key={c.id} onClick={() => setSelectedChild(c)} className={`px-8 py-3 rounded-2xl text-xs font-black transition-all border ${selectedChild?.id === c.id ? "bg-indigo-600 text-white shadow-2xl shadow-indigo-100 border-indigo-600" : "bg-white text-slate-400 border-slate-100 hover:border-indigo-200"}`}>
+                   <button key={c.id} onClick={() => setSelectedChild(c)} className={`px-6 py-2.5 rounded-lg text-xs font-black transition-colors border ${selectedChild?.id === c.id ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border hover:border-primary/50"}`}>
                       {c.fullName}
                    </button>
                  ))}
               </div>
            </div>
-           <Button onClick={goToGrades} className="w-full md:w-auto h-16 px-10 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black gap-4 shadow-xl shadow-emerald-100 transition-all">
-              <FileText className="h-6 w-6" />
+           <Button onClick={goToGrades} className="w-full md:w-auto h-14 px-8 rounded-lg bg-success hover:bg-success/90 text-success-foreground font-black gap-3">
+              <FileText className="h-5 w-5" />
               דוחות וציונים מפורטים
-              <ChevronLeft className="h-5 w-5 mr-3" />
+              <ChevronLeft className="h-4 w-4 mr-2" />
            </Button>
         </div>
 
@@ -254,23 +271,22 @@ const ParentDashboardPage = () => {
               <div className="lg:col-span-2 space-y-12">
                  
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <Card className="border-none bg-indigo-600 text-white rounded-[2.8rem] p-10 shadow-3xl shadow-indigo-100 relative overflow-hidden flex flex-col justify-between group">
-                       <div className="absolute top-0 right-0 w-80 h-80 bg-white/5 rounded-full blur-3xl -mr-40 -mt-40" />
-                       <div className="relative z-10 space-y-8">
+                    <Card className="bg-primary text-primary-foreground rounded-lg p-8 flex flex-col justify-between">
+                       <div className="space-y-8">
                           <div>
                              <h2 className="text-3xl font-black">{selectedChild.fullName}</h2>
-                             <p className="text-xs text-indigo-100 font-bold opacity-70 italic">כיתה {selectedChild.grade}'{selectedChild.classNumber} • {selectedChild.schoolName}</p>
+                             <p className="text-xs text-primary-foreground/70 font-bold italic">כיתה {selectedChild.grade}'{selectedChild.classNumber} • {selectedChild.schoolName}</p>
                           </div>
-                          
+
                           <div className="flex items-center gap-12">
                              <div className="text-center">
-                                <p className="text-8xl font-black tracking-tighter tabular-nums leading-none">{state.overallAvg ?? "—"}</p>
-                                <p className="text-[10px] uppercase font-black tracking-widest text-indigo-300 mt-3 opacity-60">GPA משוקלל</p>
+                                <p className="text-7xl font-black tracking-tighter tabular-nums leading-none">{state.overallAvg ?? "—"}</p>
+                                <p className="text-[10px] uppercase font-black tracking-widest text-primary-foreground/60 mt-3">GPA משוקלל</p>
                              </div>
-                             <div className="w-px h-20 bg-white/10" />
-                             <div className="text-center opacity-60">
-                                <p className="text-4xl font-black text-indigo-200 tabular-nums leading-none tracking-tight">{state.classAvg ?? "—"}</p>
-                                <p className="text-[10px] uppercase font-black tracking-widest text-indigo-300 mt-3 opacity-60">ממוצע כיתה</p>
+                             <div className="w-px h-20 bg-primary-foreground/20" />
+                             <div className="text-center opacity-70">
+                                <p className="text-4xl font-black tabular-nums leading-none tracking-tight">{state.classAvg ?? "—"}</p>
+                                <p className="text-[10px] uppercase font-black tracking-widest text-primary-foreground/60 mt-3">ממוצע כיתה</p>
                              </div>
                           </div>
                        </div>
@@ -278,48 +294,102 @@ const ParentDashboardPage = () => {
 
                     <div className="grid grid-cols-2 gap-8">
                        <Card
-                         className="bg-white dark:bg-slate-900 border-none rounded-[2.2rem] p-8 flex flex-col items-center justify-center text-center shadow-sm border border-slate-50 cursor-pointer hover:shadow-md transition-all"
+                         className="bg-card border border-border rounded-lg p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:border-primary/50 transition-colors"
                          onClick={goToAttendance}
                        >
-                          <div className="w-16 h-16 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-500 mb-6"><XCircle className="h-8 w-8" /></div>
+                          <div className="w-16 h-16 rounded-lg bg-destructive/10 flex items-center justify-center text-destructive mb-6"><XCircle className="h-8 w-8" /></div>
                           <p className="text-5xl font-black tabular-nums tracking-tighter">{state.absentCount}</p>
-                          <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mt-4">היעדרויות סה"כ</p>
+                          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-4">היעדרויות סה"כ</p>
                        </Card>
-                       <Card className="bg-white dark:bg-slate-900 border-none rounded-[2.2rem] p-8 flex flex-col items-center justify-center text-center shadow-sm border border-slate-50">
-                          <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-500 mb-6"><Percent className="h-8 w-8" /></div>
+                       <Card className="bg-card border border-border rounded-lg p-8 flex flex-col items-center justify-center text-center">
+                          <div className="w-16 h-16 rounded-lg bg-success/10 flex items-center justify-center text-success mb-6"><Percent className="h-8 w-8" /></div>
                           <p className="text-5xl font-black tabular-nums tracking-tighter">{state.attendancePct}%</p>
-                          <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mt-4">נוכחות שנתית</p>
+                          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-4">נוכחות שנתית</p>
                        </Card>
                     </div>
+
+                    {/* SOFT COMPARISONS: previously only grades were
+                        compared to the class average - attendance, focus
+                        and homework follow-through each showed only the
+                        child's own raw number, with no context for whether
+                        that's normal or a real outlier. */}
+                    {state.classComparison && (
+                      <Card className="bg-card border border-border rounded-lg p-8 space-y-6">
+                         <div className="flex items-center gap-3">
+                            <Scale className="h-5 w-5 text-primary" />
+                            <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground">השוואה לממוצע הכיתה</h3>
+                         </div>
+                         {[
+                           {
+                             icon: Percent, color: "bg-success",
+                             label: "נוכחות",
+                             childPct: Math.round((1 - state.classComparison.childAbsenceRate) * 100),
+                             classPct: Math.round((1 - state.classComparison.classAbsenceRate) * 100),
+                             childDisplay: `${Math.round((1 - state.classComparison.childAbsenceRate) * 100)}%`,
+                             classDisplay: `${Math.round((1 - state.classComparison.classAbsenceRate) * 100)}% ממוצע`,
+                           },
+                           {
+                             icon: Eye, color: "bg-info",
+                             label: "ריכוז בשיעור",
+                             childPct: Math.round((state.classComparison.childFocusAvg / 5) * 100),
+                             classPct: Math.round((state.classComparison.classFocusAvg / 5) * 100),
+                             childDisplay: state.classComparison.childFocusAvg > 0 ? `${state.classComparison.childFocusAvg.toFixed(1)}/5` : "אין נתונים",
+                             classDisplay: state.classComparison.classFocusAvg > 0 ? `${state.classComparison.classFocusAvg.toFixed(1)}/5 ממוצע` : "אין נתונים",
+                           },
+                           {
+                             icon: ClipboardCheck, color: "bg-warning",
+                             label: "הגשת מטלות בזמן",
+                             childPct: Math.round(state.classComparison.childSubmissionRate * 100),
+                             classPct: Math.round(state.classComparison.classSubmissionRate * 100),
+                             childDisplay: `${Math.round(state.classComparison.childSubmissionRate * 100)}%`,
+                             classDisplay: `${Math.round(state.classComparison.classSubmissionRate * 100)}% ממוצע`,
+                           },
+                         ].map((row) => (
+                           <div key={row.label} className="space-y-2">
+                              <div className="flex items-center justify-between text-xs">
+                                 <span className="flex items-center gap-2 font-bold text-foreground">
+                                    <row.icon className="h-3.5 w-3.5" />{row.label}
+                                 </span>
+                                 <span className="font-black tabular-nums">{row.childDisplay}</span>
+                              </div>
+                              <div className="relative h-2.5 rounded-full bg-muted overflow-hidden">
+                                 <div className={`absolute inset-y-0 right-0 rounded-full ${row.color}`} style={{ width: `${Math.min(100, Math.max(0, row.childPct))}%` }} />
+                                 <div className="absolute inset-y-0 w-0.5 bg-muted-foreground" style={{ right: `${Math.min(100, Math.max(0, row.classPct))}%` }} title={row.classDisplay} />
+                              </div>
+                              <p className="text-[10px] text-muted-foreground text-left">{row.classDisplay}</p>
+                           </div>
+                         ))}
+                      </Card>
+                    )}
                  </div>
 
                  {/* CALENDAR ROADMAP */}
                  <div className="space-y-6">
                     <div className="flex justify-between items-center px-4">
                        <h3 className="text-xl font-black flex items-center gap-3">
-                          <CalendarDays className="h-6 w-6 text-indigo-600" /> לו"ז אירועים ומבצעי למידה
+                          <CalendarDays className="h-6 w-6 text-primary" /> לו"ז אירועים ומבצעי למידה
                        </h3>
-                       <div className="px-4 py-1.5 rounded-xl border border-slate-200 text-[10px] font-black text-slate-500 uppercase">Live_Sync</div>
+                       <div className="px-4 py-1.5 rounded-lg border border-border text-[10px] font-black text-muted-foreground uppercase">מתעדכן בזמן אמת</div>
                     </div>
                     <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide px-4">
                        {["א'", "ב'", "ג'", "ד'", "ה'"].map(day => {
                           const items = state.weeklyRoadmap.filter(r => r.dayLabel === day);
                           return (
                             <div key={day} className="flex-none w-56 space-y-4">
-                               <p className="text-xs font-black text-slate-300 border-b border-slate-50 pb-3 text-center tracking-widest">{day}</p>
+                               <p className="text-xs font-black text-muted-foreground border-b border-border pb-3 text-center tracking-widest">{day}</p>
                                {items.map(i => (
-                                 <div key={i.id} className={`p-6 rounded-[2rem] text-xs font-black text-center shadow-sm border transition-all hover:scale-105 ${
-                                   i.type === 'exam' ? "bg-rose-50 border-rose-100 text-rose-700 shadow-rose-100" : 
-                                   i.type === 'holiday' ? "bg-blue-50 border-blue-100 text-blue-700 shadow-blue-100" : 
-                                   "bg-indigo-50 border-indigo-100 text-indigo-700 shadow-indigo-100"
+                                 <div key={i.id} className={`p-6 rounded-lg text-xs font-black text-center border ${
+                                   i.type === 'exam' ? "bg-destructive/10 border-destructive/20 text-destructive" :
+                                   i.type === 'holiday' ? "bg-info/10 border-info/20 text-info" :
+                                   "bg-primary/10 border-primary/20 text-primary"
                                  }`}>
-                                    <div className="opacity-40 text-[9px] mb-2 uppercase tracking-tightest">
+                                    <div className="opacity-60 text-[9px] mb-2 uppercase tracking-tightest">
                                        {i.type === 'exam' ? "מבחן הרשום בלוח" : i.type === 'event' ? "אירוע בית ספר" : "מטלה להגשה"}
                                     </div>
                                     {i.title}
                                  </div>
                                ))}
-                               {items.length === 0 && <div className="h-28 w-full border-2 border-dashed border-slate-50 rounded-[2rem] opacity-30 flex items-center justify-center text-slate-200 text-xs font-bold">אין אירועים</div>}
+                               {items.length === 0 && <div className="h-28 w-full border-2 border-dashed border-border rounded-lg opacity-50 flex items-center justify-center text-muted-foreground text-xs font-bold">אין אירועים</div>}
                             </div>
                           );
                        })}
@@ -331,55 +401,54 @@ const ParentDashboardPage = () => {
               <div className="space-y-12">
                  
                  {/* STAFF CONTACTS */}
-                 <Card className="bg-slate-900 text-white rounded-[2.8rem] p-10 shadow-3xl shadow-slate-100 relative overflow-hidden group border border-white/5">
-                    <h3 className="text-xl font-black mb-10 flex items-center gap-4 relative z-10">ערוצי קשר ישירים</h3>
-                    <div className="space-y-5 relative z-10">
-                       <button onClick={() => goToChat(state.educators.teacherId)} className="w-full flex items-center gap-5 p-6 rounded-[2rem] bg-white/5 hover:bg-white/10 transition-all border border-white/5 shadow-lg active:scale-95">
-                          <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-300 shadow-inner"><UserRound className="h-6 w-6" /></div>
+                 <Card className="bg-card border border-border rounded-lg p-8">
+                    <h3 className="text-xl font-black mb-8 text-foreground">ערוצי קשר ישירים</h3>
+                    <div className="space-y-4">
+                       <button onClick={() => goToChat(state.educators.teacherId)} className="w-full flex items-center gap-5 p-6 rounded-lg bg-muted hover:bg-muted/70 transition-colors border border-border active:scale-[0.99]">
+                          <div className="w-14 h-14 rounded-lg bg-primary/10 flex items-center justify-center text-primary"><UserRound className="h-6 w-6" /></div>
                           <div className="flex-1 text-right">
-                             <p className="text-[9px] text-indigo-400 uppercase font-black tracking-widest mb-1 opacity-80">מחנכת הכיתה</p>
-                             <p className="text-md font-black">{state.educators.educatorName || "—"}</p>
+                             <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest mb-1">מחנכת הכיתה</p>
+                             <p className="text-md font-black text-foreground">{state.educators.educatorName || "—"}</p>
                           </div>
-                          <ChevronLeft className="h-5 w-5 opacity-20" />
+                          <ChevronLeft className="h-5 w-5 opacity-40" />
                        </button>
 
-                       <button onClick={() => goToChat(state.educators.counselorId)} className="w-full flex items-center gap-5 p-6 rounded-[2rem] bg-white/5 hover:bg-white/10 transition-all border border-white/5 shadow-lg active:scale-95">
-                          <div className="w-14 h-14 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-300 shadow-inner"><HeartHandshake className="h-6 w-6" /></div>
+                       <button onClick={() => goToChat(state.educators.counselorId)} className="w-full flex items-center gap-5 p-6 rounded-lg bg-muted hover:bg-muted/70 transition-colors border border-border active:scale-[0.99]">
+                          <div className="w-14 h-14 rounded-lg bg-destructive/10 flex items-center justify-center text-destructive"><HeartHandshake className="h-6 w-6" /></div>
                           <div className="flex-1 text-right">
-                             <p className="text-[9px] text-rose-400 uppercase font-black tracking-widest mb-1 opacity-80">יועצת השכבה</p>
-                             <p className="text-md font-black italic opacity-60">{state.educators.counselorName || "—"}</p>
+                             <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest mb-1">יועצת השכבה</p>
+                             <p className="text-md font-black text-foreground italic opacity-80">{state.educators.counselorName || "—"}</p>
                           </div>
-                          <ChevronLeft className="h-5 w-5 opacity-20" />
+                          <ChevronLeft className="h-5 w-5 opacity-40" />
                        </button>
                     </div>
                  </Card>
 
                  {/* COMMUNITY HUB */}
-                 <div className="p-10 rounded-[2.8rem] bg-white dark:bg-slate-900 border border-slate-100 shadow-sm space-y-8">
+                 <div className="p-8 rounded-lg bg-card border border-border space-y-6">
                     <div className="flex items-center gap-3 justify-end leading-none">
-                       <h4 className="text-[11px] font-black uppercase text-indigo-600 tracking-widest">קהילת הורים מבוזרת</h4>
-                       <Sparkles className="h-4 w-4 text-indigo-400 animate-pulse" />
+                       <h4 className="text-[11px] font-black uppercase text-primary tracking-widest">קהילת הורים</h4>
+                       <MessageSquare className="h-4 w-4 text-primary" />
                     </div>
                     <div className="space-y-4">
-                       <button onClick={() => goToCommunity('parent_class')} className="w-full h-16 rounded-[1.8rem] bg-slate-50 hover:bg-slate-100 transition-all flex items-center justify-between px-8 text-xs font-black border border-slate-100 shadow-inner active:scale-95">
+                       <button onClick={() => goToCommunity('parent_class')} className="w-full h-14 rounded-lg bg-muted hover:bg-muted/70 transition-colors flex items-center justify-between px-6 text-xs font-black border border-border active:scale-[0.99]">
                          קבוצת הורי כיתה {selectedChild.grade}'{selectedChild.classNumber}
-                         <ArrowLeft className="h-5 w-5 text-indigo-600" />
+                         <ArrowLeft className="h-5 w-5 text-primary" />
                        </button>
-                       <button onClick={() => goToCommunity('parent_grade')} className="w-full h-16 rounded-[1.8rem] border border-slate-100 hover:bg-slate-50 transition-all flex items-center justify-between px-8 text-xs font-black shadow-sm active:scale-95">
+                       <button onClick={() => goToCommunity('parent_grade')} className="w-full h-14 rounded-lg border border-border hover:bg-muted transition-colors flex items-center justify-between px-6 text-xs font-black active:scale-[0.99]">
                          פורום הורי שכבת {selectedChild.grade}
-                         <ArrowLeft className="h-5 w-5 text-indigo-600" />
+                         <ArrowLeft className="h-5 w-5 text-primary" />
                        </button>
                     </div>
                  </div>
 
                  {/* SYSTEM INSIGHT */}
-                 <div className="p-10 rounded-[2.8rem] bg-indigo-50 border border-indigo-100 shadow-sm text-right relative overflow-hidden group">
-                    <div className="absolute top-0 left-0 p-8 opacity-10"><Sparkles className="h-10 w-10 text-indigo-600" /></div>
-                    <div className="flex items-center gap-4 mb-6 justify-end">
-                       <p className="text-[10px] font-black uppercase text-indigo-600 tracking-widest">Guardian AI_Insights</p>
-                       <ShieldCheck className="h-5 w-5 text-indigo-600" />
+                 <div className="p-8 rounded-lg bg-primary/10 border border-primary/20 text-right">
+                    <div className="flex items-center gap-3 mb-4 justify-end">
+                       <p className="text-[10px] font-black uppercase text-primary tracking-widest">תובנת AI</p>
+                       <ShieldCheck className="h-5 w-5 text-primary" />
                     </div>
-                    <p className="text-xs font-bold text-slate-600 leading-relaxed italic border-r-2 border-indigo-300 pr-6">
+                    <p className="text-xs font-bold text-muted-foreground leading-relaxed italic">
                        {aiInsightLoading ? "טוען תובנה..." : aiInsight}
                     </p>
                  </div>

@@ -1047,6 +1047,102 @@ export type Database = {
           },
         ]
       }
+      documents: {
+        Row: {
+          comments: Json
+          content_html: string
+          created_at: string
+          custom_dictionary: string[]
+          dir: string
+          doc_mode: string
+          footer_text: string
+          font_family: string
+          font_size: string
+          header_text: string
+          history: Json
+          id: string
+          ignored_words: string[]
+          is_favorite: boolean
+          language: string
+          line_spacing: string
+          margins: Json
+          owner_id: string
+          page_bg_color: string
+          page_number_format: string | null
+          page_number_position: string | null
+          show_page_numbers: boolean
+          suggestions: Json
+          tags: string[]
+          title: string
+          updated_at: string
+          view_mode: string
+          watermark_text: string
+          zoom: number
+        }
+        Insert: {
+          comments?: Json
+          content_html?: string
+          created_at?: string
+          custom_dictionary?: string[]
+          dir?: string
+          doc_mode?: string
+          footer_text?: string
+          font_family?: string
+          font_size?: string
+          header_text?: string
+          history?: Json
+          id?: string
+          ignored_words?: string[]
+          is_favorite?: boolean
+          language?: string
+          line_spacing?: string
+          margins?: Json
+          owner_id: string
+          page_bg_color?: string
+          page_number_format?: string | null
+          page_number_position?: string | null
+          show_page_numbers?: boolean
+          suggestions?: Json
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          view_mode?: string
+          watermark_text?: string
+          zoom?: number
+        }
+        Update: {
+          comments?: Json
+          content_html?: string
+          created_at?: string
+          custom_dictionary?: string[]
+          dir?: string
+          doc_mode?: string
+          footer_text?: string
+          font_family?: string
+          font_size?: string
+          header_text?: string
+          history?: Json
+          id?: string
+          ignored_words?: string[]
+          is_favorite?: boolean
+          language?: string
+          line_spacing?: string
+          margins?: Json
+          owner_id?: string
+          page_bg_color?: string
+          page_number_format?: string | null
+          page_number_position?: string | null
+          show_page_numbers?: boolean
+          suggestions?: Json
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          view_mode?: string
+          watermark_text?: string
+          zoom?: number
+        }
+        Relationships: []
+      }
       event_approvals: {
         Row: {
           approved: boolean | null
@@ -2115,30 +2211,51 @@ export type Database = {
       }
       messages: {
         Row: {
+          attachment_name: string | null
+          attachment_path: string | null
+          attachment_type: string | null
           content: string
           conversation_id: string
           created_at: string
+          edited_at: string | null
           flag_reason: string | null
           id: string
+          is_deleted: boolean
           is_flagged: boolean | null
+          mentioned_user_ids: string[]
+          reply_to_id: string | null
           sender_id: string
         }
         Insert: {
+          attachment_name?: string | null
+          attachment_path?: string | null
+          attachment_type?: string | null
           content: string
           conversation_id: string
           created_at?: string
+          edited_at?: string | null
           flag_reason?: string | null
           id?: string
+          is_deleted?: boolean
           is_flagged?: boolean | null
+          mentioned_user_ids?: string[]
+          reply_to_id?: string | null
           sender_id: string
         }
         Update: {
+          attachment_name?: string | null
+          attachment_path?: string | null
+          attachment_type?: string | null
           content?: string
           conversation_id?: string
           created_at?: string
+          edited_at?: string | null
           flag_reason?: string | null
           id?: string
+          is_deleted?: boolean
           is_flagged?: boolean | null
+          mentioned_user_ids?: string[]
+          reply_to_id?: string | null
           sender_id?: string
         }
         Relationships: [
@@ -2147,6 +2264,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
           {
@@ -3132,6 +3256,73 @@ export type Database = {
           },
         ]
       }
+      supervisor_inquiries: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          priority: string
+          responded_at: string | null
+          responded_by: string | null
+          response: string | null
+          school_id: string
+          status: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by: string
+          id?: string
+          priority?: string
+          responded_at?: string | null
+          responded_by?: string | null
+          response?: string | null
+          school_id: string
+          status?: string
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          priority?: string
+          responded_at?: string | null
+          responded_by?: string | null
+          response?: string | null
+          school_id?: string
+          status?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supervisor_inquiries_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supervisor_inquiries_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supervisor_inquiries_responded_by_fkey"
+            columns: ["responded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_announcements: {
         Row: {
           content: string
@@ -3683,6 +3874,14 @@ export type Database = {
           grade: string
         }[]
       }
+      get_school_yearly_grade_trend: {
+        Args: { p_school_id: string }
+        Returns: {
+          avg_grade: number
+          school_year: number
+          submission_count: number
+        }[]
+      }
       get_subject_coordinator_class_count: {
         Args: { p_subject: string }
         Returns: number
@@ -3706,6 +3905,22 @@ export type Database = {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
       }
+      find_or_create_private_conversation: {
+        Args: { p_other_user_id: string }
+        Returns: string
+      }
+      get_child_class_comparison: {
+        Args: { p_student_id: string }
+        Returns: {
+          child_absence_rate: number
+          class_absence_rate: number
+          child_focus_avg: number
+          class_focus_avg: number
+          child_submission_rate: number
+          class_submission_rate: number
+        }[]
+      }
+      get_unread_chat_count: { Args: never; Returns: number }
       is_current_user_approved: { Args: never; Returns: boolean }
       process_due_scheduled_messages: { Args: never; Returns: number }
       reveal_id_number: { Args: { p_profile_id: string }; Returns: string }

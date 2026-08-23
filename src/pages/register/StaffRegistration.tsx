@@ -57,6 +57,7 @@ const StaffRegistration = () => {
   });
 
   const [schools, setSchools] = useState<{ id: string; name: string }[]>([]);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   useEffect(() => {
     supabase.from("schools").select("id, name").then(({ data }) => {
@@ -260,7 +261,7 @@ const StaffRegistration = () => {
       totalSteps={3}
       onNext={step === 1 ? () => setStep(2) : handleSubmit}
       onBack={() => setStep(step - 1)}
-      nextDisabled={step === 1 ? !step1Valid : false}
+      nextDisabled={step === 1 ? !step1Valid : !agreedToTerms}
       nextLabel={step === 2 ? "סיום רישום" : "המשך"}
       loading={loading}
     >
@@ -444,6 +445,16 @@ const StaffRegistration = () => {
         <div>
           <h3 className="text-xl font-heading font-bold mb-4">עיצוב הדמות שלך 🎨</h3>
           <AvatarStudio config={avatar} onChange={setAvatar} variant="adult" />
+
+          <div className="flex items-start gap-2 mt-6 p-3 rounded-lg border border-border bg-muted/20">
+            <Checkbox id="agree" checked={agreedToTerms} onCheckedChange={(v) => setAgreedToTerms(!!v)} className="mt-0.5" />
+            <Label htmlFor="agree" className="text-sm font-body font-normal leading-snug cursor-pointer">
+              קראתי ואני מאשר/ת את{" "}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline text-primary">תנאי השימוש</a>
+              {" "}ואת{" "}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline text-primary">מדיניות הפרטיות</a>
+            </Label>
+          </div>
         </div>
       )}
     </RegistrationLayout>

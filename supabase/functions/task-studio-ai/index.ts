@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,16 +7,64 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Requests per user per hour before this function starts refusing calls.
+const RATE_LIMIT_PER_HOUR = 60;
+
 serve(async (req) => {
   if (req.method === "OPTIONS")
     return new Response(null, { headers: corsHeaders });
 
   try {
+    const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    const authHeader = req.headers.get("Authorization") || "";
+    const jwt = authHeader.replace(/^Bearer\s+/i, "");
+    const { data: authData, error: authErr } = await sb.auth.getUser(jwt);
+    const callerId = authData?.user?.id;
+    if (authErr || !callerId) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count: recentCount } = await sb
+      .from("ai_usage_log")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", callerId)
+      .gte("created_at", oneHourAgo);
+    if ((recentCount || 0) >= RATE_LIMIT_PER_HOUR) {
+      return new Response(JSON.stringify({ error: "יותר מדי בקשות, נסה/י שוב בעוד שעה 🕐" }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    await sb.from("ai_usage_log").insert({ user_id: callerId, function_name: "task-studio-ai" });
+
     const {
       action, prompt, code, subject, topic, numQuestions,
       language, libraries, htmlCode, cssCode, jsCode, pythonCode, consoleLogs,
       questionType, options, correctAnswer, studentAnswer, questionText,
     } = await req.json();
+
+    // Content-authoring actions build assignment material (tasks, questions,
+    // interactive code, exams) and are only ever invoked from Task Studio,
+    // a staff-only surface - a student/parent calling them directly would
+    // get free-form content generation outside any assignment context.
+    // diagnose-misconception is deliberately excluded: StudentPracticePage
+    // calls it live, during a student's own coaching flow.
+    const STAFF_ONLY_ACTIONS = new Set([
+      "generate-interactive-code", "debug-interactive-code", "game-design",
+      "optimize-code", "scan-file", "generate-questions", "generate-tiered-questions",
+    ]);
+    if (STAFF_ONLY_ACTIONS.has(action)) {
+      const { data: callerRoles } = await sb.from("user_roles").select("role").eq("user_id", callerId);
+      const isStaff = (callerRoles || []).some((r: any) => r.role !== "student" && r.role !== "parent");
+      if (!isStaff) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
     const DICTALM_ENDPOINT_URL = Deno.env.get("DICTALM_ENDPOINT_URL");
     const DICTALM_API_KEY = Deno.env.get("DICTALM_API_KEY");
     if (!DICTALM_ENDPOINT_URL || !DICTALM_API_KEY) throw new Error("DICTALM_ENDPOINT_URL / DICTALM_API_KEY is not configured");

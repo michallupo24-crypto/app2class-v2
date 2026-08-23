@@ -87,7 +87,10 @@ const ColorSwatch = ({
           onClick={() => onChange(c.hex)}
           className="w-9 h-9 rounded-full transition-all hover:scale-110"
           style={{
-            backgroundColor: c.hex,
+            // "background" (not "backgroundColor") so this also renders the
+            // gradient values used by the themed BACKGROUNDS entries
+            // (ספרייה/מעבדה/בית), not just the flat-color ones.
+            background: c.hex,
             border: value === c.hex ? "3px solid hsl(var(--primary))" : "2px solid hsl(var(--border))",
             transform: value === c.hex ? "scale(1.15)" : undefined,
             boxShadow: value === c.hex ? "0 0 8px hsl(var(--primary) / 0.4)" : undefined,

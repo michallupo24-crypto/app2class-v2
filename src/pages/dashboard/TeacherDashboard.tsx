@@ -325,23 +325,23 @@ const TeacherDashboard = () => {
         <motion.div variants={item} className="flex items-center gap-5">
            <div className="relative">
               {profile.avatar && <AvatarPreview config={profile.avatar} size={88} />}
-              <div className="absolute -bottom-1 -right-1 bg-primary text-white p-1.5 rounded-xl border-4 border-background shadow-lg shadow-primary/20">
+              <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground p-1.5 rounded-lg border-4 border-background">
                 <BrainCircuit className="h-4 w-4" />
               </div>
            </div>
            <div>
-              <h1 className="text-3xl font-heading font-black tracking-tighter">שלום, {profile.fullName.split(' ')[0]} 👋</h1>
-              <p className="text-sm text-slate-500 font-medium flex items-center gap-2 mt-1">
+              <h1 className="text-3xl font-heading font-black tracking-tighter">שלום, {profile.fullName.split(' ')[0]}</h1>
+              <p className="text-sm text-muted-foreground font-medium flex items-center gap-2 mt-1">
                 <BookOpen className="h-4 w-4 text-primary" /> {profile.schoolName ? `${profile.schoolName} • ` : ""}מורה פדגוגי
               </p>
            </div>
         </motion.div>
 
         <div className="flex items-center gap-3">
-           <Button variant="outline" className="rounded-xl border-slate-200 bg-white/50 backdrop-blur-sm px-6 h-12 gap-2 hover:bg-primary/5 transition-all text-sm font-bold" onClick={() => navigate("/dashboard/roll-call")}>
+           <Button variant="outline" className="h-12 gap-2 text-sm font-bold" onClick={() => navigate("/dashboard/roll-call")}>
               <ClipboardList className="h-4 w-4 text-primary" /> הקראת שמות מהירה
            </Button>
-           <Button onClick={() => navigate("/dashboard/chat")} className="rounded-xl h-12 shadow-lg shadow-primary/20 px-8 font-bold gap-2">
+           <Button onClick={() => navigate("/dashboard/chat")} className="h-12 px-8 font-bold gap-2">
               <MessageSquare className="h-4 w-4" /> צ'אט אישי
            </Button>
         </div>
@@ -409,22 +409,19 @@ const TeacherDashboard = () => {
       {/* ─── PENDING APPROVALS ALERT ─── */}
       {profile.pendingApprovalsCount > 0 && (
         <motion.div variants={item}>
-          <Card className="border-none shadow-xl bg-gradient-to-r from-orange-500 to-orange-400 text-white cursor-pointer hover:scale-[1.01] transition-all group overflow-hidden relative"
+          <Card className="border-warning/30 bg-warning/10 cursor-pointer transition-colors hover:border-warning/50"
             onClick={() => navigate("/dashboard/approvals")}>
-            <div className="absolute right-0 top-0 p-8 opacity-10 group-hover:rotate-12 transition-transform">
-               <Bell className="h-24 w-24" />
-            </div>
-            <CardContent className="py-6 flex items-center justify-between relative z-10">
+            <CardContent className="py-6 flex items-center justify-between">
               <div className="flex items-center gap-5">
-                 <div className="h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                    <AlertTriangle className="h-7 w-7" />
+                 <div className="h-14 w-14 rounded-lg bg-warning/20 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="h-7 w-7 text-warning" />
                  </div>
                  <div>
                     <h3 className="text-xl font-heading font-black">בקשות אישור ממתינות</h3>
-                    <p className="text-sm opacity-90 font-medium">ישנם {profile.pendingApprovalsCount} הורים ותלמידים שמחכים לאישור שלך.</p>
+                    <p className="text-sm text-muted-foreground font-medium">ישנם {profile.pendingApprovalsCount} הורים ותלמידים שמחכים לאישור שלך.</p>
                  </div>
               </div>
-              <Button variant="secondary" className="bg-white text-orange-600 rounded-xl hover:bg-slate-100 font-bold">טפל עכשיו</Button>
+              <Button variant="secondary" className="font-bold">טפל עכשיו</Button>
             </CardContent>
           </Card>
         </motion.div>
@@ -439,11 +436,11 @@ const TeacherDashboard = () => {
 
            <motion.div variants={item} className="space-y-4">
               <div className="flex items-center justify-between px-1">
-                 <h2 className="font-heading font-black text-xl text-slate-800 flex items-center gap-2">
+                 <h2 className="font-heading font-black text-xl text-foreground flex items-center gap-2">
                     <MessageSquare className="h-5 w-5 text-primary" /> תקשורת כיתתית
                  </h2>
                  {myClasses.length > 1 && (
-                    <div className="flex bg-slate-100 p-1 rounded-xl ring-1 ring-slate-200">
+                    <div className="flex bg-muted p-1 rounded-lg border border-border">
                        {myClasses.map(c => (
                           <Button 
                             key={c.id} 
@@ -465,17 +462,17 @@ const TeacherDashboard = () => {
 
            {/* Quick Actions */}
            <motion.div variants={item}>
-              <h2 className="font-heading font-black text-xl mb-4 text-slate-800">גישה מהירה</h2>
+              <h2 className="font-heading font-black text-xl mb-4 text-foreground">גישה מהירה</h2>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { icon: ClipboardList, label: "הקראת שמות", path: "/dashboard/roll-call", color: "bg-blue-500" },
-                  { icon: FileText, label: "סטודיו משימות", path: "/dashboard/task-studio", color: "bg-purple-500" },
-                  { icon: BarChart3, label: "ניהול ציונים", path: "/dashboard/teacher-grades", color: "bg-green-500" },
-                  { icon: Settings, label: "הכיתות שלי", path: "/dashboard/my-classes", color: "bg-slate-800" },
+                  { icon: ClipboardList, label: "הקראת שמות", path: "/dashboard/roll-call", color: "bg-primary" },
+                  { icon: FileText, label: "סטודיו משימות", path: "/dashboard/task-studio", color: "bg-accent" },
+                  { icon: BarChart3, label: "ניהול ציונים", path: "/dashboard/teacher-grades", color: "bg-success" },
+                  { icon: Settings, label: "הכיתות שלי", path: "/dashboard/my-classes", color: "bg-muted-foreground" },
                 ].map((action, i) => (
-                  <Card key={i} className="cursor-pointer hover:shadow-xl transition-all hover:-translate-y-1 border-none bg-white p-4 group"
+                  <Card key={i} className="cursor-pointer transition-colors hover:border-primary/50 bg-card border border-border p-4"
                     onClick={() => navigate(action.path)}>
-                    <div className={`${action.color} h-12 w-12 rounded-2xl flex items-center justify-center text-white mb-3 shadow-lg transition-transform group-hover:rotate-6`}>
+                    <div className={`${action.color} h-12 w-12 rounded-lg flex items-center justify-center text-primary-foreground mb-3`}>
                        <action.icon className="h-6 w-6" />
                     </div>
                     <p className="font-heading font-black text-sm">{action.label}</p>
@@ -489,25 +486,25 @@ const TeacherDashboard = () => {
         {/* ─── RIGHT: STATS & SUMMARY ─── */}
         <div className="lg:col-span-4 space-y-6">
            <motion.div variants={item}>
-              <Card className="border-none shadow-xl bg-white/60 backdrop-blur-md overflow-hidden ring-1 ring-black/[0.03]">
+              <Card className="bg-card border border-border">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-heading font-bold text-slate-600">סיכום פעילות</CardTitle>
+                  <CardTitle className="text-sm font-heading font-bold text-muted-foreground">סיכום פעילות</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 pt-4">
                    {[
-                     { icon: Users, label: "תלמידים תחת אחריותי", value: stats.totalStudents, color: "text-blue-600", bg: "bg-blue-50" },
-                     { icon: BookOpen, label: "כיתות לימוד", value: stats.classCount, color: "text-purple-600", bg: "bg-purple-50" },
-                     { icon: FileText, label: "הגשות הדורשות בדיקה", value: stats.pendingSubmissions, color: "text-orange-600", bg: "bg-orange-50" },
-                     { icon: Clock, label: "שיעורים שבוצעו היום", value: stats.todayLessons, color: "text-green-600", bg: "bg-green-50" },
+                     { icon: Users, label: "תלמידים תחת אחריותי", value: stats.totalStudents, color: "text-primary", bg: "bg-primary/10" },
+                     { icon: BookOpen, label: "כיתות לימוד", value: stats.classCount, color: "text-accent", bg: "bg-accent/10" },
+                     { icon: FileText, label: "הגשות הדורשות בדיקה", value: stats.pendingSubmissions, color: "text-warning", bg: "bg-warning/10" },
+                     { icon: Clock, label: "שיעורים שבוצעו היום", value: stats.todayLessons, color: "text-success", bg: "bg-success/10" },
                    ].map((s, i) => (
-                     <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-100 shadow-sm">
+                     <div key={i} className="flex items-center justify-between p-4 rounded-lg bg-background border border-border">
                         <div className="flex items-center gap-3">
-                           <div className={`${s.bg} p-2 rounded-xl`}>
+                           <div className={`${s.bg} p-2 rounded-lg`}>
                               <s.icon className={`h-5 w-5 ${s.color}`} />
                            </div>
-                           <span className="text-xs font-bold text-slate-500">{s.label}</span>
+                           <span className="text-xs font-bold text-muted-foreground">{s.label}</span>
                         </div>
-                        <span className="text-xl font-heading font-black text-slate-800">{s.value}</span>
+                        <span className="text-xl font-heading font-black text-foreground">{s.value}</span>
                      </div>
                    ))}
                 </CardContent>
@@ -516,10 +513,10 @@ const TeacherDashboard = () => {
 
            {weeklyAttendance.length > 0 && (
              <motion.div variants={item}>
-                <Card className="border-none shadow-xl bg-white/60 backdrop-blur-md overflow-hidden ring-1 ring-black/[0.03]">
+                <Card className="bg-card border border-border">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-heading font-bold text-slate-600 flex items-center gap-2">
-                      <CalendarCheck2 className="h-4 w-4 text-primary" />קוקפיט נוכחות שבועי
+                    <CardTitle className="text-sm font-heading font-bold text-muted-foreground flex items-center gap-2">
+                      <CalendarCheck2 className="h-4 w-4 text-primary" />נוכחות שבועית
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 pt-2">
@@ -527,13 +524,13 @@ const TeacherDashboard = () => {
                       const total = d.present + d.absent + d.late;
                       return (
                         <div key={d.day} className="flex items-center gap-3">
-                          <span className="text-xs font-bold text-slate-500 w-10 shrink-0">{d.day}</span>
-                          <div className="flex-1 h-2.5 rounded-full bg-slate-100 overflow-hidden flex">
+                          <span className="text-xs font-bold text-muted-foreground w-10 shrink-0">{d.day}</span>
+                          <div className="flex-1 h-2.5 rounded-full bg-muted overflow-hidden flex">
                             {total > 0 && (
                               <>
-                                <div className="bg-emerald-500 h-full" style={{ width: `${(d.present / total) * 100}%` }} />
-                                <div className="bg-amber-500 h-full" style={{ width: `${(d.late / total) * 100}%` }} />
-                                <div className="bg-rose-500 h-full" style={{ width: `${(d.absent / total) * 100}%` }} />
+                                <div className="bg-success h-full" style={{ width: `${(d.present / total) * 100}%` }} />
+                                <div className="bg-warning h-full" style={{ width: `${(d.late / total) * 100}%` }} />
+                                <div className="bg-destructive h-full" style={{ width: `${(d.absent / total) * 100}%` }} />
                               </>
                             )}
                           </div>
@@ -542,12 +539,12 @@ const TeacherDashboard = () => {
                       );
                     })}
                     {attendanceWatchList.length > 0 && (
-                      <div className="pt-3 mt-3 border-t border-slate-100 space-y-1.5">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-rose-500">תלמידים לתשומת לב השבוע</p>
+                      <div className="pt-3 mt-3 border-t border-border space-y-1.5">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-destructive">תלמידים לתשומת לב השבוע</p>
                         {attendanceWatchList.map((s) => (
                           <div key={s.name} className="flex items-center justify-between text-xs">
-                            <span className="font-bold text-slate-600">{s.name}</span>
-                            <Badge variant="outline" className="text-[9px] text-rose-500 border-rose-200">{s.absences} היעדרויות</Badge>
+                            <span className="font-bold text-foreground">{s.name}</span>
+                            <Badge variant="outline" className="text-[9px] text-destructive border-destructive/30">{s.absences} היעדרויות</Badge>
                           </div>
                         ))}
                       </div>
@@ -559,16 +556,16 @@ const TeacherDashboard = () => {
 
            {disciplinePatterns.length > 0 && (
              <motion.div variants={item}>
-                <Card className="border-none shadow-xl bg-white/60 backdrop-blur-md overflow-hidden ring-1 ring-black/[0.03]">
+                <Card className="bg-card border border-border">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-heading font-bold text-slate-600 flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-amber-500" />זיהוי דפוסי משמעת
+                    <CardTitle className="text-sm font-heading font-bold text-muted-foreground flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-warning" />זיהוי דפוסי משמעת
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2 pt-2">
                     {disciplinePatterns.map((p) => (
-                      <div key={p.studentName + p.subject} className="p-2.5 rounded-xl bg-amber-50 text-xs">
-                        <span className="font-bold text-slate-700">{p.studentName}</span>
+                      <div key={p.studentName + p.subject} className="p-2.5 rounded-lg bg-warning/10 text-xs">
+                        <span className="font-bold text-foreground">{p.studentName}</span>
                         <span className="text-muted-foreground"> — מפריע/ה בעיקר ב{p.subject} ({p.count}/{p.total} הערות)</span>
                       </div>
                     ))}
@@ -578,12 +575,12 @@ const TeacherDashboard = () => {
            )}
 
            <motion.div variants={item}>
-              <Card className="bg-slate-900 border-none shadow-2xl p-6 relative overflow-hidden">
-                 <div className="absolute -right-4 -bottom-4 opacity-10">
-                    <BrainCircuit className="h-32 w-32 text-white" />
+              <Card className="bg-card border border-border p-6">
+                 <div className="flex items-center gap-2 mb-2">
+                   <BrainCircuit className="h-5 w-5 text-primary" />
+                   <h4 className="font-heading font-black text-lg">טיפ AI למורה</h4>
                  </div>
-                 <h4 className="text-white font-heading font-black text-lg mb-2 relative z-10">טיפ AI למורה 🤖</h4>
-                 <p className="text-slate-400 text-xs leading-relaxed relative z-10">
+                 <p className="text-muted-foreground text-xs leading-relaxed">
                     {missingSubmissions && missingSubmissions.students.length > 0
                       ? `${missingSubmissions.students.length} תלמידים בכיתה ${missingSubmissions.className} לא הגישו את "${missingSubmissions.assignmentTitle}". מומלץ לשלוח להם תזכורת כדי למנוע פערים פדגוגיים.`
                       : missingSubmissions
@@ -593,11 +590,11 @@ const TeacherDashboard = () => {
                  {missingSubmissions && missingSubmissions.students.length > 0 && (
                    <Button
                      variant="link"
-                     className="text-primary p-0 mt-4 h-auto font-bold text-xs relative z-10 disabled:opacity-50"
+                     className="text-primary p-0 mt-4 h-auto font-bold text-xs disabled:opacity-50"
                      disabled={sendingReminder || reminderSent}
                      onClick={handleSendReminder}
                    >
-                      {reminderSent ? "התזכורת נשלחה ✓" : sendingReminder ? "שולח..." : "שלח תזכורת עכשיו ←"}
+                      {reminderSent ? "התזכורת נשלחה" : sendingReminder ? "שולח..." : "שלח תזכורת עכשיו"}
                    </Button>
                  )}
               </Card>

@@ -127,6 +127,10 @@ export const ACCESSORIES = [
   { key: "sunglasses", label: "משקפי שמש" },
   { key: "cap", label: "כובע מצחייה" },
   { key: "star", label: "כוכב" },
+  { key: "kippah", label: "כיפה" },
+  { key: "hijab", label: "חיג'אב" },
+  { key: "headscarf", label: "מטפחת/טורבן" },
+  { key: "hearing_aid", label: "מכשיר שמיעה" },
 ] as const;
 
 export const FACIAL_HAIR_OPTIONS = [
@@ -150,6 +154,12 @@ export const BACKGROUNDS = [
   { label: "צהוב", hex: "#FEF9C3" },
   { label: "סגול", hex: "#EDE9FE" },
   { label: "אפור", hex: "#F1F5F9" },
+  // Gradients standing in for themed scenes (no real photo/illustration
+  // assets to draw on) - "background" here doubles as a raw CSS
+  // background value, not just a flat color, unlike the entries above.
+  { label: "ספרייה", hex: "linear-gradient(180deg, #D9C4A3 0%, #B8946A 100%)" },
+  { label: "מעבדה", hex: "linear-gradient(180deg, #DCEEFB 0%, #A8D0E6 100%)" },
+  { label: "בית", hex: "linear-gradient(180deg, #FBE8D3 0%, #F3C9A0 100%)" },
 ] as const;
 
 /** Replace non-skin, non-white hex colors in SVG text with chosen hair color */

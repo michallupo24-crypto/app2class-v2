@@ -29,7 +29,7 @@ export const useAuth = () => {
     }
 
     const [profileRes, rolesRes, avatarRes] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", user.id).single(),
+      supabase.from("profiles").select("*, schools(name)").eq("id", user.id).single(),
       supabase.from("user_roles").select("role").eq("user_id", user.id),
       supabase.from("avatars").select("*").eq("user_id", user.id).single(),
     ]);
@@ -65,29 +65,12 @@ export const useAuth = () => {
       pendingCount = count || 0;
     }
 
-    // Count unread chat messages — single query via RPC or aggregated
-    let unreadChatCount = 0;
-    const { data: participations } = await supabase
-      .from("conversation_participants")
-      .select("conversation_id, last_read_at")
-      .eq("user_id", user.id);
-    if (participations && participations.length > 0) {
-      // Batch: get all messages newer than last_read_at in any of these conversations
-      const convIds = participations.map((p: any) => p.conversation_id);
-      const minReadAt = participations
-        .filter((p: any) => p.last_read_at)
-        .reduce((min: string, p: any) => p.last_read_at < min ? p.last_read_at : min,
-          participations[0]?.last_read_at || new Date().toISOString());
-      if (convIds.length > 0) {
-        const { count } = await supabase
-          .from("messages")
-          .select("*", { count: "exact", head: true })
-          .in("conversation_id", convIds)
-          .neq("sender_id", user.id)
-          .gt("created_at", minReadAt);
-        unreadChatCount = count || 0;
-      }
-    }
+    // Count unread chat messages, compared per-conversation against that
+    // conversation's own last_read_at (not a single global minimum across
+    // all conversations - that let one stale/abandoned conversation keep
+    // the badge stuck even after everything else was read).
+    const { data: unreadCountData } = await supabase.rpc("get_unread_chat_count");
+    const unreadChatCount = unreadCountData || 0;
 
     let avatar: AvatarConfig | null = null;
     if (avatarRes.data) {

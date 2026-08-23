@@ -33,7 +33,7 @@ const RegistrationLayout = ({
   const progressValue = (step / totalSteps) * 100;
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-muted to-background">
+    <div className="min-h-screen flex flex-col bg-background">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-card/80 backdrop-blur-lg border-b border-border px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-center justify-between">

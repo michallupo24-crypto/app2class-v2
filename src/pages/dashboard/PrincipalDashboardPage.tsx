@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,16 +7,18 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import {
   BarChart3, Users, BookOpen, AlertTriangle, CheckCircle2,
   TrendingUp, TrendingDown, Loader2, Send, Radio,
   Shield, FileText, Building2, Brain, UserCheck, Crown,
+  Inbox, Printer, GitBranch, History, Plus, MessageSquareReply, X,
 } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from "recharts";
 
@@ -53,6 +55,29 @@ interface TeacherLoad {
   burnoutRisk: "low" | "medium" | "high";
 }
 
+interface SupervisorInquiry {
+  id: string;
+  subject: string;
+  content: string;
+  priority: "normal" | "high";
+  status: "pending" | "answered" | "closed";
+  response: string | null;
+  createdAt: string;
+}
+
+interface YearlyTrend {
+  year: number;
+  avg: number;
+  count: number;
+}
+
+interface Bottleneck {
+  id: string;
+  title: string;
+  description: string;
+  severity: "high" | "medium" | "low";
+}
+
 const PrincipalDashboardPage = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
   const navigate = useNavigate();
@@ -63,12 +88,24 @@ const PrincipalDashboardPage = () => {
   const [gradeAvgs, setGradeAvgs] = useState<GradeAvg[]>([]);
   const [compliance, setCompliance] = useState<ComplianceItem[]>([]);
   const [teacherLoads, setTeacherLoads] = useState<TeacherLoad[]>([]);
+  const [inquiries, setInquiries] = useState<SupervisorInquiry[]>([]);
+  const [yearlyTrend, setYearlyTrend] = useState<YearlyTrend[]>([]);
 
   // Broadcast dialog
   const [broadcastDialog, setBroadcastDialog] = useState(false);
   const [broadcastMsg, setBroadcastMsg] = useState("");
   const [broadcasting, setBroadcasting] = useState(false);
   const [broadcastSeverity, setBroadcastSeverity] = useState<"info" | "emergency">("info");
+
+  // Supervisor inbox
+  const [inquiryDialog, setInquiryDialog] = useState(false);
+  const [inquirySubject, setInquirySubject] = useState("");
+  const [inquiryContent, setInquiryContent] = useState("");
+  const [inquiryPriority, setInquiryPriority] = useState<"normal" | "high">("normal");
+  const [savingInquiry, setSavingInquiry] = useState(false);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
+  const [responseText, setResponseText] = useState("");
+  const [savingResponse, setSavingResponse] = useState(false);
 
   const container = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
   const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } };
@@ -79,12 +116,33 @@ const PrincipalDashboardPage = () => {
       if (!profile.schoolId) { setLoading(false); return; }
 
       // 1. Basic school stats
-      const [studRes, schoolProfilesRes, classRes, approvalRes] = await Promise.all([
+      const [studRes, schoolProfilesRes, classRes, approvalRes, inquiriesRes, trendRes] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }).eq("school_id", profile.schoolId).eq("is_approved", true),
         supabase.from("profiles").select("id").eq("school_id", profile.schoolId),
         supabase.from("classes").select("id", { count: "exact", head: true }).eq("school_id", profile.schoolId),
         supabase.from("approvals").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("supervisor_inquiries")
+          .select("id, subject, content, priority, status, response, created_at")
+          .eq("school_id", profile.schoolId)
+          .order("created_at", { ascending: false })
+          .limit(50),
+        supabase.rpc("get_school_yearly_grade_trend", { p_school_id: profile.schoolId }),
       ]);
+
+      setInquiries((inquiriesRes.data || []).map((i: any) => ({
+        id: i.id,
+        subject: i.subject,
+        content: i.content,
+        priority: i.priority,
+        status: i.status,
+        response: i.response,
+        createdAt: i.created_at,
+      })));
+      setYearlyTrend((trendRes.data || []).map((r: any) => ({
+        year: r.school_year,
+        avg: r.avg_grade,
+        count: r.submission_count,
+      })));
 
       // user_roles has no school_id column, so teacher count must be scoped
       // by intersecting with this school's own profile ids.
@@ -334,6 +392,155 @@ const PrincipalDashboardPage = () => {
     }
   };
 
+  const submitInquiry = async () => {
+    if (!inquirySubject.trim() || !inquiryContent.trim() || !profile.schoolId) return;
+    setSavingInquiry(true);
+    try {
+      const { data, error } = await supabase.from("supervisor_inquiries").insert({
+        school_id: profile.schoolId,
+        subject: inquirySubject.trim(),
+        content: inquiryContent.trim(),
+        priority: inquiryPriority,
+        created_by: profile.id,
+      }).select("id, subject, content, priority, status, response, created_at").single();
+      if (error) throw error;
+      setInquiries(prev => [{
+        id: data.id, subject: data.subject, content: data.content,
+        priority: data.priority as "normal" | "high", status: data.status as SupervisorInquiry["status"],
+        response: data.response, createdAt: data.created_at,
+      }, ...prev]);
+      setInquiryDialog(false);
+      setInquirySubject("");
+      setInquiryContent("");
+      setInquiryPriority("normal");
+      toast({ title: "הפנייה נרשמה בתיבה" });
+    } catch (e: any) {
+      toast({ title: "שגיאה", description: e.message, variant: "destructive" });
+    } finally {
+      setSavingInquiry(false);
+    }
+  };
+
+  const submitResponse = async (id: string) => {
+    if (!responseText.trim()) return;
+    setSavingResponse(true);
+    try {
+      const { error } = await supabase.from("supervisor_inquiries").update({
+        status: "answered",
+        response: responseText.trim(),
+        responded_by: profile.id,
+        responded_at: new Date().toISOString(),
+      }).eq("id", id);
+      if (error) throw error;
+      setInquiries(prev => prev.map(i => i.id === id ? { ...i, status: "answered", response: responseText.trim() } : i));
+      setRespondingId(null);
+      setResponseText("");
+      toast({ title: "התשובה נשלחה ותועדה" });
+    } catch (e: any) {
+      toast({ title: "שגיאה", description: e.message, variant: "destructive" });
+    } finally {
+      setSavingResponse(false);
+    }
+  };
+
+  const closeInquiry = async (id: string) => {
+    const { error } = await supabase.from("supervisor_inquiries").update({ status: "closed" }).eq("id", id);
+    if (!error) setInquiries(prev => prev.map(i => i.id === id ? { ...i, status: "closed" } : i));
+  };
+
+  const printReport = () => {
+    const prevTitle = document.title;
+    document.title = `דוח_מנהלת_${profile.schoolName || ""}_${new Date().toISOString().split("T")[0]}`;
+    window.print();
+    window.setTimeout(() => { document.title = prevTitle; }, 1000);
+  };
+
+  const bottlenecks = useMemo<Bottleneck[]>(() => {
+    if (!stats) return [];
+    const items: Bottleneck[] = [];
+
+    const highBurnout = teacherLoads.filter(t => t.burnoutRisk === "high");
+    if (highBurnout.length > 0) {
+      items.push({
+        id: "teacher-load",
+        title: "עומס יתר על מורים",
+        description: `${highBurnout.length} מורים בסיכון שחיקה גבוה: ${highBurnout.map(t => t.name).filter(Boolean).join(", ")}`,
+        severity: "high",
+      });
+    }
+
+    const lateGradeCount = compliance.filter(c => c.type === "late_grade").length;
+    if (lateGradeCount >= 2) {
+      items.push({
+        id: "grading-delay",
+        title: "צוואר בקבוק בהחזרת ציונים",
+        description: `${lateGradeCount} מטלות ממתינות לציון מעבר לזמן הסביר`,
+        severity: lateGradeCount >= 5 ? "high" : "medium",
+      });
+    }
+
+    const weakGrades = gradeAvgs.filter(g => g.avg < 65);
+    if (weakGrades.length > 0) {
+      items.push({
+        id: "weak-grades",
+        title: "פערי הישגים לפי שכבה",
+        description: `שכבות עם ממוצע מתחת ל-65: ${weakGrades.map(g => `${g.grade} (${g.avg})`).join(", ")}`,
+        severity: weakGrades.some(g => g.avg < 55) ? "high" : "medium",
+      });
+    }
+
+    if (stats.pendingApprovals >= 5) {
+      items.push({
+        id: "approvals-backlog",
+        title: "צוואר בקבוק באישורים",
+        description: `${stats.pendingApprovals} בקשות אישור ממתינות לטיפול הנהלה`,
+        severity: stats.pendingApprovals >= 10 ? "high" : "medium",
+      });
+    }
+
+    const totalToday = (stats.presentToday || 0) + (stats.absentToday || 0);
+    if (totalToday > 0 && (stats.absentToday || 0) / totalToday > 0.15) {
+      items.push({
+        id: "attendance",
+        title: "שיעור היעדרויות חריג",
+        description: `${Math.round(((stats.absentToday || 0) / totalToday) * 100)}% מהתלמידים נעדרים היום`,
+        severity: "medium",
+      });
+    }
+
+    const stalePending = inquiries.filter(i => i.status === "pending" &&
+      (Date.now() - new Date(i.createdAt).getTime()) / (1000 * 60 * 60 * 24) > 5);
+    if (stalePending.length > 0) {
+      items.push({
+        id: "supervisor-inbox",
+        title: "פניות מפקחת ללא מענה",
+        description: `${stalePending.length} פניות ממתינות למענה מעל 5 ימים`,
+        severity: "high",
+      });
+    }
+
+    const order = { high: 0, medium: 1, low: 2 } as const;
+    return items.sort((a, b) => order[a.severity] - order[b.severity]);
+  }, [stats, teacherLoads, compliance, gradeAvgs, inquiries]);
+
+  const trendPrediction = useMemo(() => {
+    if (yearlyTrend.length < 2) return null;
+    const n = yearlyTrend.length;
+    const xs = yearlyTrend.map((_, i) => i);
+    const ys = yearlyTrend.map(t => t.avg);
+    const xMean = xs.reduce((a, b) => a + b, 0) / n;
+    const yMean = ys.reduce((a, b) => a + b, 0) / n;
+    let num = 0, den = 0;
+    for (let i = 0; i < n; i++) {
+      num += (xs[i] - xMean) * (ys[i] - yMean);
+      den += (xs[i] - xMean) ** 2;
+    }
+    const slope = den === 0 ? 0 : num / den;
+    const intercept = yMean - slope * xMean;
+    const predicted = Math.round(Math.max(0, Math.min(100, intercept + slope * n)));
+    return { predicted, nextYear: yearlyTrend[n - 1].year + 1, direction: slope > 0.5 ? "up" : slope < -0.5 ? "down" : "flat" };
+  }, [yearlyTrend]);
+
   if (loading) return (
     <div className="flex items-center justify-center py-20">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -345,6 +552,7 @@ const PrincipalDashboardPage = () => {
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+    <div className="print:hidden space-y-6">
       {/* Header */}
       <motion.div variants={item} className="flex items-start justify-between flex-wrap gap-3">
         <div>
@@ -354,6 +562,9 @@ const PrincipalDashboardPage = () => {
           <p className="text-sm text-muted-foreground font-body mt-1">מבט-על על כלל בית הספר</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <Button size="sm" variant="outline" className="gap-1.5 font-heading text-xs" onClick={printReport}>
+            <Printer className="h-3.5 w-3.5" />ייצוא דוח PDF למשה"ח
+          </Button>
           <Button size="sm" variant="outline" className="gap-1.5 font-heading text-xs"
             onClick={() => { setBroadcastSeverity("emergency"); setBroadcastDialog(true); }}>
             <Radio className="h-3.5 w-3.5 text-red-500" />שידור חירום
@@ -424,6 +635,85 @@ const PrincipalDashboardPage = () => {
                   <span key={g.grade}>{g.grade}: ממוצע {g.avg} ({g.classCount} כיתות)</span>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* Multi-year trend prediction */}
+      <motion.div variants={item}>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-heading flex items-center gap-2">
+              <History className="h-5 w-5 text-primary" />חיזוי מגמות רב-שנתי
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {yearlyTrend.length === 0 ? (
+              <p className="text-sm text-muted-foreground font-body text-center py-4">
+                אין עדיין נתוני ציונים היסטוריים לחישוב מגמה
+              </p>
+            ) : (
+              <>
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={yearlyTrend.map(t => ({ ...t, label: `${t.year}/${String(t.year + 1).slice(2)}` }))}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                      <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                        formatter={(v: any, n: any, p: any) => [`${v} (${p.payload.count} ציונים)`, "ממוצע"]}
+                      />
+                      <Line type="monotone" dataKey="avg" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                {trendPrediction ? (
+                  <div className="flex items-center gap-2 mt-2 justify-center text-xs font-body">
+                    {trendPrediction.direction === "up" && <TrendingUp className="h-4 w-4 text-green-600" />}
+                    {trendPrediction.direction === "down" && <TrendingDown className="h-4 w-4 text-destructive" />}
+                    <span className="text-muted-foreground">
+                      תחזית לשנה"ל {trendPrediction.nextYear}/{String(trendPrediction.nextYear + 1).slice(2)}: ממוצע משוער <b className="text-foreground">{trendPrediction.predicted}</b>
+                      {" "}(מבוסס על {yearlyTrend.length} שנות נתונים — אינדיקציה ראשונית בלבד)
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground font-body text-center mt-2">
+                    נדרש ותק של שנתיים לפחות כדי לחשב תחזית מגמה
+                  </p>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Bottleneck detection */}
+      {bottlenecks.length > 0 && (
+        <motion.div variants={item}>
+          <Card className="border-orange-400/40">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-heading flex items-center gap-2">
+                <GitBranch className="h-5 w-5 text-orange-500" />זיהוי צווארי בקבוק
+                <Badge variant="destructive" className="text-[10px]">{bottlenecks.length}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {bottlenecks.map(b => (
+                <div key={b.id} className={`flex items-start gap-3 p-2.5 rounded-lg border ${
+                  b.severity === "high" ? "bg-destructive/5 border-destructive/30" : "bg-orange-50/50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800"
+                }`}>
+                  <AlertTriangle className={`h-4 w-4 shrink-0 mt-0.5 ${b.severity === "high" ? "text-destructive" : "text-orange-500"}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-heading font-medium">{b.title}</p>
+                    <p className="text-xs text-muted-foreground font-body">{b.description}</p>
+                  </div>
+                  <Badge variant={b.severity === "high" ? "destructive" : "outline"} className="text-[9px] shrink-0">
+                    {b.severity === "high" ? "דחוף" : "לעקוב"}
+                  </Badge>
+                </div>
+              ))}
             </CardContent>
           </Card>
         </motion.div>
@@ -500,6 +790,91 @@ const PrincipalDashboardPage = () => {
         </motion.div>
       )}
 
+      {/* Supervisor inbox */}
+      <motion.div variants={item}>
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <CardTitle className="text-base font-heading flex items-center gap-2">
+                <Inbox className="h-5 w-5 text-blue-600" />תיבת פניות מפקחת
+                {inquiries.filter(i => i.status === "pending").length > 0 && (
+                  <Badge variant="destructive" className="text-[10px]">
+                    {inquiries.filter(i => i.status === "pending").length} ממתינות
+                  </Badge>
+                )}
+              </CardTitle>
+              <Button size="sm" variant="outline" className="gap-1.5 font-heading text-xs" onClick={() => setInquiryDialog(true)}>
+                <Plus className="h-3.5 w-3.5" />פנייה חדשה
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {inquiries.length === 0 ? (
+              <p className="text-sm text-muted-foreground font-body text-center py-4">
+                אין פניות רשומות מהמפקחת
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {inquiries.map(inq => (
+                  <div key={inq.id} className="p-2.5 rounded-lg border border-border">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-heading font-medium">{inq.subject}</p>
+                          {inq.priority === "high" && <Badge variant="destructive" className="text-[9px]">דחוף</Badge>}
+                          <Badge variant={inq.status === "pending" ? "outline" : inq.status === "answered" ? "default" : "secondary"} className="text-[9px]">
+                            {inq.status === "pending" ? "ממתינה למענה" : inq.status === "answered" ? "נענתה" : "סגורה"}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground font-body mt-1">{inq.content}</p>
+                        {inq.response && (
+                          <div className="mt-2 p-2 rounded-md bg-muted/50 text-xs font-body">
+                            <span className="font-heading text-[10px] text-muted-foreground">תשובת ההנהלה:</span> {inq.response}
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground shrink-0">
+                        {new Date(inq.createdAt).toLocaleDateString("he-IL")}
+                      </p>
+                    </div>
+                    {inq.status === "pending" && (
+                      respondingId === inq.id ? (
+                        <div className="mt-2 space-y-2">
+                          <Textarea value={responseText} onChange={e => setResponseText(e.target.value)}
+                            placeholder="נסחו תשובה למפקחת..." className="text-sm font-body resize-none" rows={2} />
+                          <div className="flex gap-2">
+                            <Button size="sm" className="gap-1.5 font-heading text-xs" disabled={savingResponse || !responseText.trim()}
+                              onClick={() => submitResponse(inq.id)}>
+                              {savingResponse ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageSquareReply className="h-3.5 w-3.5" />}
+                              שלח תשובה
+                            </Button>
+                            <Button size="sm" variant="ghost" className="gap-1.5 font-heading text-xs"
+                              onClick={() => { setRespondingId(null); setResponseText(""); }}>
+                              <X className="h-3.5 w-3.5" />ביטול
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2 mt-2">
+                          <Button size="sm" variant="outline" className="gap-1.5 font-heading text-xs"
+                            onClick={() => { setRespondingId(inq.id); setResponseText(""); }}>
+                            <MessageSquareReply className="h-3.5 w-3.5" />השב
+                          </Button>
+                          <Button size="sm" variant="ghost" className="gap-1.5 font-heading text-xs text-muted-foreground"
+                            onClick={() => closeInquiry(inq.id)}>
+                            סגור ללא מענה
+                          </Button>
+                        </div>
+                      )
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
       {/* Quick actions */}
       <motion.div variants={item}>
         <Card>
@@ -557,6 +932,140 @@ const PrincipalDashboardPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* New Supervisor Inquiry Dialog */}
+      <Dialog open={inquiryDialog} onOpenChange={o => { if (!o) setInquiryDialog(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading flex items-center gap-2">
+              <Inbox className="h-5 w-5 text-blue-600" />
+              רישום פנייה מהמפקחת
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="נושא הפנייה"
+              value={inquirySubject}
+              onChange={e => setInquirySubject(e.target.value)}
+              className="font-body text-sm"
+            />
+            <Textarea
+              placeholder="תוכן הפנייה כפי שהתקבלה מהמפקחת..."
+              value={inquiryContent}
+              onChange={e => setInquiryContent(e.target.value)}
+              className="font-body text-sm resize-none" rows={4}
+            />
+            <div className="flex gap-2">
+              <Button size="sm" variant={inquiryPriority === "normal" ? "default" : "outline"} className="font-heading text-xs flex-1"
+                onClick={() => setInquiryPriority("normal")}>רגילה</Button>
+              <Button size="sm" variant={inquiryPriority === "high" ? "destructive" : "outline"} className="font-heading text-xs flex-1"
+                onClick={() => setInquiryPriority("high")}>דחופה</Button>
+            </div>
+            <Button className="w-full gap-2 font-heading" onClick={submitInquiry} disabled={savingInquiry || !inquirySubject.trim() || !inquiryContent.trim()}>
+              {savingInquiry ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              {savingInquiry ? "רושם..." : "רשום פנייה בתיבה"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+
+    {/* Printable report — Ministry of Education export (screen-hidden, print-only) */}
+    <div className="hidden print:block text-black" dir="rtl">
+      <h1 className="text-xl font-bold mb-1">דוח מנהלת — {profile.schoolName || "בית ספר"}</h1>
+      <p className="text-xs text-gray-600 mb-4">הופק בתאריך {new Date().toLocaleDateString("he-IL")}</p>
+
+      {stats && (
+        <table className="w-full text-sm border-collapse mb-4">
+          <tbody>
+            <tr><td className="border px-2 py-1 font-bold">תלמידים</td><td className="border px-2 py-1">{stats.totalStudents}</td>
+              <td className="border px-2 py-1 font-bold">מורים</td><td className="border px-2 py-1">{stats.totalTeachers}</td></tr>
+            <tr><td className="border px-2 py-1 font-bold">כיתות</td><td className="border px-2 py-1">{stats.totalClasses}</td>
+              <td className="border px-2 py-1 font-bold">ממוצע בי"ס</td><td className="border px-2 py-1">{stats.avgGrade ?? "—"}</td></tr>
+            <tr><td className="border px-2 py-1 font-bold">נוכחים היום</td><td className="border px-2 py-1">{stats.presentToday ?? "—"}</td>
+              <td className="border px-2 py-1 font-bold">חיסורים היום</td><td className="border px-2 py-1">{stats.absentToday ?? "—"}</td></tr>
+          </tbody>
+        </table>
+      )}
+
+      {gradeAvgs.length > 0 && (
+        <>
+          <h2 className="text-base font-bold mb-1">ממוצעים לפי שכבה</h2>
+          <table className="w-full text-sm border-collapse mb-4">
+            <thead><tr><th className="border px-2 py-1">שכבה</th><th className="border px-2 py-1">ממוצע</th><th className="border px-2 py-1">כיתות</th></tr></thead>
+            <tbody>
+              {gradeAvgs.map(g => (
+                <tr key={g.grade}><td className="border px-2 py-1">{g.grade}</td><td className="border px-2 py-1">{g.avg}</td><td className="border px-2 py-1">{g.classCount}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {yearlyTrend.length > 0 && (
+        <>
+          <h2 className="text-base font-bold mb-1">מגמה רב-שנתית</h2>
+          <table className="w-full text-sm border-collapse mb-4">
+            <thead><tr><th className="border px-2 py-1">שנת לימודים</th><th className="border px-2 py-1">ממוצע</th><th className="border px-2 py-1">מספר ציונים</th></tr></thead>
+            <tbody>
+              {yearlyTrend.map(t => (
+                <tr key={t.year}><td className="border px-2 py-1">{t.year}/{String(t.year + 1).slice(2)}</td><td className="border px-2 py-1">{t.avg}</td><td className="border px-2 py-1">{t.count}</td></tr>
+              ))}
+            </tbody>
+          </table>
+          {trendPrediction && (
+            <p className="text-xs mb-4">תחזית לשנה"ל {trendPrediction.nextYear}/{String(trendPrediction.nextYear + 1).slice(2)}: ממוצע משוער {trendPrediction.predicted}</p>
+          )}
+        </>
+      )}
+
+      {bottlenecks.length > 0 && (
+        <>
+          <h2 className="text-base font-bold mb-1">צווארי בקבוק שזוהו</h2>
+          <table className="w-full text-sm border-collapse mb-4">
+            <thead><tr><th className="border px-2 py-1">חומרה</th><th className="border px-2 py-1">תחום</th><th className="border px-2 py-1">פירוט</th></tr></thead>
+            <tbody>
+              {bottlenecks.map(b => (
+                <tr key={b.id}><td className="border px-2 py-1">{b.severity === "high" ? "דחוף" : "לעקוב"}</td><td className="border px-2 py-1">{b.title}</td><td className="border px-2 py-1">{b.description}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {compliance.length > 0 && (
+        <>
+          <h2 className="text-base font-bold mb-1">חריגות ציות</h2>
+          <table className="w-full text-sm border-collapse mb-4">
+            <thead><tr><th className="border px-2 py-1">מורה</th><th className="border px-2 py-1">סוג</th><th className="border px-2 py-1">פירוט</th></tr></thead>
+            <tbody>
+              {compliance.map((c, i) => (
+                <tr key={i}><td className="border px-2 py-1">{c.teacherName}</td><td className="border px-2 py-1">{c.violation}</td><td className="border px-2 py-1">{c.detail}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {inquiries.length > 0 && (
+        <>
+          <h2 className="text-base font-bold mb-1">פניות מפקחת</h2>
+          <table className="w-full text-sm border-collapse">
+            <thead><tr><th className="border px-2 py-1">תאריך</th><th className="border px-2 py-1">נושא</th><th className="border px-2 py-1">סטטוס</th><th className="border px-2 py-1">תשובה</th></tr></thead>
+            <tbody>
+              {inquiries.map(inq => (
+                <tr key={inq.id}>
+                  <td className="border px-2 py-1">{new Date(inq.createdAt).toLocaleDateString("he-IL")}</td>
+                  <td className="border px-2 py-1">{inq.subject}</td>
+                  <td className="border px-2 py-1">{inq.status === "pending" ? "ממתינה" : inq.status === "answered" ? "נענתה" : "סגורה"}</td>
+                  <td className="border px-2 py-1">{inq.response || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </div>
     </motion.div>
   );
 };

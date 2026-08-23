@@ -9,13 +9,39 @@ import {
   avatarUrl,
   replaceHairColors,
 } from "./avatarData";
-import { Glasses, GraduationCap, Star } from "lucide-react";
+import { Glasses, GraduationCap, Star, Ear } from "lucide-react";
+import type { CSSProperties, ComponentType } from "react";
 
-const ACCESSORY_ICONS: Record<string, typeof Glasses> = {
+type BadgeIcon = ComponentType<{ className?: string; style?: CSSProperties }>;
+
+// Lucide has no kippah/hijab/headscarf icons, so these render as simple
+// silhouette badges at the same abstraction level as the existing
+// accessory/facial-hair badges (small corner overlays, not on-face art).
+const Kippah: BadgeIcon = ({ className, style }) => (
+  <svg viewBox="0 0 24 24" className={className} style={style} fill="currentColor">
+    <path d="M4 14c0-5 3.5-9 8-9s8 4 8 9c-2.5 1-5.3 1.5-8 1.5S6.5 15 4 14Z" />
+  </svg>
+);
+const Hijab: BadgeIcon = ({ className, style }) => (
+  <svg viewBox="0 0 24 24" className={className} style={style} fill="currentColor">
+    <path d="M12 3c-4 0-7 3-7 7 0 3 1.5 5.5 3 7-1 .5-2 1.5-2 3h12c0-1.5-1-2.5-2-3 1.5-1.5 3-4 3-7 0-4-3-7-7-7Z" />
+  </svg>
+);
+const Headscarf: BadgeIcon = ({ className, style }) => (
+  <svg viewBox="0 0 24 24" className={className} style={style} fill="currentColor">
+    <path d="M12 3C7.5 3 4 6.5 4 11c0 2.5 1 4.5 2.5 6L5 19l3 1 1-2c1 .3 2 .5 3 .5s2-.2 3-.5l1 2 3-1-1.5-2c1.5-1.5 2.5-3.5 2.5-6 0-4.5-3.5-8-8-8Z" />
+  </svg>
+);
+
+const ACCESSORY_ICONS: Record<string, BadgeIcon> = {
   glasses: Glasses,
   sunglasses: Glasses,
   cap: GraduationCap,
   star: Star,
+  hearing_aid: Ear,
+  kippah: Kippah,
+  hijab: Hijab,
+  headscarf: Headscarf,
 };
 
 const OUTFIT_LABELS: Record<string, string> = {
@@ -155,7 +181,9 @@ const AvatarPreview = ({ config, size = 160, className }: AvatarPreviewProps) =>
         style={{
           width: dim,
           height: dim,
-          backgroundColor,
+          // "background" (not "backgroundColor") - some BACKGROUNDS entries
+          // are gradients (themed scenes), which backgroundColor can't render.
+          background: backgroundColor,
           boxShadow: `0 0 ${Math.round(dim * 0.12)}px hsl(${expressionEntry.glow} / 0.55)`,
         }}
       >
