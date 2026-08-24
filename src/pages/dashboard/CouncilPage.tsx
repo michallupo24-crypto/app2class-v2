@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +24,7 @@ import AvatarPreview from "@/components/avatar/AvatarPreview";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import CouncilTournament from "@/components/council/CouncilTournament";
 
 interface Profile {
   id: string;
@@ -390,6 +392,16 @@ const CouncilPage = () => {
         )}
       </div>
 
+      <Tabs defaultValue="regular">
+        <TabsList>
+          <TabsTrigger value="regular">בחירות רגילות</TabsTrigger>
+          <TabsTrigger value="tournament">טורניר בחירות</TabsTrigger>
+        </TabsList>
+        <TabsContent value="tournament" className="pt-4">
+          <CouncilTournament profile={profile} />
+        </TabsContent>
+        <TabsContent value="regular" className="space-y-6 pt-4">
+
       {canManageCouncil && (
         <Card>
           <CardHeader>
@@ -698,6 +710,8 @@ const CouncilPage = () => {
           </Button>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+      </Tabs>
     </motion.div>
   );
 };
