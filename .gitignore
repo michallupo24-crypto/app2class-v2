@@ -30,3 +30,6 @@ dist-ssr
 
 # Supabase CLI local state
 supabase/.temp
+
+# Claude Code local permission settings (personal, not shared)
+.claude/settings.local.json
