@@ -97,7 +97,7 @@ const MisconceptionCoachMode = ({ profile, assignmentId, onBack }: Props) => {
       if (insertError) throw insertError;
       const { error: publishError } = await supabase.from("assignments").update({ published: true }).eq("id", assignmentId);
       if (publishError) throw publishError;
-      toast({ title: "הבוחן המאומן פורסם! כל טעות תקבל הסבר אישי ותיקון מיידי 🧠" });
+      toast({ title: "הבוחן המאומן פורסם! כל טעות תקבל הסבר אישי ותיקון מיידי" });
     } catch (err: any) {
       toast({ title: "שגיאה בשיגור", description: err.message, variant: "destructive" });
     } finally {
@@ -109,15 +109,15 @@ const MisconceptionCoachMode = ({ profile, assignmentId, onBack }: Props) => {
     <StudioModeWrapper
       title="בוחן עם מאמן AI"
       description="כשתלמיד טועה, ה-AI מסביר בדיוק את התפיסה השגויה שלו ומוודא שהוא הבין - לא רק מציג את התשובה הנכונה"
-      icon={<GraduationCap className="h-6 w-6 text-purple-600" />}
+      icon={<GraduationCap className="h-6 w-6 text-accent" />}
       badge="AI"
       onBack={onBack}
     >
       {!questions ? (
         <div className="space-y-4">
-          <Card className="border-purple-500/20 bg-purple-500/5">
+          <Card className="border-accent/20 bg-accent/5">
             <CardContent className="p-4 flex items-start gap-3">
-              <Lightbulb className="h-5 w-5 text-purple-600 shrink-0 mt-0.5" />
+              <Lightbulb className="h-5 w-5 text-accent shrink-0 mt-0.5" />
               <p className="text-xs font-body text-muted-foreground">
                 בבוחן רגיל, טעות מקבלת "לא נכון, התשובה הנכונה היא...". כאן, ה-AI מזהה <b>למה</b> התלמיד טעה, מסביר את זה נקודתית, ונותן שאלת-מיקרו לוודא שהוא באמת הבין - לפני שממשיכים. בסוף, תקבל/י דוח של התפיסות השגויות הנפוצות בכיתה.
               </p>

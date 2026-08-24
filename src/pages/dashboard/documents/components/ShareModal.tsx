@@ -92,34 +92,34 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, documen
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-          <div className="flex items-center gap-2 font-bold text-base text-slate-800">
-            <Share2 className="w-5 h-5 text-blue-600" />
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
+      <div className="bg-card rounded-lg w-full max-w-lg border border-border overflow-hidden">
+        <div className="p-4 border-b border-border flex items-center justify-between bg-muted">
+          <div className="flex items-center gap-2 font-bold text-base text-foreground">
+            <Share2 className="w-5 h-5 text-primary" />
             <span>שיתוף המסמך: "{documentTitle}"</span>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-lg text-slate-500">
+          <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg text-muted-foreground">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 space-y-5 text-xs text-slate-700">
+        <div className="p-6 space-y-5 text-xs text-foreground">
           <form onSubmit={handleAddInvite} className="space-y-2">
-            <label className="block font-bold text-slate-800">הוסף איש/אשת צוות או תלמיד/ה מבית הספר שלך:</label>
+            <label className="block font-bold text-foreground">הוסף איש/אשת צוות או תלמיד/ה מבית הספר שלך:</label>
             <div className="flex gap-2">
               <input
                 type="email"
                 placeholder="הכנס כתובת אימייל..."
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
-                className="flex-1 p-2.5 border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                className="flex-1 p-2.5 border border-input rounded-xl focus:outline-hidden focus:ring-2 focus:ring-primary"
                 dir="ltr"
               />
               <select
                 value={permission}
                 onChange={(e) => setPermission(e.target.value as any)}
-                className="p-2.5 border border-slate-300 rounded-xl bg-slate-50 font-semibold text-slate-800"
+                className="p-2.5 border border-input rounded-xl bg-muted font-semibold text-foreground"
               >
                 <option value="editor">עורך</option>
                 <option value="commenter">מגיב</option>
@@ -128,40 +128,40 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, documen
               <button
                 type="submit"
                 disabled={inviting}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2.5 rounded-xl flex items-center gap-1 transition-colors disabled:opacity-60"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-4 py-2.5 rounded-xl flex items-center gap-1 transition-colors disabled:opacity-60"
               >
                 {inviting ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
                 <span>הוסף</span>
               </button>
             </div>
-            {error && <p className="text-red-600 text-[11px]">{error}</p>}
+            {error && <p className="text-destructive text-[11px]">{error}</p>}
           </form>
 
           <div>
-            <span className="font-bold text-slate-800 block mb-2">בעלי גישה במסמך:</span>
+            <span className="font-bold text-foreground block mb-2">בעלי גישה במסמך:</span>
             <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-              <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-200">
-                <span className="font-medium text-slate-800 flex items-center gap-1.5">
-                  <Crown className="w-3.5 h-3.5 text-amber-500" />
+              <div className="flex items-center justify-between p-2 bg-muted rounded-lg border border-border">
+                <span className="font-medium text-foreground flex items-center gap-1.5">
+                  <Crown className="w-3.5 h-3.5 text-warning" />
                   {ownerName} (בעלים)
                 </span>
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <ShieldCheck className="w-4 h-4 text-success" />
               </div>
 
-              {loading && <p className="text-slate-400 text-center py-2">טוען...</p>}
+              {loading && <p className="text-muted-foreground text-center py-2">טוען...</p>}
 
               {!loading &&
                 shares.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-200">
-                    <span className="font-medium text-slate-800">
+                  <div key={s.id} className="flex items-center justify-between p-2 bg-muted rounded-lg border border-border">
+                    <span className="font-medium text-foreground">
                       {s.profile?.full_name || 'משתמש'}{' '}
-                      <span className="text-slate-400 font-normal">({s.profile?.email})</span>
+                      <span className="text-muted-foreground font-normal">({s.profile?.email})</span>
                     </span>
                     <div className="flex items-center gap-1.5">
                       <select
                         value={s.permission}
                         onChange={(e) => handleChangePermission(s.id, e.target.value)}
-                        className="text-[11px] p-1 border border-slate-200 rounded-lg bg-white"
+                        className="text-[11px] p-1 border border-input rounded-lg bg-card"
                       >
                         <option value="editor">עורך</option>
                         <option value="commenter">מגיב</option>
@@ -169,7 +169,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, documen
                       </select>
                       <button
                         onClick={() => handleRemoveShare(s.id)}
-                        className="p-1 hover:bg-red-50 hover:text-red-600 rounded text-slate-400 transition-colors"
+                        className="p-1 hover:bg-destructive/10 hover:text-destructive rounded text-muted-foreground transition-colors"
                         title="הסר גישה"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -179,7 +179,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, documen
                 ))}
 
               {!loading && shares.length === 0 && (
-                <p className="text-slate-400 text-center py-2">המסמך עדיין לא שותף עם אף אחד</p>
+                <p className="text-muted-foreground text-center py-2">המסמך עדיין לא שותף עם אף אחד</p>
               )}
             </div>
           </div>

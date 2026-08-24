@@ -144,7 +144,7 @@ const SubjectHubsPage = () => {
                 )}
               >
                 {subject.isLive && (
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-green-500 animate-pulse" />
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-success animate-pulse" />
                 )}
                 <CardContent className="py-5">
                   <div className="flex items-start justify-between mb-3">
@@ -156,7 +156,7 @@ const SubjectHubsPage = () => {
                       <h3 className="font-heading font-bold text-lg">{subject.name}</h3>
                     </div>
                     {subject.isLive && (
-                      <Badge className="bg-green-500/10 text-green-600 border-green-500/20 gap-1" variant="outline">
+                      <Badge className="bg-success/10 text-success border-success/20 gap-1" variant="outline">
                         <Radio className="h-3 w-3" />
                         LIVE
                       </Badge>

@@ -576,7 +576,7 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
     const text = formatPageNumberBadgeText(pageNum, total, doc.pageNumberFormat);
 
     return (
-      <span className="bg-slate-100 border border-slate-200 px-2 py-0.5 rounded font-mono text-slate-700 text-[10px] font-bold shadow-2xs">
+      <span className="bg-muted border border-border px-2 py-0.5 rounded font-mono text-muted-foreground text-[10px] font-bold">
         {text}
       </span>
     );
@@ -595,8 +595,8 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
   };
 
   return (
-    <div 
-      className="flex-1 overflow-auto bg-[#e5e7eb] p-4 md:p-8 flex flex-col items-center relative min-h-screen select-text"
+    <div
+      className="flex-1 overflow-auto bg-muted p-4 md:p-8 flex flex-col items-center relative min-h-screen select-text"
       onMouseUp={handleEditorInteraction}
       onKeyUp={handleEditorInteraction}
     >
@@ -609,37 +609,37 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
             left: `${toolbarPos.left}px`,
             zIndex: 100
           }}
-          className="bg-slate-900 text-white rounded-xl shadow-2xl px-3 py-1.5 flex items-center gap-1.5 text-xs border border-slate-700 animate-in fade-in zoom-in duration-150 select-none"
+          className="bg-card text-foreground rounded-xl px-3 py-1.5 flex items-center gap-1.5 text-xs border border-border animate-in fade-in zoom-in duration-150 select-none"
         >
           {/* 1. TABLE TOOLBAR */}
           {selectedObjectType === 'table' && (
             <>
-              <span className="text-[10px] text-blue-400 font-bold border-l border-slate-700 pl-2 ml-1 flex items-center gap-1">
+              <span className="text-[10px] text-primary font-bold border-l border-border pl-2 ml-1 flex items-center gap-1">
                 <TableIcon className="w-3.5 h-3.5" />
                 טבלה
               </span>
               <button
                 onClick={handleAddRow}
-                className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded text-[11px] font-medium flex items-center gap-1 transition-colors"
+                className="px-2 py-1 bg-muted hover:bg-muted/70 text-foreground rounded text-[11px] font-medium flex items-center gap-1 transition-colors"
                 title="הוסף שורה חדשה לטבלה"
               >
-                <Plus className="w-3 h-3 text-emerald-400" />
+                <Plus className="w-3 h-3 text-success" />
                 <span>שורה</span>
               </button>
               <button
                 onClick={handleAddColumn}
-                className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded text-[11px] font-medium flex items-center gap-1 transition-colors"
+                className="px-2 py-1 bg-muted hover:bg-muted/70 text-foreground rounded text-[11px] font-medium flex items-center gap-1 transition-colors"
                 title="הוסף עמודה חדשה לטבלה"
               >
-                <Plus className="w-3 h-3 text-blue-400" />
+                <Plus className="w-3 h-3 text-primary" />
                 <span>עמודה</span>
               </button>
               <button
                 onClick={handleDeleteTable}
-                className="px-2 py-1 bg-rose-950 hover:bg-rose-900 text-rose-200 rounded text-[11px] font-medium flex items-center gap-1 transition-colors"
+                className="px-2 py-1 bg-destructive/10 hover:bg-destructive/20 text-destructive rounded text-[11px] font-medium flex items-center gap-1 transition-colors"
                 title="מחק טבלה זו"
               >
-                <Trash2 className="w-3 h-3 text-rose-400" />
+                <Trash2 className="w-3 h-3" />
                 <span>מחק טבלה</span>
               </button>
             </>
@@ -648,55 +648,55 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
           {/* 2. IMAGE TOOLBAR */}
           {selectedObjectType === 'image' && (
             <>
-              <span className="text-[10px] text-emerald-400 font-bold border-l border-slate-700 pl-2 ml-1 flex items-center gap-1">
+              <span className="text-[10px] text-success font-bold border-l border-border pl-2 ml-1 flex items-center gap-1">
                 <ImageIcon className="w-3.5 h-3.5" />
                 תמונה
               </span>
-              <span className="text-[10px] text-slate-400">גודל:</span>
+              <span className="text-[10px] text-muted-foreground">גודל:</span>
               <button
                 onClick={() => handleSetImageWidth('25%')}
-                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px]"
+                className="px-2 py-0.5 bg-muted hover:bg-muted/70 text-foreground rounded text-[10px]"
               >
                 25%
               </button>
               <button
                 onClick={() => handleSetImageWidth('50%')}
-                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px]"
+                className="px-2 py-0.5 bg-muted hover:bg-muted/70 text-foreground rounded text-[10px]"
               >
                 50%
               </button>
               <button
                 onClick={() => handleSetImageWidth('100%')}
-                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px]"
+                className="px-2 py-0.5 bg-muted hover:bg-muted/70 text-foreground rounded text-[10px]"
               >
                 100%
               </button>
-              <div className="h-3 w-[1px] bg-slate-700 mx-1" />
+              <div className="h-3 w-[1px] bg-border mx-1" />
               <button
                 onClick={() => handleSetAlign('right')}
-                className="p-1 hover:bg-slate-800 rounded text-slate-300"
+                className="p-1 hover:bg-muted rounded text-muted-foreground"
                 title="יישור לימין"
               >
                 <AlignRight className="w-3 h-3" />
               </button>
               <button
                 onClick={() => handleSetAlign('center')}
-                className="p-1 hover:bg-slate-800 rounded text-slate-300"
+                className="p-1 hover:bg-muted rounded text-muted-foreground"
                 title="מרכוז"
               >
                 <AlignCenter className="w-3 h-3" />
               </button>
               <button
                 onClick={() => handleSetAlign('left')}
-                className="p-1 hover:bg-slate-800 rounded text-slate-300"
+                className="p-1 hover:bg-muted rounded text-muted-foreground"
                 title="יישור לשמאל"
               >
                 <AlignLeft className="w-3 h-3" />
               </button>
-              <div className="h-3 w-[1px] bg-slate-700 mx-1" />
+              <div className="h-3 w-[1px] bg-border mx-1" />
               <button
                 onClick={handleDeleteElement}
-                className="p-1 hover:bg-rose-900/50 rounded text-rose-300"
+                className="p-1 hover:bg-destructive/10 rounded text-destructive"
                 title="מחק תמונה"
               >
                 <Trash2 className="w-3 h-3" />
@@ -707,7 +707,7 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
           {/* 3. CALLOUT / HIGHLIGHT BOX TOOLBAR */}
           {selectedObjectType === 'callout' && (
             <>
-              <span className="text-[10px] text-amber-400 font-bold border-l border-slate-700 pl-2 ml-1 flex items-center gap-1">
+              <span className="text-[10px] text-warning font-bold border-l border-border pl-2 ml-1 flex items-center gap-1">
                 <Paintbrush className="w-3.5 h-3.5" />
                 תיבת הדגשה
               </span>
@@ -731,10 +731,10 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
                 className="w-4 h-4 rounded-full bg-rose-100 border border-rose-400"
                 title="ורוד בהיר"
               />
-              <div className="h-3 w-[1px] bg-slate-700 mx-1" />
+              <div className="h-3 w-[1px] bg-border mx-1" />
               <button
                 onClick={handleDeleteElement}
-                className="p-1 hover:bg-rose-900/50 rounded text-rose-300"
+                className="p-1 hover:bg-destructive/10 rounded text-destructive"
                 title="מחק תיבה"
               >
                 <Trash2 className="w-3 h-3" />
@@ -750,7 +750,7 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
                   formatDoc('bold');
                   saveSelection();
                 }}
-                className="p-1.5 hover:bg-slate-800 rounded font-bold transition-colors"
+                className="p-1.5 hover:bg-muted rounded font-bold transition-colors"
                 title="מודגש (Ctrl+B)"
               >
                 <Bold className="w-3.5 h-3.5" />
@@ -760,18 +760,18 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
                   formatDoc('italic');
                   saveSelection();
                 }}
-                className="p-1.5 hover:bg-slate-800 rounded italic transition-colors"
+                className="p-1.5 hover:bg-muted rounded italic transition-colors"
                 title="נטוי (Ctrl+I)"
               >
                 <Italic className="w-3.5 h-3.5" />
               </button>
-              <div className="h-3 w-[1px] bg-slate-700 mx-0.5" />
+              <div className="h-3 w-[1px] bg-border mx-0.5" />
               <button
                 onClick={() => {
                   formatDoc('formatBlock', '<h1>');
                   saveSelection();
                 }}
-                className="p-1 hover:bg-slate-800 rounded text-[11px] font-bold text-blue-400"
+                className="p-1 hover:bg-muted rounded text-[11px] font-bold text-primary"
                 title="כותרת ראשית H1"
               >
                 H1
@@ -781,7 +781,7 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
                   formatDoc('formatBlock', '<h2>');
                   saveSelection();
                 }}
-                className="p-1 hover:bg-slate-800 rounded text-[11px] font-bold text-sky-400"
+                className="p-1 hover:bg-muted rounded text-[11px] font-bold text-info"
                 title="כותרת משנית H2"
               >
                 H2
@@ -791,18 +791,18 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
                   formatDoc('formatBlock', '<p>');
                   saveSelection();
                 }}
-                className="p-1 hover:bg-slate-800 rounded text-[11px] font-medium text-slate-300"
+                className="p-1 hover:bg-muted rounded text-[11px] font-medium text-muted-foreground"
                 title="פסקה רגילה"
               >
                 P
               </button>
-              <div className="h-3 w-[1px] bg-slate-700 mx-0.5" />
+              <div className="h-3 w-[1px] bg-border mx-0.5" />
               <button
                 onClick={() => {
                   applyStyleToSelectionOrNode('backgroundColor', '#fef08a', selectedElement);
                   saveSelection();
                 }}
-                className="p-1.5 hover:bg-slate-800 rounded text-amber-300"
+                className="p-1.5 hover:bg-muted rounded text-warning"
                 title="מרקר צהוב"
               >
                 <Highlighter className="w-3.5 h-3.5" />
@@ -812,21 +812,21 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
                   applyStyleToSelectionOrNode('color', '#2563eb', selectedElement);
                   saveSelection();
                 }}
-                className="p-1.5 hover:bg-slate-800 rounded text-blue-400"
+                className="p-1.5 hover:bg-muted rounded text-primary"
                 title="צבע כחול"
               >
                 <Palette className="w-3.5 h-3.5" />
               </button>
               {selectedText && (
                 <>
-                  <div className="h-3 w-[1px] bg-slate-700 mx-0.5" />
+                  <div className="h-3 w-[1px] bg-border mx-0.5" />
                   <button
                     onClick={() => {
                       onAddCommentFromSelection(selectedText);
                       setSelectedObjectType(null);
                       setToolbarPos(null);
                     }}
-                    className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-[11px] font-medium flex items-center gap-1 transition-colors"
+                    className="px-2 py-1 bg-primary hover:bg-primary/90 text-primary-foreground rounded text-[11px] font-medium flex items-center gap-1 transition-colors"
                   >
                     <MessageSquarePlus className="w-3 h-3" />
                     <span>הוסף הערה</span>
@@ -838,29 +838,29 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
 
           {/* 5. SPELL ERROR POPOVER */}
           {selectedObjectType === 'spell_error' && activeSpellPopover && (
-            <div className="p-2.5 max-w-xs text-right bg-white text-slate-800 rounded-lg shadow-2xl border border-red-200">
-              <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 mb-2">
-                <div className="flex items-center gap-1 text-red-600 font-bold text-xs">
+            <div className="p-2.5 max-w-xs text-right bg-card text-foreground rounded-lg border border-destructive/30">
+              <div className="flex items-center justify-between pb-1.5 border-b border-border mb-2">
+                <div className="flex items-center gap-1 text-destructive font-bold text-xs">
                   <AlertTriangle className="w-3.5 h-3.5" />
                   <span>שגיאת איות או ניסוח</span>
                 </div>
-                <span className="bg-red-50 text-red-700 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold">
+                <span className="bg-destructive/10 text-destructive px-1.5 py-0.5 rounded text-[10px] font-mono font-bold">
                   {activeSpellPopover.word}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 mb-2 leading-tight">
+              <p className="text-[11px] text-muted-foreground mb-2 leading-tight">
                 {activeSpellPopover.reason}
               </p>
-              
+
               {activeSpellPopover.suggestions && activeSpellPopover.suggestions.length > 0 ? (
                 <div className="mb-2">
-                  <span className="text-[10px] text-slate-400 font-medium block mb-1">הצעות לתיקון:</span>
+                  <span className="text-[10px] text-muted-foreground font-medium block mb-1">הצעות לתיקון:</span>
                   <div className="flex flex-wrap gap-1">
                     {activeSpellPopover.suggestions.map((sug, sIdx) => (
                       <button
                         key={sIdx}
                         onClick={() => handleApplySpellCorrection(activeSpellPopover.word, sug, activeSpellPopover.element)}
-                        className="px-2 py-1 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 rounded font-medium text-xs border border-blue-200 transition-colors flex items-center gap-1"
+                        className="px-2 py-1 bg-primary/10 hover:bg-primary hover:text-primary-foreground text-primary rounded font-medium text-xs border border-primary/30 transition-colors flex items-center gap-1"
                       >
                         <Check className="w-3 h-3" />
                         <span>{sug}</span>
@@ -869,20 +869,20 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
                   </div>
                 </div>
               ) : (
-                <p className="text-[10px] text-amber-600 mb-2">אין הצעה ישירה למילה זו.</p>
+                <p className="text-[10px] text-warning mb-2">אין הצעה ישירה למילה זו.</p>
               )}
 
-              <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 text-[11px]">
+              <div className="flex items-center justify-between pt-1.5 border-t border-border text-[11px]">
                 <button
                   onClick={() => handleIgnoreTypo(activeSpellPopover.word, activeSpellPopover.element)}
-                  className="text-slate-500 hover:text-slate-800 hover:underline font-medium transition-colors"
+                  className="text-muted-foreground hover:text-foreground hover:underline font-medium transition-colors"
                   title="התעלם משגיאה זו במסמך"
                 >
                   התעלם
                 </button>
                 <button
                   onClick={() => handleAddWordToCustomDict(activeSpellPopover.word, activeSpellPopover.element)}
-                  className="text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 hover:underline transition-colors"
+                  className="text-primary hover:text-primary/80 font-bold flex items-center gap-1 hover:underline transition-colors"
                   title="הוסף מילה זו למילון המקומי שלך"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -904,8 +904,8 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
             return (
               <React.Fragment key={`page_${pageIndex}`}>
                 {/* A4 Paper Sheet (Exact 210mm x 297mm portrait) */}
-                <div 
-                  className="w-[210mm] min-w-[210mm] max-w-[210mm] min-h-[297mm] my-5 bg-white shadow-2xl border border-gray-300 rounded-xs flex flex-col relative transition-all box-border shrink-0"
+                <div
+                  className="w-[210mm] min-w-[210mm] max-w-[210mm] min-h-[297mm] my-5 bg-white border border-border rounded-xs flex flex-col relative transition-transform box-border shrink-0"
                   style={paperSheetStyle}
                 >
                   {/* Watermark Overlay */}
@@ -958,7 +958,7 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
                       paddingRight: `${document.margins?.right ?? 25}mm`,
                       minHeight: 'calc(297mm - 80px)'
                     }}
-                    className="focus:outline-hidden flex-1 text-gray-800 leading-relaxed relative z-10 prose prose-slate max-w-none prose-headings:font-bold prose-headings:text-gray-900 prose-h1:text-2xl prose-h2:text-lg prose-h2:text-blue-800 prose-h3:text-base [&_.active-object-selected]:ring-2 [&_.active-object-selected]:ring-blue-500 [&_.active-object-selected]:ring-offset-2 [&_.active-object-selected]:rounded-xs"
+                    className="focus:outline-hidden flex-1 text-gray-800 leading-relaxed relative z-10 prose prose-slate max-w-none prose-headings:font-bold prose-headings:text-gray-900 prose-h1:text-2xl prose-h2:text-lg prose-h2:text-blue-800 prose-h3:text-base [&_.active-object-selected]:ring-2 [&_.active-object-selected]:ring-primary [&_.active-object-selected]:ring-offset-2 [&_.active-object-selected]:rounded-xs"
                   />
 
                   {/* Footer Region */}
@@ -978,20 +978,20 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
                 {/* Page Break Gap & Multi-Page Actions between pages */}
                 {pageIndex < pages.length - 1 && (
                   <div className="flex items-center gap-3 my-2 select-none">
-                    <div className="h-[1px] w-24 bg-gray-300" />
-                    <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-full border border-gray-300 shadow-xs text-xs text-gray-600">
-                      <FileText className="w-3.5 h-3.5 text-blue-600" />
+                    <div className="h-[1px] w-24 bg-border" />
+                    <div className="flex items-center gap-2 bg-card px-3 py-1 rounded-full border border-border shadow-xs text-xs text-muted-foreground">
+                      <FileText className="w-3.5 h-3.5 text-primary" />
                       <span className="font-semibold">מעבר עמוד (A4)</span>
-                      <span className="text-gray-400">|</span>
+                      <span className="text-muted-foreground">|</span>
                       <button
                         onClick={() => handleMergeWithNextPage(pageIndex)}
-                        className="text-[11px] text-red-600 hover:text-red-800 hover:underline font-medium"
+                        className="text-[11px] text-destructive hover:text-destructive/80 hover:underline font-medium"
                         title="מחק מעבר עמוד וחבר עמודים"
                       >
                         הסר מעבר
                       </button>
                     </div>
-                    <div className="h-[1px] w-24 bg-gray-300" />
+                    <div className="h-[1px] w-24 bg-border" />
                   </div>
                 )}
               </React.Fragment>
@@ -1005,9 +1005,9 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
                 if (onAddPage) onAddPage();
                 else handleInsertPageAfter(pages.length - 1);
               }}
-              className="bg-white hover:bg-blue-50 text-blue-700 hover:text-blue-800 px-5 py-2 rounded-full border border-blue-300 shadow-sm font-semibold text-xs flex items-center gap-2 transition-all hover:scale-105"
+              className="bg-card hover:bg-primary/10 text-primary hover:text-primary/80 px-5 py-2 rounded-full border border-primary/30 shadow-sm font-semibold text-xs flex items-center gap-2 transition-colors"
             >
-              <Plus className="w-4 h-4 text-blue-600" />
+              <Plus className="w-4 h-4 text-primary" />
               <span>הוסף עמוד חדש (A4)</span>
             </button>
           </div>
@@ -1016,8 +1016,8 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
         /* ========================================================================= */
         /* 2. PAGELESS CONTINUOUS DOCS VIEW                                          */
         /* ========================================================================= */
-        <div 
-          className="w-full max-w-4xl min-h-[800px] my-4 bg-white shadow-md rounded-lg p-8 border border-gray-200"
+        <div
+          className="w-full max-w-4xl min-h-[800px] my-4 bg-white shadow-md rounded-lg p-8 border border-border"
           style={paperSheetStyle}
         >
           {/* Watermark Overlay */}

@@ -183,7 +183,7 @@ const ApprovalsPage = () => {
       const { error: profileError } = await supabase.from("profiles").update({ is_approved: true }).in("id", userIds);
       if (profileError) throw profileError;
 
-      toast({ title: `אושרו ${ids.length} בקשות בבת אחת! ⚡` });
+      toast({ title: `אושרו ${ids.length} בקשות בבת אחת!` });
       loadApprovals();
       refresh();
     } catch (e: any) {
@@ -210,12 +210,12 @@ const ApprovalsPage = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <motion.div variants={item}>
           <h1 className="text-4xl font-heading font-black text-primary flex items-center gap-4 tracking-tighter">
-            <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center rotate-3 shadow-inner">
+            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
                <UserCheck className="h-7 w-7 text-primary" />
             </div>
             ניהול אישורי הצטרפות
           </h1>
-          <p className="text-slate-500 font-medium mt-2 flex items-center gap-2">
+          <p className="text-muted-foreground font-medium mt-2 flex items-center gap-2">
             <Users className="h-4 w-4" /> ניהול בקשות רישום של מורים, הורים ותלמידים
           </p>
         </motion.div>
@@ -224,7 +224,7 @@ const ApprovalsPage = () => {
           <motion.div variants={item}>
             <Button 
               onClick={approveAllVisible} 
-              className="rounded-xl h-12 px-8 shadow-lg shadow-success/20 bg-success hover:bg-success/90 gap-2 font-bold"
+              className="rounded-xl h-12 px-8 bg-success hover:bg-success/90 gap-2 font-bold"
             >
               <ThumbsUp className="h-4 w-4" /> אשר את כל המופיעים ({filteredApprovals.length})
             </Button>
@@ -235,37 +235,37 @@ const ApprovalsPage = () => {
       {/* Control Bar */}
       <motion.div variants={item} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
         <div className="md:col-span-4 relative group">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-          <Input 
-            placeholder="חפש לפי שם, אימייל או הערות..." 
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+          <Input
+            placeholder="חפש לפי שם, אימייל או הערות..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-11 rounded-xl pr-10 bg-white/60 backdrop-blur-sm border-slate-200 focus:ring-primary/20 transition-all shadow-sm"
+            className="h-11 rounded-xl pr-10 bg-card border-border focus:ring-primary/20 transition-all"
           />
         </div>
 
         <div className="md:col-span-8 flex flex-wrap items-center gap-3">
-           <div className="flex bg-slate-100/80 p-1 rounded-xl ring-1 ring-slate-200 backdrop-blur-sm space-x-reverse space-x-1">
+           <div className="flex bg-muted p-1 rounded-xl border border-border space-x-reverse space-x-1">
               {(["pending", "approved", "rejected", "all"] as const).map((f) => (
                 <Button
                   key={f}
                   variant={filter === f ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setFilter(f)}
-                  className={`rounded-lg h-9 px-4 font-heading transition-all ${filter === f ? "shadow-md" : "text-slate-600 hover:bg-white/50"}`}
+                  className={`rounded-lg h-9 px-4 font-heading transition-all ${filter === f ? "shadow-md" : "text-muted-foreground hover:bg-card"}`}
                 >
-                  {f === "pending" && "⏳ ממתינים"}
-                  {f === "approved" && "✅ אושרו"}
-                  {f === "rejected" && "❌ נדחו"}
-                  {f === "all" && "📋 הכל"}
+                  {f === "pending" && "ממתינים"}
+                  {f === "approved" && "אושרו"}
+                  {f === "rejected" && "נדחו"}
+                  {f === "all" && "הכל"}
                 </Button>
               ))}
            </div>
 
            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mr-2">סינון לפי תפקיד:</span>
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mr-2">סינון לפי תפקיד:</span>
               <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger className="w-40 h-10 rounded-xl bg-white/60 backdrop-blur-sm border-slate-200">
+                <SelectTrigger className="w-40 h-10 rounded-xl bg-card border-border">
                   <SelectValue placeholder="כל התפקידים" />
                 </SelectTrigger>
                 <SelectContent>
@@ -284,16 +284,16 @@ const ApprovalsPage = () => {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 animate-in fade-in">
              <Loader2 className="h-12 w-12 text-primary/40 animate-spin mb-4" />
-             <p className="text-slate-400 font-medium">מעדכן נתונים...</p>
+             <p className="text-muted-foreground font-medium">מעדכן נתונים...</p>
           </div>
         ) : filteredApprovals.length === 0 ? (
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
-            <Card className="border-none shadow-xl bg-slate-50/50 p-20 text-center">
-               <div className="h-20 w-20 rounded-3xl bg-slate-100 flex items-center justify-center mx-auto mb-6 opacity-40">
-                  <Search className="h-10 w-10 text-slate-400" />
+            <Card className="border border-border bg-muted/50 p-20 text-center">
+               <div className="h-20 w-20 rounded-lg bg-muted flex items-center justify-center mx-auto mb-6 opacity-40">
+                  <Search className="h-10 w-10 text-muted-foreground" />
                </div>
-               <h3 className="text-xl font-heading font-black text-slate-500">לא נמצאו בקשות שתואמות את החיפוש</h3>
-               <p className="text-sm text-slate-400 mt-2">נסה לשנות את הסינון או את מילות החיפוש</p>
+               <h3 className="text-xl font-heading font-black text-muted-foreground">לא נמצאו בקשות שתואמות את החיפוש</h3>
+               <p className="text-sm text-muted-foreground mt-2">נסה לשנות את הסינון או את מילות החיפוש</p>
                <Button variant="link" onClick={() => { setSearchQuery(""); setFilter("pending"); setRoleFilter("all"); }} className="mt-4 text-primary font-bold">
                   נקה את כל המסננים
                </Button>
@@ -310,8 +310,8 @@ const ApprovalsPage = () => {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.98 }}
                   >
-                    <Card className={`group border-none shadow-md hover:shadow-xl transition-all duration-300 relative overflow-hidden ring-1 ${
-                      approval.status === 'pending' ? 'ring-primary/10 bg-white/70' : 
+                    <Card className={`group border-none transition-colors duration-300 relative overflow-hidden ring-1 ${
+                      approval.status === 'pending' ? 'ring-primary/10 bg-card' :
                       approval.status === 'approved' ? 'ring-success/10 bg-success/5' : 'ring-destructive/10 bg-destructive/5'
                     }`}>
                       <CardContent className="p-0">
@@ -328,12 +328,12 @@ const ApprovalsPage = () => {
                                   {approval.avatar ? (
                                     <AvatarPreview config={approval.avatar} size={64} />
                                   ) : (
-                                    <div className="h-16 w-16 rounded-2xl bg-slate-100 flex items-center justify-center text-3xl shadow-inner">
+                                    <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center text-3xl">
                                       👤
                                     </div>
                                   )}
                                   <div className={`absolute -bottom-1 -right-1 h-5 w-5 rounded-lg border-2 border-white flex items-center justify-center shadow-sm ${
-                                    approval.status === 'pending' ? 'bg-orange-500' : 
+                                    approval.status === 'pending' ? 'bg-warning' :
                                     approval.status === 'approved' ? 'bg-success' : 'bg-destructive'
                                   }`}>
                                      {approval.status === 'pending' ? <Clock className="h-2.5 w-2.5 text-white" /> : <ThumbsUp className="h-2.5 w-2.5 text-white" />}
@@ -343,12 +343,12 @@ const ApprovalsPage = () => {
                                {/* User Details */}
                                <div className="flex-1 min-w-0 text-center md:text-right space-y-1">
                                   <div className="flex items-center justify-center md:justify-start gap-2">
-                                     <h3 className="text-lg font-heading font-black tracking-tight text-slate-800">{approval.userName}</h3>
-                                     <Badge variant="outline" className="text-[9px] font-black rounded-lg h-5 border-slate-200 text-slate-400">
+                                     <h3 className="text-lg font-heading font-black tracking-tight text-foreground">{approval.userName}</h3>
+                                     <Badge variant="outline" className="text-[9px] font-black rounded-lg h-5 border-border text-muted-foreground">
                                         {formatDistanceToNow(new Date(approval.createdAt), { addSuffix: true, locale: he })}
                                      </Badge>
                                   </div>
-                                  <p className="text-xs text-slate-500 font-medium flex items-center justify-center md:justify-start gap-2">
+                                  <p className="text-xs text-muted-foreground font-medium flex items-center justify-center md:justify-start gap-2">
                                     <span className="opacity-60">{approval.userEmail}</span>
                                     {approval.userRoles.map((r) => (
                                       <span key={r} className="bg-primary/5 text-primary text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">
@@ -357,7 +357,7 @@ const ApprovalsPage = () => {
                                     ))}
                                   </p>
                                   {approval.notes && (
-                                    <div className="mt-2 text-xs text-slate-400 bg-slate-50 p-2 rounded-xl inline-block text-right">
+                                    <div className="mt-2 text-xs text-muted-foreground bg-muted p-2 rounded-xl inline-block text-right">
                                        <span className="font-bold text-[9px] text-primary block mb-0.5 opacity-60">הערה מהרישום:</span>
                                        {approval.notes}
                                     </div>
@@ -372,7 +372,7 @@ const ApprovalsPage = () => {
                                           size="sm" 
                                           onClick={() => handleApproval(approval, true)}
                                           disabled={processingId === approval.id}
-                                          className="rounded-xl h-11 px-6 shadow-lg shadow-success/20 bg-success hover:bg-success/90 font-bold gap-2 group/btn"
+                                          className="rounded-xl h-11 px-6 bg-success hover:bg-success/90 font-bold gap-2 group/btn"
                                        >
                                           {processingId === approval.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4 transition-transform group-hover/btn:scale-110" />}
                                           אשר משתמש
@@ -389,7 +389,7 @@ const ApprovalsPage = () => {
                                        </Button>
                                     </>
                                   ) : (
-                                    <div className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl font-black text-sm ${
+                                    <div className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-black text-sm ${
                                       approval.status === 'approved' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
                                     }`}>
                                        {approval.status === 'approved' ? (
@@ -420,7 +420,7 @@ const ApprovalsPage = () => {
                <Info className="h-5 w-5 text-primary" />
             </div>
             <div className="space-y-1">
-              <h4 className="font-heading font-bold text-primary">טיפ לעבודה מהירה ⚡</h4>
+              <h4 className="font-heading font-bold text-primary">טיפ לעבודה מהירה</h4>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
                 באפשרותך לאשר קבוצות משתמשים בבת אחת על ידי שימוש בסינונים (למשל: בחר בתפקיד "הורה") ולאחר מכן לחיצה על "אשר את כל המופיעים". פעולה זו מומלצת במיוחד בתחילת שנת לימודים כאשר יש עומס רישום.
               </p>

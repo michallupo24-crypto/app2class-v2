@@ -177,7 +177,7 @@ const AvatarPreview = ({ config, size = 160, className }: AvatarPreviewProps) =>
   return (
     <div className="flex flex-col items-center gap-2">
       <div
-        className={`relative flex items-center justify-center rounded-2xl overflow-hidden shadow-md${className ? ` ${className}` : ""}`}
+        className={`relative flex items-center justify-center rounded-lg overflow-hidden shadow-md${className ? ` ${className}` : ""}`}
         style={{
           width: dim,
           height: dim,

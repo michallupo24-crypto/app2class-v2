@@ -231,21 +231,21 @@ const StaffRegistration = () => {
 
   if (step === 3) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-background via-muted to-background">
+      <div className="min-h-screen flex items-center justify-center px-4 bg-background">
         <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-md">
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: "spring" }}>
             <CheckCircle2 className="w-24 h-24 text-success mx-auto mb-6" />
           </motion.div>
-          <h2 className="text-3xl font-heading font-bold mb-3">הרישום הושלם! 🎉</h2>
+          <h2 className="text-3xl font-heading font-bold mb-3">הרישום הושלם!</h2>
           <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 mb-6">
-            <p className="text-sm font-heading font-medium text-warning">⏳ ממתין לאישור</p>
+            <p className="text-sm font-heading font-medium text-warning">ממתין לאישור</p>
             <p className="text-xs text-muted-foreground mt-1">החשבון שלך ייפתח לאחר אישור הגורם המוסמך</p>
           </div>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => navigate("/")}
-            className="px-8 py-3 bg-primary text-primary-foreground rounded-xl font-heading font-bold shadow-lg"
+            className="px-8 py-3 bg-primary text-primary-foreground rounded-xl font-heading font-bold"
           >
             חזרה לדף הראשי
           </motion.button>
@@ -443,7 +443,7 @@ const StaffRegistration = () => {
 
       {step === 2 && (
         <div>
-          <h3 className="text-xl font-heading font-bold mb-4">עיצוב הדמות שלך 🎨</h3>
+          <h3 className="text-xl font-heading font-bold mb-4">עיצוב הדמות שלך</h3>
           <AvatarStudio config={avatar} onChange={setAvatar} variant="adult" />
 
           <div className="flex items-start gap-2 mt-6 p-3 rounded-lg border border-border bg-muted/20">

@@ -69,7 +69,7 @@ export const StudentSolveEditor: React.FC<StudentSolveEditorProps> = ({
 
   return (
     <div className="flex flex-col h-full gap-3">
-      <div className="bg-card border rounded-xl p-4 space-y-2">
+      <div className="bg-card border rounded-lg p-4 space-y-2">
         <div className="flex items-center gap-2">
           <Code2 className="h-4 w-4 text-primary" />
           <h3 className="font-heading font-bold text-sm">הוראות המשימה</h3>
@@ -83,13 +83,13 @@ export const StudentSolveEditor: React.FC<StudentSolveEditorProps> = ({
       </div>
 
       <div className="flex-1 flex flex-col md:flex-row gap-3 overflow-hidden min-h-[400px]">
-        <div className="w-full md:w-1/2 h-1/2 md:h-full flex flex-col rounded-2xl border overflow-hidden">
+        <div className="w-full md:w-1/2 h-1/2 md:h-full flex flex-col rounded-lg border overflow-hidden">
           <div className="bg-[#1A1A1A] px-3 py-2 flex items-center justify-between border-b border-[#2A2A2A]">
             <span className="text-xs font-mono text-gray-300">main.py</span>
             <div className="flex gap-2">
               <button
                 onClick={handleRun}
-                className="flex items-center gap-1.5 px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1 bg-primary hover:opacity-90 text-primary-foreground rounded-lg text-xs font-semibold transition cursor-pointer"
               >
                 <Play className="h-3.5 w-3.5" /> הרץ
               </button>
@@ -118,7 +118,7 @@ export const StudentSolveEditor: React.FC<StudentSolveEditorProps> = ({
           {hasRun ? (
             <LivePreviewPanel srcDoc={srcDoc} consoleLogs={consoleLogs} onClearLogs={() => setConsoleLogs([])} />
           ) : (
-            <div className="flex-1 flex items-center justify-center rounded-2xl border border-dashed text-sm text-muted-foreground">
+            <div className="flex-1 flex items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
               לחצ/י "הרץ" כדי לראות את הפלט
             </div>
           )}

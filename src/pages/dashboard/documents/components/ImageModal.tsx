@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Upload, Image as ImageIcon, Link as LinkIcon, Sparkles, Check, Search } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Link as LinkIcon, Check, Search } from 'lucide-react';
 
 interface ImageModalProps {
   isOpen: boolean;
@@ -106,36 +106,36 @@ export const ImageModal: React.FC<ImageModalProps> = ({
     : PRESET_IMAGES.filter((p) => p.category === presetCategory);
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 dir-rtl font-sans animate-in fade-in duration-150">
-      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[90vh]">
-        
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 dir-rtl font-sans animate-in fade-in duration-150">
+      <div className="bg-card w-full max-w-2xl rounded-lg border border-border overflow-hidden flex flex-col max-h-[90vh]">
+
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div className="bg-card border-b border-border px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold">
               <ImageIcon className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="font-bold text-gray-900 text-base">הוספת תמונה למסמך</h2>
-              <p className="text-xs text-gray-500">העלה קובץ מהמחשב, בחר מאוסף התמונות או הדבק קישור</p>
+              <h2 className="font-bold text-foreground text-base">הוספת תמונה למסמך</h2>
+              <p className="text-xs text-muted-foreground">העלה קובץ מהמחשב, בחר מאוסף התמונות או הדבק קישור</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+            className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-gray-100 bg-gray-50 px-6 pt-2">
+        <div className="flex border-b border-border bg-muted px-6 pt-2">
           <button
             onClick={() => setActiveTab('upload')}
-            className={`pb-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-all ${
+            className={`pb-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-colors ${
               activeTab === 'upload'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-800'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             <Upload className="w-4 h-4" />
@@ -144,22 +144,22 @@ export const ImageModal: React.FC<ImageModalProps> = ({
 
           <button
             onClick={() => setActiveTab('preset')}
-            className={`pb-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-all ${
+            className={`pb-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-colors ${
               activeTab === 'preset'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-800'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            <Sparkles className="w-4 h-4" />
+            <ImageIcon className="w-4 h-4" />
             <span>גלריית תמונות</span>
           </button>
 
           <button
             onClick={() => setActiveTab('url')}
-            className={`pb-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-all ${
+            className={`pb-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-colors ${
               activeTab === 'url'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-800'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             <LinkIcon className="w-4 h-4" />
@@ -169,7 +169,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({
 
         {/* Body Content */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
-          
+
           {/* TAB 1: FILE UPLOAD */}
           {activeTab === 'upload' && (
             <div className="space-y-4">
@@ -177,12 +177,12 @@ export const ImageModal: React.FC<ImageModalProps> = ({
                 onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
                 onDragLeave={() => setDragActive(false)}
                 onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-xl p-8 text-center transition-all flex flex-col items-center justify-center cursor-pointer ${
+                className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors flex flex-col items-center justify-center cursor-pointer ${
                   dragActive
-                    ? 'border-blue-500 bg-blue-50/50 scale-[0.99]'
+                    ? 'border-primary bg-primary/10'
                     : selectedUrl
-                    ? 'border-emerald-400 bg-emerald-50/20'
-                    : 'border-gray-300 hover:border-blue-400 bg-gray-50/50'
+                    ? 'border-success bg-success/10'
+                    : 'border-border hover:border-primary/40 bg-muted/50'
                 }`}
                 onClick={() => document.getElementById('file-upload-input')?.click()}
               >
@@ -199,20 +199,20 @@ export const ImageModal: React.FC<ImageModalProps> = ({
                     <img
                       src={selectedUrl}
                       alt="תצוגה מקדימה"
-                      className="max-h-48 max-w-full rounded-lg shadow-md mx-auto object-cover border border-gray-200"
+                      className="max-h-48 max-w-full rounded-lg mx-auto object-cover border border-border"
                     />
-                    <div className="flex items-center justify-center gap-2 text-emerald-600 font-bold text-xs">
+                    <div className="flex items-center justify-center gap-2 text-success font-bold text-xs">
                       <Check className="w-4 h-4" />
                       <span>התמונה נבחרה בהצלחה! ניתן לשנות כעת הגדרות גודל ומיקום</span>
                     </div>
                   </div>
                 ) : (
                   <>
-                    <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-3 shadow-xs">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-3">
                       <Upload className="w-6 h-6" />
                     </div>
-                    <p className="font-bold text-gray-800 text-sm">לחץ לבחירת תמונה או גרוב לכאן קובץ</p>
-                    <p className="text-xs text-gray-400 mt-1">תומך בקבצי JPG, PNG, WEBP, GIF</p>
+                    <p className="font-bold text-foreground text-sm">לחץ לבחירת תמונה או גרוב לכאן קובץ</p>
+                    <p className="text-xs text-muted-foreground mt-1">תומך בקבצי JPG, PNG, WEBP, GIF</p>
                   </>
                 )}
               </div>
@@ -229,8 +229,8 @@ export const ImageModal: React.FC<ImageModalProps> = ({
                     onClick={() => setPresetCategory(cat.id)}
                     className={`px-3 py-1 rounded-full text-xs font-bold transition-colors whitespace-nowrap ${
                       presetCategory === cat.id
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/70'
                     }`}
                   >
                     {cat.name}
@@ -246,22 +246,22 @@ export const ImageModal: React.FC<ImageModalProps> = ({
                       setSelectedUrl(preset.url);
                       setCaption(preset.title);
                     }}
-                    className={`group relative rounded-xl overflow-hidden border-2 cursor-pointer transition-all ${
+                    className={`group relative rounded-xl overflow-hidden border-2 cursor-pointer transition-colors ${
                       selectedUrl === preset.url
-                        ? 'border-blue-600 ring-2 ring-blue-500/30'
-                        : 'border-transparent hover:border-gray-300'
+                        ? 'border-primary ring-2 ring-primary/30'
+                        : 'border-transparent hover:border-border'
                     }`}
                   >
                     <img
                       src={preset.url}
                       alt={preset.title}
-                      className="w-full h-28 object-cover group-hover:scale-105 transition-transform duration-200"
+                      className="w-full h-28 object-cover"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end p-2">
+                    <div className="absolute inset-x-0 bottom-0 bg-black/60 flex items-end p-2">
                       <span className="text-[11px] text-white font-semibold truncate">{preset.title}</span>
                     </div>
                     {selectedUrl === preset.url && (
-                      <div className="absolute top-2 right-2 bg-blue-600 text-white rounded-full p-1 shadow-md">
+                      <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1">
                         <Check className="w-3.5 h-3.5" />
                       </div>
                     )}
@@ -275,7 +275,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({
           {activeTab === 'url' && (
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                <label className="block text-xs font-bold text-foreground mb-1.5">
                   כתובת התמונה באינטרנט (URL)
                 </label>
                 <div className="relative">
@@ -287,22 +287,22 @@ export const ImageModal: React.FC<ImageModalProps> = ({
                       setCustomUrlInput(e.target.value);
                       setSelectedUrl(e.target.value);
                     }}
-                    className="w-full pl-3 pr-9 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    className="w-full pl-3 pr-9 py-2 border border-input rounded-lg text-xs focus:ring-2 focus:ring-primary focus:outline-hidden"
                   />
-                  <LinkIcon className="w-4 h-4 text-gray-400 absolute right-3 top-2.5" />
+                  <LinkIcon className="w-4 h-4 text-muted-foreground absolute right-3 top-2.5" />
                 </div>
               </div>
 
               {customUrlInput && (
-                <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-center">
-                  <p className="text-xs text-gray-500 mb-2 font-medium">תצוגה מקדימה:</p>
+                <div className="p-3 bg-muted border border-border rounded-xl text-center">
+                  <p className="text-xs text-muted-foreground mb-2 font-medium">תצוגה מקדימה:</p>
                   <img
                     src={customUrlInput}
                     alt="תצוגה מקדימה"
                     onError={(e) => {
                       (e.target as HTMLElement).style.display = 'none';
                     }}
-                    className="max-h-40 max-w-full rounded-lg shadow-xs mx-auto object-cover border border-gray-200"
+                    className="max-h-40 max-w-full rounded-lg mx-auto object-cover border border-border"
                   />
                 </div>
               )}
@@ -311,15 +311,15 @@ export const ImageModal: React.FC<ImageModalProps> = ({
 
           {/* IMAGE OPTIONS (Caption, Size, Alignment) */}
           {(selectedUrl || customUrlInput) && (
-            <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-100 space-y-4">
-              <h3 className="text-xs font-extrabold text-blue-900 border-b border-blue-200/60 pb-1.5">
+            <div className="bg-muted/60 p-4 rounded-xl border border-border space-y-4">
+              <h3 className="text-xs font-extrabold text-foreground border-b border-border pb-1.5">
                 הגדרות תצוגה במסמך
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Caption Input */}
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                  <label className="block text-[11px] font-bold text-foreground mb-1">
                     תיאור תמונה (Caption):
                   </label>
                   <input
@@ -327,21 +327,21 @@ export const ImageModal: React.FC<ImageModalProps> = ({
                     placeholder="לדוגמה: תמונת צוות הפרויקט..."
                     value={caption}
                     onChange={(e) => setCaption(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-blue-500 focus:outline-hidden"
+                    className="w-full px-3 py-1.5 bg-card border border-input rounded-lg text-xs focus:ring-1 focus:ring-primary focus:outline-hidden"
                   />
                 </div>
 
                 {/* Alignment */}
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                  <label className="block text-[11px] font-bold text-foreground mb-1">
                     יישור במסמך:
                   </label>
-                  <div className="flex bg-white rounded-lg border border-gray-300 p-0.5 text-xs">
+                  <div className="flex bg-card rounded-lg border border-input p-0.5 text-xs">
                     <button
                       type="button"
                       onClick={() => setAlignment('right')}
-                      className={`flex-1 py-1 rounded font-bold transition-all ${
-                        alignment === 'right' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                      className={`flex-1 py-1 rounded font-bold transition-colors ${
+                        alignment === 'right' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
                       }`}
                     >
                       ימין
@@ -349,8 +349,8 @@ export const ImageModal: React.FC<ImageModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setAlignment('center')}
-                      className={`flex-1 py-1 rounded font-bold transition-all ${
-                        alignment === 'center' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                      className={`flex-1 py-1 rounded font-bold transition-colors ${
+                        alignment === 'center' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
                       }`}
                     >
                       מרכז
@@ -358,8 +358,8 @@ export const ImageModal: React.FC<ImageModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setAlignment('left')}
-                      className={`flex-1 py-1 rounded font-bold transition-all ${
-                        alignment === 'left' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                      className={`flex-1 py-1 rounded font-bold transition-colors ${
+                        alignment === 'left' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
                       }`}
                     >
                       שמאל
@@ -370,9 +370,9 @@ export const ImageModal: React.FC<ImageModalProps> = ({
 
               {/* Size Slider */}
               <div>
-                <div className="flex justify-between items-center text-[11px] font-bold text-gray-700 mb-1">
+                <div className="flex justify-between items-center text-[11px] font-bold text-foreground mb-1">
                   <span>גודל התמונה במסמך:</span>
-                  <span className="font-mono text-blue-700">{widthPercent}%</span>
+                  <span className="font-mono text-primary">{widthPercent}%</span>
                 </div>
                 <input
                   type="range"
@@ -381,7 +381,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({
                   step="5"
                   value={widthPercent}
                   onChange={(e) => setWidthPercent(Number(e.target.value))}
-                  className="w-full accent-blue-600 cursor-pointer"
+                  className="w-full accent-primary cursor-pointer"
                 />
               </div>
             </div>
@@ -390,10 +390,10 @@ export const ImageModal: React.FC<ImageModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="bg-gray-50 border-t border-gray-200 px-6 py-3 flex items-center justify-between">
+        <div className="bg-muted border-t border-border px-6 py-3 flex items-center justify-between">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-bold text-gray-600 hover:text-gray-800 transition-colors"
+            className="px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
           >
             ביטול
           </button>
@@ -401,7 +401,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({
           <button
             onClick={handleConfirmInsert}
             disabled={!selectedUrl && !customUrlInput}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white px-6 py-2 rounded-full text-xs font-bold transition-colors flex items-center gap-2 shadow-sm"
+            className="bg-primary hover:bg-primary/90 disabled:opacity-40 text-primary-foreground px-6 py-2 rounded-full text-xs font-bold transition-colors flex items-center gap-2 shadow-sm"
           >
             <Check className="w-4 h-4" />
             <span>הכנס תמונה למסמך</span>

@@ -106,7 +106,7 @@ const SeatingMapPage = () => {
         <motion.div 
             animate={{ rotate: 360 }} 
             transition={{ repeat: Infinity, duration: 1, ease: "linear" }} 
-            className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full shadow-lg" 
+            className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full"
         />
         <span>טוען כיתה ומפה...</span>
       </div>
@@ -117,7 +117,7 @@ const SeatingMapPage = () => {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="flex flex-col h-full bg-background rounded-3xl overflow-hidden border shadow-xl relative"
+      className="flex flex-col h-full bg-background rounded-lg overflow-hidden border relative"
     >
       <div className="flex items-center justify-between px-6 py-2 bg-muted/30 border-b">
         <TopBar mode={ss.mode} setMode={ss.setMode} className={"flex-1 bg-transparent border-none"} />
@@ -128,7 +128,7 @@ const SeatingMapPage = () => {
                     onClick={handleManualSave} 
                     disabled={isSaving}
                     variant={isSaving ? "outline" : "default"}
-                    className="gap-2 shadow-lg bg-primary hover:bg-primary-hover transition-all active:scale-95"
+                    className="gap-2 bg-primary hover:bg-primary-hover transition-colors active:scale-95"
                 >
                     {isSaving ? (
                         <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />

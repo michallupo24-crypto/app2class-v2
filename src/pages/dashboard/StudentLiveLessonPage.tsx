@@ -68,7 +68,7 @@ const StudentLiveLessonPage = () => {
   const [issueReported, setIssueReported] = useState(false);
 
   const focusLabels = ["🫤 אבוד", "😐 מתקשה", "🙂 בעניין", "😊 מרוכז", "🔥 מעולה"];
-  const focusColors = ["bg-destructive", "bg-orange-500", "bg-yellow-500", "bg-primary", "bg-green-500"];
+  const focusColors = ["bg-destructive", "bg-warning", "bg-secondary", "bg-primary", "bg-success"];
 
   // Load active session for student's class
   useEffect(() => {
@@ -114,7 +114,7 @@ const StudentLiveLessonPage = () => {
           setSession(payload.new as LiveSession);
           if (!(payload.new as LiveSession).is_active) {
             setConnected(false);
-            toast({ title: "השיעור החי הסתיים 📚" });
+            toast({ title: "השיעור החי הסתיים" });
           }
         }
       })
@@ -204,7 +204,7 @@ const StudentLiveLessonPage = () => {
 
       setSentQuestions(prev => [...prev, questionText.trim()]);
       setQuestionText("");
-      toast({ title: "השאלה נשלחה למורה! ✅" });
+      toast({ title: "השאלה נשלחה למורה!" });
     } catch (e: any) {
       toast({ title: "שגיאה", description: e.message, variant: "destructive" });
     } finally {
@@ -228,7 +228,7 @@ const StudentLiveLessonPage = () => {
       return;
     }
     setIssueReported(true);
-    toast({ title: "✅ הדיווח נשלח לצוות התמיכה" });
+    toast({ title: "הדיווח נשלח לצוות התמיכה" });
   };
 
   // Answer poll
@@ -242,7 +242,7 @@ const StudentLiveLessonPage = () => {
       });
       if (error) throw error;
       setMyPollResponses(prev => ({ ...prev, [pollId]: optionIdx }));
-      toast({ title: "תגובתך נשלחה! 📊" });
+      toast({ title: "תגובתך נשלחה!" });
     } catch (e: any) {
       toast({ title: "שגיאה", description: e.message, variant: "destructive" });
     }
@@ -276,7 +276,7 @@ const StudentLiveLessonPage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-heading font-bold flex items-center gap-2">
-            <Radio className="h-6 w-6 text-red-500 animate-pulse" />
+            <Radio className="h-6 w-6 text-destructive animate-pulse" />
             שיעור חי — {session.subject}
           </h1>
           <p className="text-sm text-muted-foreground font-body">אתה בשידור עם הכיתה</p>
@@ -291,11 +291,11 @@ const StudentLiveLessonPage = () => {
             {reportingIssue
               ? <Loader2 className="h-3 w-3 animate-spin" />
               : issueReported
-                ? <CheckCircle2 className="h-3 w-3 text-green-500" />
+                ? <CheckCircle2 className="h-3 w-3 text-success" />
                 : <AlertTriangle className="h-3 w-3" />}
             {issueReported ? "דווח" : "דווח על בעיה טכנית"}
           </Button>
-          <Badge variant={connected ? "default" : "outline"} className={`gap-1 text-xs ${connected ? "bg-green-500" : ""}`}>
+          <Badge variant={connected ? "default" : "outline"} className={`gap-1 text-xs ${connected ? "bg-success" : ""}`}>
             {connected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
             {connected ? "מחובר" : "מתחבר..."}
           </Badge>
@@ -406,7 +406,7 @@ const StudentLiveLessonPage = () => {
               <p className="text-[10px] text-muted-foreground font-heading">שאלות ששלחת:</p>
               {sentQuestions.map((q, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+                  <CheckCircle2 className="h-3 w-3 text-success shrink-0" />
                   <span className="truncate">{q}</span>
                 </div>
               ))}
@@ -419,17 +419,17 @@ const StudentLiveLessonPage = () => {
       <AnimatePresence>
         {polls.map(poll => (
           <motion.div key={poll.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <Card className="border-yellow-400/40 bg-yellow-50/50 dark:bg-yellow-900/10">
+            <Card className="border-warning/40 bg-warning/10">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-heading flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-yellow-600" />
-                  {poll.poll_type === "quiz" ? "🎯 חידון בזק" : "📊 סקר"} — {poll.question}
+                  <BarChart3 className="h-5 w-5 text-warning" />
+                  {poll.poll_type === "quiz" ? "חידון בזק" : "סקר"} — {poll.question}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {myPollResponses[poll.id] !== undefined ? (
                   <div className="space-y-2">
-                    <p className="text-sm text-green-600 font-heading flex items-center gap-2">
+                    <p className="text-sm text-success font-heading flex items-center gap-2">
                       <CheckCircle2 className="h-4 w-4" />תגובתך נרשמה!
                     </p>
                     {poll.show_results && (

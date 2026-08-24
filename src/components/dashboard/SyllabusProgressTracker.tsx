@@ -143,7 +143,7 @@ const SyllabusProgressTracker = ({ teacherId, schoolId }: { teacherId: string; s
       setData(newData);
 
       toast({ 
-        title: isCompleted ? "כל הכבוד! נרשמה התקדמות 🎉" : "הסטטוס עודכן",
+        title: isCompleted ? "כל הכבוד! נרשמה התקדמות" : "הסטטוס עודכן",
         description: isCompleted ? "נושא זה נוסף לרשימת הנושאים שהושלמו." : ""
       });
     } catch (e) {
@@ -166,8 +166,8 @@ const SyllabusProgressTracker = ({ teacherId, schoolId }: { teacherId: string; s
        {data.map((c, idx) => {
          const progress = (c.completedIds.length / c.topics.length) * 100;
          return (
-           <Card key={`${c.classId}-${c.subject}`} className="border-none shadow-md bg-white/60 backdrop-blur-sm overflow-hidden ring-1 ring-black/[0.02]">
-             <CardHeader className="p-4 py-3 cursor-pointer select-none hover:bg-slate-50/50 transition-colors"
+           <Card key={`${c.classId}-${c.subject}`} className="border border-border bg-card overflow-hidden">
+             <CardHeader className="p-4 py-3 cursor-pointer select-none hover:bg-muted/50 transition-colors"
                onClick={() => {
                  const newData = [...data];
                  newData[idx].isExpanded = !newData[idx].isExpanded;
@@ -188,11 +188,11 @@ const SyllabusProgressTracker = ({ teacherId, schoolId }: { teacherId: string; s
                   </div>
                   <div className="flex items-center gap-2">
                     {c.pace?.status === 'behind' ? (
-                       <Badge variant="destructive" className="text-[9px] animate-pulse">פיגור בלו"ז ⚠️</Badge>
+                       <Badge variant="destructive" className="text-[9px] animate-pulse">פיגור בלו"ז</Badge>
                     ) : progress === 100 ? (
-                       <Badge className="bg-green-500 text-white text-[9px]">הושלם! 🏆</Badge>
+                       <Badge className="bg-success text-success-foreground text-[9px]">הושלם!</Badge>
                     ) : (
-                       <Badge variant="secondary" className="text-[9px]">בקצב ⏱️</Badge>
+                       <Badge variant="secondary" className="text-[9px]">בקצב</Badge>
                     )}
                     {c.isExpanded ? <ChevronUp className="h-4 w-4 opacity-30" /> : <ChevronDown className="h-4 w-4 opacity-30" />}
                   </div>
@@ -206,7 +206,7 @@ const SyllabusProgressTracker = ({ teacherId, schoolId }: { teacherId: string; s
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                   >
-                    <CardContent className="p-4 pt-0 border-t border-slate-100 bg-slate-50/30">
+                    <CardContent className="p-4 pt-0 border-t border-border bg-muted/30">
                        {/* AI Insight Bar */}
                        {c.pace && (
                          <div className={`mt-3 p-3 rounded-xl border flex items-start gap-3 mb-4 ${
@@ -218,32 +218,32 @@ const SyllabusProgressTracker = ({ teacherId, schoolId }: { teacherId: string; s
                        )}
 
                        <div className="space-y-2">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">נושאי לימוד בסילבוס</p>
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">נושאי לימוד בסילבוס</p>
                           {c.topics.map((t) => (
-                            <div key={t.id} className="flex items-center justify-between p-2 rounded-lg bg-white/50 border border-white hover:border-primary/20 transition-all group">
+                            <div key={t.id} className="flex items-center justify-between p-2 rounded-lg bg-card border border-border hover:border-primary/20 transition-colors group">
                               <div className="flex items-center gap-3">
-                                <Checkbox 
-                                  checked={c.completedIds.includes(t.id)} 
+                                <Checkbox
+                                  checked={c.completedIds.includes(t.id)}
                                   onCheckedChange={(checked) => toggleTopic(idx, t.id, !!checked)}
-                                  className="rounded-md border-slate-300 data-[state=checked]:bg-primary"
+                                  className="rounded-md border-border data-[state=checked]:bg-primary"
                                 />
-                                <span className={`text-xs font-medium ${c.completedIds.includes(t.id) ? 'line-through text-slate-400' : 'text-slate-700'}`}>
+                                <span className={`text-xs font-medium ${c.completedIds.includes(t.id) ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
                                   {t.topic}
                                 </span>
                               </div>
                               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Badge variant="outline" className="text-[8px] h-4 border-slate-200 text-slate-400">{t.estimated_hours} שעות</Badge>
+                                <Badge variant="outline" className="text-[8px] h-4 border-border text-muted-foreground">{t.estimated_hours} שעות</Badge>
                               </div>
                             </div>
                           ))}
                        </div>
 
                        {progress === 100 && (
-                         <div className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 flex items-center gap-3">
-                            <Trophy className="h-8 w-8 text-yellow-500" />
+                         <div className="mt-4 p-4 rounded-lg bg-warning/10 border border-warning/20 flex items-center gap-3">
+                            <Trophy className="h-8 w-8 text-warning" />
                             <div>
-                               <p className="text-xs font-heading font-black text-yellow-800">סיכום מעולה! ✨</p>
-                               <p className="text-[10px] text-yellow-700">כל נושאי הסילבוס כוסו בהצלחה בכיתה זו.</p>
+                               <p className="text-xs font-heading font-black text-warning">סיכום מעולה!</p>
+                               <p className="text-[10px] text-muted-foreground">כל נושאי הסילבוס כוסו בהצלחה בכיתה זו.</p>
                             </div>
                          </div>
                        )}

@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Shield, CheckCircle2, XCircle, AlertTriangle, Send,
-  Loader2, Sparkles, BookOpen, Clock, FileText,
+  Loader2, BookOpen, Clock, FileText,
 } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -351,7 +351,7 @@ const StudentRightsPage = () => {
         return;
       }
 
-      toast({ title: "הפנייה נשלחה! ✅" });
+      toast({ title: "הפנייה נשלחה!" });
       setAppealDialog(false);
       setAppealText("");
       setSelectedViolation(null);
@@ -385,11 +385,11 @@ const StudentRightsPage = () => {
 
       {/* Score banner */}
       <motion.div variants={item}>
-        <Card className={`${violationCount === 0 ? "border-green-500/30 bg-green-50/50 dark:bg-green-900/10" : "border-orange-500/30 bg-orange-50/50 dark:bg-orange-900/10"}`}>
+        <Card className={`${violationCount === 0 ? "border-success/30 bg-success/10" : "border-warning/30 bg-warning/10"}`}>
           <CardContent className="py-4">
             <div className="flex items-center gap-4">
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${violationCount === 0 ? "bg-green-500/20" : "bg-orange-500/20"}`}>
-                {violationCount === 0 ? "✅" : "⚠️"}
+              <div className={`w-14 h-14 rounded-lg flex items-center justify-center ${violationCount === 0 ? "bg-success/20" : "bg-warning/20"}`}>
+                {violationCount === 0 ? <CheckCircle2 className="h-7 w-7 text-success" /> : <AlertTriangle className="h-7 w-7 text-warning" />}
               </div>
               <div>
                 <p className="font-heading font-bold text-lg">
@@ -409,7 +409,7 @@ const StudentRightsPage = () => {
         {rightsChecks.map((check) => (
           <motion.div key={check.id} variants={item}>
             <Card className={
-              check.status === "ok" ? "border-green-500/20"
+              check.status === "ok" ? "border-success/20"
               : check.status === "violation" ? "border-destructive/40"
               : "border-border"
             }>
@@ -417,10 +417,10 @@ const StudentRightsPage = () => {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 flex-1 min-w-0">
                     {check.status === "ok"
-                      ? <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+                      ? <CheckCircle2 className="h-5 w-5 text-success shrink-0 mt-0.5" />
                       : check.status === "violation"
                       ? <XCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                      : <AlertTriangle className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
+                      : <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
                     }
                     <div className="min-w-0">
                       <p className="font-heading font-medium text-sm">{check.label}</p>
@@ -434,7 +434,7 @@ const StudentRightsPage = () => {
                   </div>
                   <div className="shrink-0 flex flex-col items-end gap-2">
                     <Badge variant={check.status === "ok" ? "default" : check.status === "violation" ? "destructive" : "secondary"} className="text-[10px]">
-                      {check.status === "ok" ? "תקין ✓" : check.status === "violation" ? "חריגה ✕" : "מידע"}
+                      {check.status === "ok" ? "תקין" : check.status === "violation" ? "חריגה" : "מידע"}
                     </Badge>
                     {check.canAppeal && check.status === "violation" && (
                       <Button size="sm" variant="outline" className="h-7 text-[11px] font-heading gap-1 text-destructive border-destructive/30 hover:bg-destructive/5"
@@ -494,7 +494,7 @@ const StudentRightsPage = () => {
                   <p className="text-sm font-heading">נוסח הפנייה</p>
                   <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1 font-heading"
                     onClick={generateAppealText} disabled={generatingAppeal}>
-                    {generatingAppeal ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                    {generatingAppeal ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
                     נסח עם AI
                   </Button>
                 </div>

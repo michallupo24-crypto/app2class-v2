@@ -144,7 +144,7 @@ const GradeCoordinatorDashboard = () => {
       <motion.div variants={item} className="flex items-center gap-4">
         {profile.avatar && <AvatarPreview config={profile.avatar} size={72} />}
         <div>
-          <h1 className="text-2xl md:text-3xl font-heading font-bold">שלום, {profile.fullName} 👋</h1>
+          <h1 className="text-2xl md:text-3xl font-heading font-bold">שלום, {profile.fullName}</h1>
           <div className="flex items-center gap-2 mt-1">
             <Badge variant="secondary" className="font-heading">רכז/ת שכבה</Badge>
             {profile.schoolName && (
@@ -199,7 +199,7 @@ const GradeCoordinatorDashboard = () => {
             color: stats.avgAttendance === null ? "text-muted-foreground" : stats.avgAttendance < 90 ? "text-destructive" : "text-success",
           },
           { icon: Calendar, label: "מבחנים קרובים", value: stats.upcomingExams, color: "text-warning" },
-          { icon: Clock, label: "אירועים ממתינים", value: stats.pendingEvents, color: "text-orange-500" },
+          { icon: Clock, label: "אירועים ממתינים", value: stats.pendingEvents, color: "text-accent" },
         ].map((s, i) => (
           <Card key={i}>
             <CardContent className="py-4 text-center">

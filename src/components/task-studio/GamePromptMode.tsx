@@ -69,9 +69,9 @@ const GamePromptMode = ({ profile, assignmentId, onBack }: Props) => {
         }));
         await supabase.from("task_questions").insert(rows);
         setQuestionsGenerated(rows.length);
-        toast({ title: `המשחק עוצב ו-${rows.length} שאלות נוצרו! 🎮` });
+        toast({ title: `המשחק עוצב ו-${rows.length} שאלות נוצרו!` });
       } else {
-        toast({ title: "המשחק עוצב! 🎮" });
+        toast({ title: "המשחק עוצב!" });
       }
     } catch (err: any) {
       toast({ title: "שגיאה", description: err.message, variant: "destructive" });
@@ -89,7 +89,7 @@ const GamePromptMode = ({ profile, assignmentId, onBack }: Props) => {
         description: typeof result === "string" ? result : JSON.stringify(result),
       }).eq("id", assignmentId);
       if (error) throw error;
-      toast({ title: "המשחק שוגר לכיתה! 🎮🚀" });
+      toast({ title: "המשחק שוגר לכיתה!" });
     } catch (err: any) {
       toast({ title: "שגיאה", description: err.message, variant: "destructive" });
     } finally {
@@ -103,7 +103,7 @@ const GamePromptMode = ({ profile, assignmentId, onBack }: Props) => {
         <Card>
           <CardContent className="p-6 space-y-4">
             <div className="text-center mb-4">
-              <div className="w-16 h-16 bg-accent/10 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <div className="w-16 h-16 bg-accent/10 rounded-lg flex items-center justify-center mx-auto mb-3">
                 <Wand2 className="h-8 w-8 text-accent" />
               </div>
               <h3 className="font-heading font-bold">תאר את המשחק שאתה רוצה</h3>
@@ -120,7 +120,7 @@ const GamePromptMode = ({ profile, assignmentId, onBack }: Props) => {
               />
             </div>
             {!assignmentId && (
-              <p className="text-xs text-warning font-heading">⚠️ בחר משימה פעילה מהתפריט העליון לפני יצירת המשחק</p>
+              <p className="text-xs text-warning font-heading">בחר משימה פעילה מהתפריט העליון לפני יצירת המשחק</p>
             )}
             <Button className="w-full gap-2 font-heading" onClick={handleGenerate} disabled={loading || !prompt.trim()}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -135,7 +135,7 @@ const GamePromptMode = ({ profile, assignmentId, onBack }: Props) => {
               <h4 className="font-heading font-bold text-sm mb-3 flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-accent" /> עיצוב המשחק
                 {questionsGenerated > 0 && (
-                  <Badge className="bg-success text-success-foreground text-[10px]">✅ {questionsGenerated} שאלות נוצרו</Badge>
+                  <Badge className="bg-success text-success-foreground text-[10px]">{questionsGenerated} שאלות נוצרו</Badge>
                 )}
               </h4>
               <div className="bg-muted/30 rounded-lg p-4 max-h-80 overflow-y-auto space-y-2">

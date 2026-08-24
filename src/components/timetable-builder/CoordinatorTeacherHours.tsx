@@ -200,13 +200,20 @@ const CoordinatorTeacherHours = ({ schoolId, profile }: CoordinatorTeacherHoursP
     }
 
     if (room) {
-      const { count } = await supabase
+      // Filling in an existing generator-placed slot updates that row in
+      // place rather than adding a new occupant - exclude it from its own
+      // room's occupancy count, or a single-capacity room the generator
+      // already assigned to this exact slot would always read as "full"
+      // and block the coordinator from ever completing it.
+      let roomCountQuery = supabase
         .from("timetable_slots")
         .select("id", { count: "exact", head: true })
         .eq("school_id", schoolId)
         .eq("room", room)
         .eq("day_of_week", day)
         .eq("lesson_number", lesson);
+      if (existingSlot) roomCountQuery = roomCountQuery.neq("id", existingSlot.id);
+      const { count } = await roomCountQuery;
       const capacity = rooms.find(r => r.name === room)?.capacity ?? 1;
       if ((count ?? 0) >= capacity) {
         toast({ title: "החדר מלא בשעה זו (הגיע למספר הכיתות המרבי)", variant: "destructive" });

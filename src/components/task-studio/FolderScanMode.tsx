@@ -40,7 +40,7 @@ const FolderScanMode = ({ profile, assignmentId, onBack }: Props) => {
       const path = `uploads/${profile.id}/${file.name}`;
       const { error } = await supabase.storage.from("lesson-files").upload(path, file, { upsert: true });
       if (error) throw error;
-      toast({ title: `${file.name} הועלה בהצלחה! 📁` });
+      toast({ title: `${file.name} הועלה בהצלחה!` });
       loadFiles();
     } catch (err: any) {
       toast({ title: "שגיאה בהעלאה", description: err.message, variant: "destructive" });
@@ -73,7 +73,7 @@ const FolderScanMode = ({ profile, assignmentId, onBack }: Props) => {
         const { error: insertError } = await supabase.from("task_questions").insert(rows);
         if (insertError) throw insertError;
         setImportedCount(questions.length);
-        toast({ title: `${questions.length} שאלות חולצו ונשמרו! ✅` });
+        toast({ title: `${questions.length} שאלות חולצו ונשמרו!` });
       } else {
         toast({ title: "לא הצלחתי לחלץ שאלות", variant: "destructive" });
       }
@@ -92,7 +92,7 @@ const FolderScanMode = ({ profile, assignmentId, onBack }: Props) => {
         <Card>
           <CardContent className="p-6">
             <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-accent/10 rounded-2xl flex items-center justify-center mx-auto">
+              <div className="w-16 h-16 bg-accent/10 rounded-lg flex items-center justify-center mx-auto">
                 <Folders className="h-8 w-8 text-accent" />
               </div>
               <div>

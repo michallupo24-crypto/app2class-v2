@@ -190,7 +190,7 @@ const BellScheduleSetup = ({ schoolId }: BellScheduleSetupProps) => {
       return;
     }
 
-    toast({ title: "יום הלימודים נשמר בהצלחה ✅" });
+    toast({ title: "יום הלימודים נשמר בהצלחה" });
     setSaving(false);
     loadData();
   };
@@ -259,7 +259,7 @@ const BellScheduleSetup = ({ schoolId }: BellScheduleSetupProps) => {
             Array.from({ length: lessonCount - 1 }, (_, i) => i + 1).map(gap => {
               const hasBreak = gap in breaksByGap;
               return (
-                <div key={gap} className={`flex items-center gap-3 p-2 rounded-lg ${hasBreak ? "bg-amber-500/10" : "bg-muted/30"}`}>
+                <div key={gap} className={`flex items-center gap-3 p-2 rounded-lg ${hasBreak ? "bg-warning/10" : "bg-muted/30"}`}>
                   <span className="text-sm w-24 shrink-0">אחרי שיעור {gap}</span>
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <Checkbox checked={!hasBreak} onCheckedChange={() => toggleGapBreak(gap)} />
@@ -289,7 +289,7 @@ const BellScheduleSetup = ({ schoolId }: BellScheduleSetupProps) => {
         </CardHeader>
         <CardContent className="space-y-1.5">
           {preview.map(row => (
-            <div key={row.lesson_number} className={`flex items-center justify-between text-sm px-3 py-1.5 rounded-lg ${row.is_break ? "bg-amber-500/10" : "bg-muted/30"}`}>
+            <div key={row.lesson_number} className={`flex items-center justify-between text-sm px-3 py-1.5 rounded-lg ${row.is_break ? "bg-warning/10" : "bg-muted/30"}`}>
               <span>{row.label}</span>
               <span className="text-muted-foreground text-xs">{row.start_time} – {row.end_time}</span>
             </div>

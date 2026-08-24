@@ -62,7 +62,7 @@ const MisconceptionInsights = ({ assignmentId }: Props) => {
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-heading flex items-center gap-2">
-          <Brain className="h-5 w-5 text-purple-600" />תפיסות שגויות נפוצות בכיתה
+          <Brain className="h-5 w-5 text-accent" />תפיסות שגויות נפוצות בכיתה
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -70,14 +70,14 @@ const MisconceptionInsights = ({ assignmentId }: Props) => {
           מבוסס על {rows.length} טעויות שאובחנו בזמן אמת - שווה להקדיש כמה דקות הוראה חוזרת לנושאים המובילים.
         </p>
         {sorted.map(([label, g]) => (
-          <div key={label} className="flex items-center justify-between p-3 rounded-lg border bg-purple-500/5 border-purple-500/20">
+          <div key={label} className="flex items-center justify-between p-3 rounded-lg border bg-accent/5 border-accent/20">
             <div className="min-w-0">
               <p className="text-sm font-heading font-bold truncate">{label}</p>
               <p className="text-[11px] text-muted-foreground truncate">{g.example}</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <Badge variant="outline" className="text-[10px]">{g.count} תלמידים</Badge>
-              <Badge className="text-[10px] bg-purple-500/20 text-purple-700 dark:text-purple-300 border-0">{g.resolved}/{g.count} תוקנו</Badge>
+              <Badge className="text-[10px] bg-accent/20 text-accent border-0">{g.resolved}/{g.count} תוקנו</Badge>
             </div>
           </div>
         ))}

@@ -91,7 +91,7 @@ const BellVotePage = () => {
       youtube_url: form.youtube_url,
     });
     if (error) return toast({ title: "שגיאה", description: error.message, variant: "destructive" });
-    toast({ title: "🎵 השיר נוסף להצבעה!" });
+    toast({ title: "השיר נוסף להצבעה!" });
     setAddOpen(false);
     setForm({ title: "", youtube_url: "" });
     load();
@@ -102,7 +102,7 @@ const BellVotePage = () => {
       .from("bell_song_votes")
       .upsert({ voter_id: profile.id, suggestion_id: suggestionId }, { onConflict: "voter_id" });
     if (error) return toast({ title: "שגיאה", description: error.message, variant: "destructive" });
-    toast({ title: "🗳️ ההצבעה שלך נרשמה!" });
+    toast({ title: "ההצבעה שלך נרשמה!" });
     load();
   };
 

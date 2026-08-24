@@ -132,7 +132,7 @@ const FinanceHubPage = () => {
       created_by: profile.id,
     });
     if (error) return toast({ title: "שגיאה", description: error.message, variant: "destructive" });
-    toast({ title: "✅ פריט התשלום נוצר" });
+    toast({ title: "פריט התשלום נוצר" });
     setDialogOpen(false);
     setForm({ title: "", description: "", amount: "", grade: "all", due_date: "" });
     loadStaff();
@@ -279,7 +279,7 @@ const FinanceHubPage = () => {
                 <CardHeader>
                   <CardTitle className="font-heading text-lg flex items-center justify-between">
                     <span>{child.fullName}</span>
-                    <Badge variant={owed > 0 ? "destructive" : "secondary"}>{owed > 0 ? `נותר לשלם ₪${owed}` : "הכל שולם ✓"}</Badge>
+                    <Badge variant={owed > 0 ? "destructive" : "secondary"}>{owed > 0 ? `נותר לשלם ₪${owed}` : "הכל שולם"}</Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
@@ -293,7 +293,7 @@ const FinanceHubPage = () => {
                           <p className="text-xs text-muted-foreground">₪{i.amount}{i.due_date && ` · עד ${format(new Date(i.due_date), "dd/MM/yyyy")}`}</p>
                         </div>
                         <Badge variant={status === "paid" ? "secondary" : status === "waived" ? "outline" : "destructive"}>
-                          {status === "paid" ? "שולם ✓" : status === "waived" ? "פטור" : "ממתין"}
+                          {status === "paid" ? "שולם" : status === "waived" ? "פטור" : "ממתין"}
                         </Badge>
                       </div>
                     );

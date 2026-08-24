@@ -32,8 +32,8 @@ const GamificationWidget = ({ userId, compact = false }: GamificationWidgetProps
     return (
       <div className="flex items-center gap-2 flex-wrap" dir="rtl">
         {streak && streak.current_streak > 0 && (
-          <Badge variant="outline" className="gap-1 text-[10px] bg-orange-500/10 text-orange-600 border-orange-200">
-            <Flame className="h-3 w-3 fill-orange-500" />
+          <Badge variant="outline" className="gap-1 text-[10px] bg-warning/10 text-warning border-warning/20">
+            <Flame className="h-3 w-3 fill-warning" />
             {streak.current_streak} ימי רצף
           </Badge>
         )}
@@ -46,7 +46,7 @@ const GamificationWidget = ({ userId, compact = false }: GamificationWidgetProps
   }
 
   return (
-    <Card className="overflow-hidden border-none shadow-lg bg-gradient-to-br from-background via-background to-primary/5 hover:shadow-xl transition-all duration-300">
+    <Card className="overflow-hidden bg-card border border-border transition-colors duration-300">
       <div className="h-1.5 w-full bg-primary/10">
         <motion.div 
           initial={{ width: 0 }}
@@ -57,7 +57,7 @@ const GamificationWidget = ({ userId, compact = false }: GamificationWidgetProps
       <CardHeader className="pb-2 space-y-0">
         <CardTitle className="text-base font-heading flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-yellow-500" />
+            <Trophy className="h-5 w-5 text-warning" />
             <span className="font-black">ההישגים שלי</span>
           </div>
           <div className="bg-primary/10 text-primary text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">
@@ -67,13 +67,13 @@ const GamificationWidget = ({ userId, compact = false }: GamificationWidgetProps
       </CardHeader>
       <CardContent className="space-y-4 pt-2">
         <div className="grid grid-cols-2 gap-2" dir="rtl">
-          <div className="p-2.5 rounded-xl bg-orange-500/5 border border-orange-500/10 flex flex-col items-center justify-center">
-            <Flame className="h-5 w-5 text-orange-500 mb-1 fill-orange-500/20" />
+          <div className="p-2.5 rounded-xl bg-warning/5 border border-warning/10 flex flex-col items-center justify-center">
+            <Flame className="h-5 w-5 text-warning mb-1 fill-warning/20" />
             <span className="text-lg font-black leading-none">{streak?.current_streak || 0}</span>
             <span className="text-[9px] text-muted-foreground font-bold">ימי רצף</span>
           </div>
-          <div className="p-2.5 rounded-xl bg-blue-500/5 border border-blue-500/10 flex flex-col items-center justify-center">
-            <Shield className="h-5 w-5 text-blue-500 mb-1 fill-blue-500/20" />
+          <div className="p-2.5 rounded-xl bg-info/5 border border-info/10 flex flex-col items-center justify-center">
+            <Shield className="h-5 w-5 text-info mb-1 fill-info/20" />
             <span className="text-lg font-black leading-none">{reliability?.score || 0}</span>
             <span className="text-[9px] text-muted-foreground font-bold">אמינות</span>
           </div>
@@ -89,7 +89,7 @@ const GamificationWidget = ({ userId, compact = false }: GamificationWidgetProps
               badges.slice(0, 4).map(b => (
                 <div 
                   key={b.badge_key} 
-                  className="h-10 w-10 shrink-0 rounded-lg bg-background border border-muted flex items-center justify-center text-xl shadow-sm hover:scale-110 transition-transform cursor-help"
+                  className="h-10 w-10 shrink-0 rounded-lg bg-background border border-muted flex items-center justify-center text-xl shadow-sm hover:border-primary/40 transition-colors cursor-help"
                   title={b.badge_label}
                 >
                   {b.badge_icon}
@@ -97,7 +97,7 @@ const GamificationWidget = ({ userId, compact = false }: GamificationWidgetProps
               ))
             ) : (
               <div className="w-full py-4 text-center text-xs text-muted-foreground border border-dashed rounded-xl">
-                עדיין אין מדליות. צא לדרך! 🚀
+                עדיין אין מדליות. צא לדרך!
               </div>
             )}
           </div>

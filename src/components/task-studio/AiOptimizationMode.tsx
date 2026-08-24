@@ -41,7 +41,7 @@ ${inputCode}
       });
       if (error) throw error;
       setOptimizedCode(typeof data === "string" ? data : data?.response || "");
-      toast({ title: "הקוד אופטימז בהצלחה! ✨" });
+      toast({ title: "הקוד אופטימז בהצלחה!" });
     } catch (err: any) {
       toast({ title: "שגיאה", description: err.message, variant: "destructive" });
     } finally {
@@ -65,7 +65,7 @@ ${inputCode}
               value={inputCode}
               onChange={(e) => setInputCode(e.target.value)}
               placeholder="הדבק כאן את קוד ה-HTML/JS שלך..."
-              className="font-mono text-xs min-h-[350px] bg-slate-950 text-green-400 border-slate-700"
+              className="font-mono text-xs min-h-[350px] bg-muted border-border"
               dir="ltr"
             />
             <Button className="w-full gap-2 font-heading" onClick={handleOptimize} disabled={loading || !inputCode.trim()}>
@@ -85,7 +85,7 @@ ${inputCode}
               <Textarea
                 value={optimizedCode}
                 readOnly
-                className="font-mono text-xs min-h-[350px] bg-slate-950 text-cyan-400 border-slate-700"
+                className="font-mono text-xs min-h-[350px] bg-muted border-border"
                 dir="ltr"
               />
             ) : (

@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BarChart3, Users, TrendingUp, TrendingDown, AlertTriangle, Award,
   Loader2, FileText, Save, CheckCircle2, BookOpen, Zap, Trophy, MessageSquare, ScanText,
+  Gamepad2, Paperclip,
 } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,9 +36,9 @@ const TYPE_LABELS: Record<string, string> = {
 
 const PERCENTILE_BINS = [
   { label: "0-54", min: 0, max: 54, color: "hsl(var(--destructive))" },
-  { label: "55-69", min: 55, max: 69, color: "#eab308" },
+  { label: "55-69", min: 55, max: 69, color: "hsl(var(--warning))" },
   { label: "70-84", min: 70, max: 84, color: "hsl(var(--primary))" },
-  { label: "85-100", min: 85, max: 100, color: "#22c55e" },
+  { label: "85-100", min: 85, max: 100, color: "hsl(var(--success))" },
 ];
 
 const TeacherGradesPage = () => {
@@ -313,7 +314,7 @@ const TeacherGradesPage = () => {
         toast({ title: `${failCount} ציונים לא נשמרו`, description: "בדקו את החיבור ונסו שוב", variant: "destructive" });
         return;
       }
-      toast({ title: "הציונים נשמרו! ✅" });
+      toast({ title: "הציונים נשמרו!" });
       setShowGrading(false);
       setSelectedAssignment((prev) => { setTimeout(() => setSelectedAssignment(prev), 100); return ""; });
     } catch (e: any) {
@@ -324,9 +325,9 @@ const TeacherGradesPage = () => {
   };
 
   const gradeColor = (g: number) => {
-    if (g >= 90) return "text-green-600 dark:text-green-400";
+    if (g >= 90) return "text-success";
     if (g >= 75) return "text-primary";
-    if (g >= 60) return "text-yellow-600 dark:text-yellow-400";
+    if (g >= 60) return "text-warning";
     return "text-destructive";
   };
 
@@ -365,7 +366,7 @@ const TeacherGradesPage = () => {
                 <FileText className="h-4 w-4" />הזן ציונים
               </Button>
               {assignmentMeta.isGame && studentGrades.some(sg => sg.gameResult) && (
-                <Button variant="outline" className="gap-2 font-heading text-green-600 border-green-300 hover:bg-green-50 dark:hover:bg-green-900/20"
+                <Button variant="outline" className="gap-2 font-heading text-success border-success/30 hover:bg-success/10"
                   onClick={() => {
                     // Auto-fill grade edits from game scores
                     const autoEdits: Record<string, { grade: string; feedback: string }> = {};
@@ -373,13 +374,13 @@ const TeacherGradesPage = () => {
                       if (sg.gameResult) {
                         autoEdits[sg.studentId] = {
                           grade: sg.gameResult.score.toString(),
-                          feedback: `🎮 ציון משחק אוטומטי — ${sg.gameResult.correctAnswers}/${sg.gameResult.totalAnswers} נכון`,
+                          feedback: `ציון משחק אוטומטי — ${sg.gameResult.correctAnswers}/${sg.gameResult.totalAnswers} נכון`,
                         };
                       }
                     });
                     setGradeEdits(autoEdits);
                     setShowGrading(true);
-                    toast({ title: "הציונים מולאו אוטומטית מתוצאות המשחק ✅", description: "עיין ואשר לפני השמירה" });
+                    toast({ title: "הציונים מולאו אוטומטית מתוצאות המשחק", description: "עיין ואשר לפני השמירה" });
                   }}>
                   <Zap className="h-4 w-4" />הזן ציוני משחק אוטומטית
                 </Button>
@@ -403,7 +404,7 @@ const TeacherGradesPage = () => {
                       { label: "חציון", val: stats.median, col: "text-primary" },
                       { label: "סט״ת", val: stats.stdDev, col: "" },
                       { label: "נכשלים (<60)", val: stats.weak, col: "text-destructive" },
-                      { label: "מצטיינים (>90)", val: stats.strong, col: "text-green-600" },
+                      { label: "מצטיינים (>90)", val: stats.strong, col: "text-success" },
                     ].map((s) => (
                       <Card key={s.label}><CardContent className="py-3 text-center">
                         <p className={`text-2xl font-heading font-bold ${s.col}`}>{s.val}</p>
@@ -416,12 +417,12 @@ const TeacherGradesPage = () => {
                 {/* Contextual Teacher Alert */}
                 {stats && stats.avg < 60 && (
                   <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-                    <Card className="bg-orange-50 border-orange-200 dark:bg-orange-900/10 dark:border-orange-800">
+                    <Card className="bg-warning/10 border-warning/30">
                       <CardContent className="py-3 flex items-center gap-3">
-                        <AlertTriangle className="h-5 w-5 text-orange-600" />
+                        <AlertTriangle className="h-5 w-5 text-warning" />
                         <div className="flex-1">
-                          <p className="text-sm font-heading font-bold text-orange-800 dark:text-orange-200">שים לב: ממוצע המשימה נמוך יחסית ({stats.avg})</p>
-                          <p className="text-xs text-orange-700 dark:text-orange-300 font-body">מומלץ להוסיף מסר מרגיע להורים שהמשימה הייתה מאתגרת במיוחד לכל הכיתה.</p>
+                          <p className="text-sm font-heading font-bold text-warning">שים לב: ממוצע המשימה נמוך יחסית ({stats.avg})</p>
+                          <p className="text-xs text-warning/90 font-body">מומלץ להוסיף מסר מרגיע להורים שהמשימה הייתה מאתגרת במיוחד לכל הכיתה.</p>
                         </div>
                       </CardContent>
                     </Card>
@@ -482,26 +483,30 @@ const TeacherGradesPage = () => {
                                 <Zap className="h-2.5 w-2.5 fill-primary" />
                                 LVL {sg.level}
                               </Badge>
-                              <Badge variant="outline" className="h-5 text-[9px] gap-1 bg-yellow-500/5 border-yellow-500/20 text-yellow-600">
-                                <Trophy className="h-2.5 w-2.5 fill-yellow-500/20" />
+                              <Badge variant="outline" className="h-5 text-[9px] gap-1 bg-warning/5 border-warning/20 text-warning">
+                                <Trophy className="h-2.5 w-2.5 fill-warning/20" />
                                 {sg.badgeCount}
                               </Badge>
                             </div>
                             {sg.hasAppeal && (
-                              <Badge variant="outline" className="text-[10px] text-orange-500 border-orange-300">⚠ ערעור</Badge>
+                              <Badge variant="outline" className="text-[10px] text-warning border-warning/30 gap-1">
+                                <AlertTriangle className="h-2.5 w-2.5" />ערעור
+                              </Badge>
                             )}
                             {sg.feedback && !sg.hasAppeal && (
-                              <span className="text-[10px] text-muted-foreground truncate max-w-32">💬 {sg.feedback}</span>
+                              <span className="text-[10px] text-muted-foreground truncate max-w-32 flex items-center gap-1">
+                                <MessageSquare className="h-3 w-3 shrink-0" />{sg.feedback}
+                              </span>
                             )}
                             {sg.gameResult && (
-                              <Badge variant="outline" className="text-[9px] gap-1 border-green-300 text-green-600 bg-green-50 dark:bg-green-900/20 shrink-0">
-                                🎮 {sg.gameResult.score}% • {sg.gameResult.correctAnswers}/{sg.gameResult.totalAnswers}
+                              <Badge variant="outline" className="text-[9px] gap-1 border-success/30 text-success bg-success/10 shrink-0">
+                                <Gamepad2 className="h-2.5 w-2.5" />{sg.gameResult.score}% • {sg.gameResult.correctAnswers}/{sg.gameResult.totalAnswers}
                               </Badge>
                             )}
                             {sg.fileUrl && !sg.gameResult && (
                               <a href={sg.fileUrl} target="_blank" rel="noreferrer"
-                                className="text-[10px] text-primary hover:underline flex items-center gap-0.5 shrink-0">
-                                📎 קובץ
+                                className="text-[10px] text-primary hover:underline flex items-center gap-1 shrink-0">
+                                <Paperclip className="h-3 w-3" />קובץ
                               </a>
                             )}
                           </div>
@@ -519,7 +524,7 @@ const TeacherGradesPage = () => {
                               <>
                                 <span className={`font-heading font-bold text-lg ${gradeColor(normalized!)}`}>{sg.grade}</span>
                                 {maxG !== 100 && <span className="text-xs text-muted-foreground">/{maxG}</span>}
-                                {normalized! >= 90 && <Award className="h-4 w-4 text-yellow-500" />}
+                                {normalized! >= 90 && <Award className="h-4 w-4 text-warning" />}
                               </>
                             ) : (
                               <span className="text-xs text-muted-foreground">טרם הוזן</span>
@@ -568,7 +573,7 @@ const TeacherGradesPage = () => {
                           <ReferenceLine y={60} stroke="hsl(var(--destructive))" strokeDasharray="4 4" />
                           <Bar dataKey="avg" radius={[4, 4, 0, 0]}>
                             {subjectAvgs.map((s, i) => (
-                              <Cell key={i} fill={s.avg >= 90 ? "#22c55e" : s.avg >= 75 ? "hsl(var(--primary))" : s.avg >= 60 ? "#eab308" : "hsl(var(--destructive))"} />
+                              <Cell key={i} fill={s.avg >= 90 ? "hsl(var(--success))" : s.avg >= 75 ? "hsl(var(--primary))" : s.avg >= 60 ? "hsl(var(--warning))" : "hsl(var(--destructive))"} />
                             ))}
                           </Bar>
                         </BarChart>
@@ -588,7 +593,7 @@ const TeacherGradesPage = () => {
                             <p className="text-[10px] flex items-center gap-1 mt-0.5">
                               <span className="text-muted-foreground">ממוצע שכבה: {s.gradeAvg}</span>
                               {s.avg !== s.gradeAvg && (
-                                <span className={s.avg > s.gradeAvg ? "text-green-600" : "text-destructive"}>
+                                <span className={s.avg > s.gradeAvg ? "text-success" : "text-destructive"}>
                                   {s.avg > s.gradeAvg ? <TrendingUp className="h-3 w-3 inline" /> : <TrendingDown className="h-3 w-3 inline" />}
                                   {" "}{Math.abs(s.avg - s.gradeAvg)}{s.avg > s.gradeAvg ? "+" : "-"}
                                 </span>
@@ -598,8 +603,8 @@ const TeacherGradesPage = () => {
                         </div>
                         <div className="flex items-center gap-3">
                           {s.avg < 60 && <Badge variant="destructive" className="text-[10px]">דורש תשומת לב</Badge>}
-                          {s.avg >= 90 && <Badge className="text-[10px] bg-green-500">מעולה</Badge>}
-                          <span className={`font-heading font-bold text-2xl ${s.avg >= 90 ? "text-green-600" : s.avg >= 75 ? "text-primary" : s.avg >= 60 ? "text-yellow-600" : "text-destructive"}`}>
+                          {s.avg >= 90 && <Badge className="text-[10px] bg-success text-success-foreground">מעולה</Badge>}
+                          <span className={`font-heading font-bold text-2xl ${s.avg >= 90 ? "text-success" : s.avg >= 75 ? "text-primary" : s.avg >= 60 ? "text-warning" : "text-destructive"}`}>
                             {s.avg}
                           </span>
                         </div>
@@ -634,7 +639,7 @@ const TeacherGradesPage = () => {
                 <div key={sg.studentId} className="py-3 border-b border-border/50 last:border-0 space-y-2">
                   <div className="flex items-center gap-3">
                     <span className="font-heading text-sm font-bold flex-1 min-w-0 truncate">{sg.studentName}</span>
-                    {sg.hasAppeal && <Badge variant="outline" className="text-[10px] text-orange-500 shrink-0">⚠ ערעור</Badge>}
+                    {sg.hasAppeal && <Badge variant="outline" className="text-[10px] text-warning border-warning/30 gap-1 shrink-0"><AlertTriangle className="h-2.5 w-2.5" />ערעור</Badge>}
                     <div className="relative w-20">
                       <Input type="number" placeholder="ציון" className="text-center font-bold" dir="ltr"
                         min={0} max={maxG} value={currentGrade}
@@ -642,7 +647,7 @@ const TeacherGradesPage = () => {
                     </div>
                     {!isNaN(gradeNum) && gradeNum > 0 && (
                       <div className="w-10 text-center">
-                        <span className={`text-xs font-heading font-bold ${gradeNum >= 90 ? "text-green-500" : gradeNum >= 60 ? "text-yellow-500" : "text-destructive"}`}>
+                        <span className={`text-xs font-heading font-bold ${gradeNum >= 90 ? "text-success" : gradeNum >= 60 ? "text-warning" : "text-destructive"}`}>
                           {Math.round((gradeNum / maxG) * 100)}%
                         </span>
                       </div>
@@ -651,10 +656,10 @@ const TeacherGradesPage = () => {
                   
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
-                      <MessageSquare className="h-3 w-3 text-indigo-500" />
-                      <span className="text-[10px] font-heading font-medium text-indigo-600 uppercase">מסר פדגוגי להורה (טיפ אישי)</span>
+                      <MessageSquare className="h-3 w-3 text-accent" />
+                      <span className="text-[10px] font-heading font-medium text-accent uppercase">מסר פדגוגי להורה (טיפ אישי)</span>
                     </div>
-                    <Input placeholder="כתוב משהו להורה... (למשל: 'הפגין השקעה רבה למרות הקושי')" className="text-xs bg-indigo-50/20" value={currentFeedback}
+                    <Input placeholder="כתוב משהו להורה... (למשל: 'הפגין השקעה רבה למרות הקושי')" className="text-xs bg-accent/5" value={currentFeedback}
                       onChange={(e) => handleGradeChange(sg.studentId, "feedback", e.target.value)} />
                     
                     {/* Quick Pedagogical Suggestions */}
@@ -666,7 +671,7 @@ const TeacherGradesPage = () => {
                       ].map(suggest => (
                         <button key={suggest.label} type="button" 
                           onClick={() => handleGradeChange(sg.studentId, "feedback", suggest.val)}
-                          className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-100 hover:bg-indigo-100 text-slate-500 transition-colors">
+                          className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted hover:bg-accent/10 text-muted-foreground transition-colors">
                           + {suggest.label}
                         </button>
                       ))}

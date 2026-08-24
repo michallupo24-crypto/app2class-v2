@@ -92,13 +92,13 @@ const SwipeableStudentRow = ({
   const hasPositiveNote = student.notes.some(n => NOTE_CATEGORIES.find(c => c.value === n.category)?.group === "positive");
 
   return (
-    <div className="relative overflow-hidden rounded-2xl shadow-sm">
-      <motion.div className="absolute inset-0 flex items-center justify-start pr-6 bg-gradient-to-l from-transparent via-success/20 to-success/40" style={{ opacity: leftBgOpacity }}>
+    <div className="relative overflow-hidden rounded-lg shadow-sm">
+      <motion.div className="absolute inset-0 flex items-center justify-start pr-6 bg-success/30" style={{ opacity: leftBgOpacity }}>
         <motion.div style={{ scale: leftScale }} className="flex items-center gap-1.5 text-success font-heading font-bold">
           <Check className="h-5 w-5" /> נוכח
         </motion.div>
       </motion.div>
-      <motion.div className="absolute inset-0 flex items-center justify-end pl-6 bg-gradient-to-r from-transparent via-destructive/20 to-destructive/40" style={{ opacity: rightBgOpacity }}>
+      <motion.div className="absolute inset-0 flex items-center justify-end pl-6 bg-destructive/30" style={{ opacity: rightBgOpacity }}>
         <motion.div style={{ scale: rightScale }} className="flex items-center gap-1.5 text-destructive font-heading font-bold">
           חסר <X className="h-5 w-5" />
         </motion.div>
@@ -113,16 +113,16 @@ const SwipeableStudentRow = ({
         onPointerLeave={cancelPress}
         onContextMenu={(e) => e.preventDefault()}
         style={{ x, scale: cardScale }}
-        className={`relative z-10 flex items-center gap-3.5 p-3 pr-4 rounded-2xl border backdrop-blur-sm select-none transition-colors duration-200 ${statusConfig.bg} ${!isMobile ? "hover:shadow-md" : ""}`}
+        className={`relative z-10 flex items-center gap-3.5 p-3 pr-4 rounded-lg border select-none transition-colors duration-200 ${statusConfig.bg} ${!isMobile ? "hover:shadow-md" : ""}`}
       >
         {/* Status accent strip */}
         <div className={`absolute inset-y-2 right-0 w-1 rounded-full ${statusConfig.accent} opacity-70`} />
 
         <div className="relative shrink-0">
-          <div className={`rounded-2xl ring-2 ring-offset-2 ring-offset-background transition-all ${student.status ? statusConfig.accent.replace("bg-", "ring-") + "/40" : "ring-transparent"}`}>
+          <div className={`rounded-lg ring-2 ring-offset-2 ring-offset-background transition-all ${student.status ? statusConfig.accent.replace("bg-", "ring-") + "/40" : "ring-transparent"}`}>
             {student.avatar
               ? <AvatarPreview config={student.avatar} size={48} />
-              : <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center text-lg">👤</div>}
+              : <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center text-lg">👤</div>}
           </div>
           {student.status && statusConfig.icon && (
             <div className={`absolute -bottom-1.5 -left-1.5 w-6 h-6 rounded-full ${statusConfig.accent} text-white flex items-center justify-center border-2 border-background shadow-sm`}>
@@ -130,7 +130,7 @@ const SwipeableStudentRow = ({
             </div>
           )}
           {student.isBirthday && (
-            <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-pink-500 text-white flex items-center justify-center border-2 border-background shadow-sm" title="יום הולדת שמח! 🎉">
+            <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-accent text-white flex items-center justify-center border-2 border-background shadow-sm" title="יום הולדת שמח!">
               <Cake className="h-3.5 w-3.5" />
             </div>
           )}
@@ -148,7 +148,7 @@ const SwipeableStudentRow = ({
               </span>
             )}
             {hasPositiveNote && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-success/10 text-success font-medium">⭐ חיובי</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-success/10 text-success font-medium">חיובי</span>
             )}
           </div>
         </div>
@@ -376,7 +376,7 @@ const RollCallPage = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
             <ClipboardList className="h-5 w-5 text-primary" />
           </div>
           <div>
@@ -421,8 +421,8 @@ const RollCallPage = () => {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-3.5 p-3 rounded-2xl border border-border/50 bg-card animate-pulse">
-              <div className="w-12 h-12 rounded-2xl bg-muted shrink-0" />
+            <div key={i} className="flex items-center gap-3.5 p-3 rounded-lg border border-border/50 bg-card animate-pulse">
+              <div className="w-12 h-12 rounded-lg bg-muted shrink-0" />
               <div className="flex-1 space-y-2">
                 <div className="h-3 bg-muted rounded w-2/3 mr-auto" />
                 <div className="h-2 bg-muted rounded w-1/3 mr-auto" />
@@ -498,7 +498,7 @@ const RollCallPage = () => {
                         key={s.id}
                         onClick={() => handleSwipe(s.id, isPresent ? "right" : "left")}
                         onContextMenu={(e) => { e.preventDefault(); setNoteStudentId(s.id); }}
-                        className={`flex flex-col items-center gap-1.5 p-2.5 rounded-2xl border transition-all w-20 ${
+                        className={`flex flex-col items-center gap-1.5 p-2.5 rounded-lg border transition-colors w-20 ${
                           isPresent ? "bg-success/10 border-success/30" : isAbsent ? "bg-destructive/10 border-destructive/30" : "bg-card border-border/50 hover:border-primary/40"
                         }`}
                       >
@@ -540,7 +540,7 @@ const RollCallPage = () => {
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 30, opacity: 0 }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white rounded-2xl px-5 py-3 shadow-2xl flex items-center gap-4 text-sm"
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-foreground text-background rounded-lg px-5 py-3 flex items-center gap-4 text-sm"
           >
             <span>סימנת {lastAction.label} ל{lastAction.name}.</span>
             <Button size="sm" variant="secondary" className="h-7 px-3" onClick={handleUndoLast}>

@@ -43,11 +43,11 @@ export const LivePreviewPanel: React.FC<LivePreviewPanelProps> = ({
   });
 
   return (
-    <div className="flex flex-col h-full bg-[#111111] rounded-2xl border border-[#2A2A2A] shadow-xl overflow-hidden">
+    <div className="flex flex-col h-full bg-[#111111] rounded-lg border border-[#2A2A2A] overflow-hidden">
       {/* Preview Header & Controls */}
       <div className="flex flex-wrap items-center justify-between bg-[#1A1A1A] px-4 py-2 border-b border-[#2A2A2A] gap-2">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></div>
+          <div className="w-2 h-2 rounded-full bg-success"></div>
           <span className="text-[10px] uppercase tracking-widest font-bold text-gray-400">Live Preview</span>
         </div>
 
@@ -101,7 +101,7 @@ export const LivePreviewPanel: React.FC<LivePreviewPanelProps> = ({
           reach the parent app's origin. See sandboxBuilder.ts for the postMessage
           bridge that is the only sanctioned way out of this frame. */}
       <div className="flex-1 bg-[#151515] p-3 overflow-auto flex justify-center items-start relative">
-        <div className={`h-full bg-white rounded-xl shadow-lg border border-[#2A2A2A] overflow-hidden transition-all duration-300 ${getIframeWidth()}`}>
+        <div className={`h-full bg-white rounded-lg border border-[#2A2A2A] overflow-hidden transition-all duration-300 ${getIframeWidth()}`}>
           <iframe
             key={key}
             srcDoc={srcDoc}
@@ -119,16 +119,16 @@ export const LivePreviewPanel: React.FC<LivePreviewPanelProps> = ({
             onClick={() => setIsConsoleOpen(!isConsoleOpen)}
             className="flex items-center gap-2 hover:text-white transition cursor-pointer"
           >
-            <Terminal className="w-4 h-4 text-blue-400" />
-            <span className="font-bold text-[10px] uppercase tracking-wider text-blue-400">Console Output</span>
+            <Terminal className="w-4 h-4 text-info" />
+            <span className="font-bold text-[10px] uppercase tracking-wider text-info">Console Output</span>
 
             {errorCount > 0 && (
-              <span className="bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded-full font-bold text-[10px]">
+              <span className="bg-destructive/20 text-destructive border border-destructive/30 px-2 py-0.5 rounded-full font-bold text-[10px]">
                 {errorCount} שגיאות
               </span>
             )}
             {warnCount > 0 && (
-              <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full text-[10px]">
+              <span className="bg-warning/20 text-warning border border-warning/30 px-2 py-0.5 rounded-full text-[10px]">
                 {warnCount} אזהרות
               </span>
             )}
@@ -147,13 +147,13 @@ export const LivePreviewPanel: React.FC<LivePreviewPanelProps> = ({
                 </button>
                 <button
                   onClick={() => setLogFilter('error')}
-                  className={`px-2 py-0.5 rounded transition ${logFilter === 'error' ? 'bg-rose-600 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                  className={`px-2 py-0.5 rounded transition ${logFilter === 'error' ? 'bg-destructive text-white' : 'text-gray-500 hover:text-gray-300'}`}
                 >
                   שגיאות ({errorCount})
                 </button>
                 <button
                   onClick={() => setLogFilter('warn')}
-                  className={`px-2 py-0.5 rounded transition ${logFilter === 'warn' ? 'bg-amber-600 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                  className={`px-2 py-0.5 rounded transition ${logFilter === 'warn' ? 'bg-warning text-white' : 'text-gray-500 hover:text-gray-300'}`}
                 >
                   אזהרות ({warnCount})
                 </button>
@@ -162,7 +162,7 @@ export const LivePreviewPanel: React.FC<LivePreviewPanelProps> = ({
               {errorCount > 0 && onOpenAIDebugger && (
                 <button
                   onClick={onOpenAIDebugger}
-                  className="flex items-center gap-1 bg-rose-600 hover:bg-rose-500 text-white px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer"
+                  className="flex items-center gap-1 bg-destructive hover:opacity-90 text-white px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer"
                 >
                   <Bug className="w-3.5 h-3.5" />
                   <span>ניפוי שגיאה AI</span>
@@ -171,7 +171,7 @@ export const LivePreviewPanel: React.FC<LivePreviewPanelProps> = ({
 
               <button
                 onClick={onClearLogs}
-                className="p-1 text-gray-400 hover:text-rose-400 transition cursor-pointer text-[10px]"
+                className="p-1 text-gray-400 hover:text-destructive transition cursor-pointer text-[10px]"
                 title="נקה לוגים"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -193,12 +193,12 @@ export const LivePreviewPanel: React.FC<LivePreviewPanelProps> = ({
                     {new Date(log.timestamp).toLocaleTimeString()}
                   </span>
 
-                  {log.level === 'error' && <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />}
-                  {log.level === 'warn' && <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />}
+                  {log.level === 'error' && <AlertCircle className="w-3.5 h-3.5 text-destructive shrink-0 mt-0.5" />}
+                  {log.level === 'warn' && <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0 mt-0.5" />}
 
                   <div className={`flex-1 break-words whitespace-pre-wrap ${
-                    log.level === 'error' ? 'text-rose-300 font-semibold' :
-                    log.level === 'warn' ? 'text-amber-300' : 'text-gray-300'
+                    log.level === 'error' ? 'text-destructive font-semibold' :
+                    log.level === 'warn' ? 'text-warning' : 'text-gray-300'
                   }`}>
                     {log.args.join(' ')}
                     {log.line && <span className="text-gray-600 ml-2">(Line {log.line})</span>}

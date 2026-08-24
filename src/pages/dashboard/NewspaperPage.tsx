@@ -88,7 +88,7 @@ const NewspaperPage = () => {
       category: form.category,
     });
     if (error) return toast({ title: "שגיאה", description: error.message, variant: "destructive" });
-    toast({ title: "✅ הכתבה נשלחה לאישור המערכת" });
+    toast({ title: "הכתבה נשלחה לאישור המערכת" });
     setComposeOpen(false);
     setForm({ title: "", content: "", cover_image_url: "", category: "news" });
     if (tab === "pending") load();
@@ -100,7 +100,7 @@ const NewspaperPage = () => {
       .update(approve ? { status: "published", published_at: new Date().toISOString() } : { status: "rejected" })
       .eq("id", article.id);
     if (error) return toast({ title: "שגיאה", description: error.message, variant: "destructive" });
-    toast({ title: approve ? "✅ הכתבה פורסמה" : "הכתבה נדחתה" });
+    toast({ title: approve ? "הכתבה פורסמה" : "הכתבה נדחתה" });
     load();
   };
 

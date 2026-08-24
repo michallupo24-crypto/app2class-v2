@@ -153,7 +153,7 @@ const EventApprovalsPage = () => {
       });
       if (error) return toast({ title: "שגיאה", description: error.message, variant: "destructive" });
     }
-    toast({ title: approved ? "✅ האישור נשלח" : "העדכון נקלט" });
+    toast({ title: approved ? "האישור נשלח" : "העדכון נקלט" });
     loadParent();
   };
 
@@ -208,7 +208,7 @@ const EventApprovalsPage = () => {
                           </div>
                           {mine ? (
                             <Badge variant={mine.approved ? "secondary" : "destructive"} className="shrink-0">
-                              {mine.approved ? "✓ אושר" : "✗ לא מאשר/ת"}
+                              {mine.approved ? "אושר" : "לא מאשר/ת"}
                             </Badge>
                           ) : (
                             <div className="flex gap-2 shrink-0">
@@ -264,7 +264,7 @@ const EventApprovalsPage = () => {
                   {isOpen && (
                     <div className="mt-3 pt-3 border-t flex flex-wrap gap-1.5">
                       {notSigned.length === 0 ? (
-                        <p className="text-xs text-success">כולם חתמו! 🎉</p>
+                        <p className="text-xs text-success">כולם חתמו!</p>
                       ) : (
                         notSigned.map((s) => (
                           <span key={s.id} className="text-[11px] px-2 py-1 rounded-full bg-warning/10 text-warning-foreground border border-warning/30">

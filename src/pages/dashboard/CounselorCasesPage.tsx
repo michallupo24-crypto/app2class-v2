@@ -132,7 +132,7 @@ const CounselorCasesPage = () => {
       toast({ title: "שגיאה", description: error.message, variant: "destructive" });
       return;
     }
-    toast({ title: "✅ תיק מעקב נפתח" });
+    toast({ title: "תיק מעקב נפתח" });
     setNewDialogOpen(false);
     setSelectedNewStudent(null);
     setFlagReason("");
@@ -196,7 +196,7 @@ const CounselorCasesPage = () => {
       toast({ title: "שגיאה", description: error.message, variant: "destructive" });
       return;
     }
-    toast({ title: "✅ ההמלצה נשלחה למחנך/ת" });
+    toast({ title: "ההמלצה נשלחה למחנך/ת" });
     setNewRecommendation("");
     openCaseDetail(activeCase);
   };

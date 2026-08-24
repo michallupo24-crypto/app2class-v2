@@ -101,7 +101,7 @@ const SupportPage = () => {
       category: form.category,
     });
     if (error) return toast({ title: "שגיאה", description: error.message, variant: "destructive" });
-    toast({ title: "✅ הפנייה נשלחה" });
+    toast({ title: "הפנייה נשלחה" });
     setDialogOpen(false);
     setForm({ subject: "", description: "", category: "question" });
     load();
@@ -137,10 +137,10 @@ const SupportPage = () => {
               <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="bug">🐞 באג / תקלה</SelectItem>
-                  <SelectItem value="question">❓ שאלה</SelectItem>
-                  <SelectItem value="account">👤 בעיית חשבון</SelectItem>
-                  <SelectItem value="other">📋 אחר</SelectItem>
+                  <SelectItem value="bug">באג / תקלה</SelectItem>
+                  <SelectItem value="question">שאלה</SelectItem>
+                  <SelectItem value="account">בעיית חשבון</SelectItem>
+                  <SelectItem value="other">אחר</SelectItem>
                 </SelectContent>
               </Select>
               <Input placeholder="נושא" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} />

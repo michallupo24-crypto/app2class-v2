@@ -246,7 +246,7 @@ const SnakesLaddersGamePage = () => {
         const penalty = Math.min(3, cp.pos);
         if (penalty > 0) {
           updatePlayerPos(currentPlayer, Math.max(0, cp.pos - penalty));
-          setMessage(`❌ תשובה שגויה — ${cp.emoji} ירד ${penalty} משבצות`);
+          setMessage(`תשובה שגויה — ${cp.emoji} ירד ${penalty} משבצות`);
         }
       }
     }
@@ -320,10 +320,10 @@ const SnakesLaddersGamePage = () => {
         cells.push(
           <div key={num}
             className={`relative flex flex-col items-center justify-center border text-center select-none
-              ${isSnake ? "bg-red-100 dark:bg-red-900/30 border-red-300" : ""}
-              ${isLadder ? "bg-green-100 dark:bg-green-900/30 border-green-300" : ""}
+              ${isSnake ? "bg-destructive/10 border-destructive/30" : ""}
+              ${isLadder ? "bg-success/10 border-success/30" : ""}
               ${!isSnake && !isLadder ? "bg-muted/30 border-border/30" : ""}
-              ${isTarget ? "ring-2 ring-yellow-400 bg-yellow-50 dark:bg-yellow-900/30" : ""}
+              ${isTarget ? "ring-2 ring-warning bg-warning/10" : ""}
               rounded-sm`}
             style={{ aspectRatio: "1" }}
           >
@@ -396,11 +396,11 @@ const SnakesLaddersGamePage = () => {
       <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
         className="flex flex-col items-center justify-center min-h-[60vh] gap-6 text-center">
         <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: "spring", bounce: 0.5 }}>
-          <Crown className="h-24 w-24 text-yellow-500" />
+          <Crown className="h-24 w-24 text-warning" />
         </motion.div>
         <div>
           <p className="text-4xl font-heading font-bold">{winner.emoji} {winner.name}</p>
-          <p className="text-lg text-muted-foreground mt-2">הגיע/ה ראשון/ה לתיבה 100! 🎉</p>
+          <p className="text-lg text-muted-foreground mt-2">הגיע/ה ראשון/ה לתיבה 100!</p>
         </div>
         <div className="flex gap-6 text-center">
           <div>
@@ -408,7 +408,7 @@ const SnakesLaddersGamePage = () => {
             <p className="text-xs text-muted-foreground">דיוק תשובות</p>
           </div>
           <div>
-            <p className="text-3xl font-heading font-bold text-green-500">{correctCount}</p>
+            <p className="text-3xl font-heading font-bold text-success">{correctCount}</p>
             <p className="text-xs text-muted-foreground">נכונות מ-{totalAnswered}</p>
           </div>
         </div>
@@ -495,7 +495,7 @@ const SnakesLaddersGamePage = () => {
               const n = i + 1;
               return (
                 <div key={n} className={`aspect-square rounded-[2px] flex items-center justify-center text-[5px]
-                  ${SNAKES[n] ? "bg-red-200 dark:bg-red-900/40" : LADDERS[n] ? "bg-green-200 dark:bg-green-900/40" : n === 100 ? "bg-yellow-200" : "bg-muted/40"}`}>
+                  ${SNAKES[n] ? "bg-destructive/20" : LADDERS[n] ? "bg-success/20" : n === 100 ? "bg-warning/20" : "bg-muted/40"}`}>
                   {SNAKES[n] ? "🐍" : LADDERS[n] ? "🪜" : n === 100 ? "🏁" : ""}
                 </div>
               );
@@ -626,8 +626,8 @@ const SnakesLaddersGamePage = () => {
                     const isCorrectOpt = opt.trim().toLowerCase() === (currentQ.correct_answer || "").trim().toLowerCase();
                     let cls = "border-border hover:border-primary/50 cursor-pointer";
                     if (answered) {
-                      if (isCorrectOpt) cls = "border-green-500 bg-green-50 dark:bg-green-900/20 cursor-default";
-                      else if (isSelected) cls = "border-destructive bg-red-50 dark:bg-red-900/20 cursor-default";
+                      if (isCorrectOpt) cls = "border-success bg-success/10 cursor-default";
+                      else if (isSelected) cls = "border-destructive bg-destructive/10 cursor-default";
                       else cls = "border-border opacity-40 cursor-default";
                     } else if (isSelected) cls = "border-primary bg-primary/5";
                     return (
@@ -636,7 +636,7 @@ const SnakesLaddersGamePage = () => {
                         onClick={() => handleAnswer(opt)} disabled={answered}>
                         <div className="flex items-center justify-between">
                           <span className="font-heading text-sm">{opt}</span>
-                          {answered && isCorrectOpt && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                          {answered && isCorrectOpt && <CheckCircle2 className="h-4 w-4 text-success" />}
                           {answered && isSelected && !isCorrectOpt && <XCircle className="h-4 w-4 text-destructive" />}
                         </div>
                       </button>
@@ -658,9 +658,9 @@ const SnakesLaddersGamePage = () => {
                       </Button>
                     </>
                   ) : (
-                    <Card className={correct ? "border-green-500 bg-green-50 dark:bg-green-900/10" : "border-destructive bg-red-50 dark:bg-red-900/10"}>
+                    <Card className={correct ? "border-success bg-success/10" : "border-destructive bg-destructive/10"}>
                       <CardContent className="py-3 text-sm font-heading">
-                        {correct ? "✅ נכון!" : `❌ תשובה נכונה: ${currentQ.correct_answer}`}
+                        {correct ? "נכון!" : `תשובה נכונה: ${currentQ.correct_answer}`}
                       </CardContent>
                     </Card>
                   )}
@@ -673,7 +673,7 @@ const SnakesLaddersGamePage = () => {
                     <p className="text-xs text-muted-foreground font-body bg-muted/50 rounded-lg p-2">{currentQ.explanation}</p>
                   )}
                   <Button className="w-full font-heading" onClick={closeQuestion}>
-                    {correct ? "✅ המשך" : "❌ המשך"}
+                    המשך
                   </Button>
                 </motion.div>
               )}

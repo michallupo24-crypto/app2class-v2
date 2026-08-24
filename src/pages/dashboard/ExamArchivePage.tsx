@@ -81,7 +81,7 @@ const ExamArchivePage = () => {
       });
       if (error) throw error;
 
-      toast({ title: "✅ המבחן נוסף לארכיון" });
+      toast({ title: "המבחן נוסף לארכיון" });
       setDialogOpen(false);
       setForm({ subject: SUBJECTS[0], grade: "none", year: "", title: "", topic: "" });
       setFile(null);

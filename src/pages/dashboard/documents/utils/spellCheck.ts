@@ -649,7 +649,7 @@ export function markSpellErrorsInHtml(
         if (err) {
           hasMatch = true;
           const span = document.createElement('span');
-          span.className = 'spell-error cursor-pointer border-b-2 border-dashed border-rose-500 hover:bg-rose-50/70 transition-colors';
+          span.className = 'spell-error cursor-pointer border-b-2 border-dashed border-destructive hover:bg-destructive/10 transition-colors';
           span.setAttribute('data-spell-word', part);
           span.setAttribute('data-error-id', err.id);
           span.textContent = part;

@@ -376,13 +376,13 @@ const PrincipalDashboardPage = () => {
     try {
       const { error } = await (supabase as any).from("system_announcements").insert({
         school_id: profile.schoolId,
-        title: broadcastSeverity === "emergency" ? "🚨 הודעת חירום" : "הודעת הנהלה",
+        title: broadcastSeverity === "emergency" ? "הודעת חירום" : "הודעת הנהלה",
         content: broadcastMsg,
         severity: broadcastSeverity,
         created_by: profile.id,
       });
       if (error) throw error;
-      toast({ title: "ההודעה שוגרה לכלל הקהילה! 📢" });
+      toast({ title: "ההודעה שוגרה לכלל הקהילה!" });
       setBroadcastDialog(false);
       setBroadcastMsg("");
     } catch (e: any) {
@@ -557,7 +557,7 @@ const PrincipalDashboardPage = () => {
       <motion.div variants={item} className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-heading font-bold flex items-center gap-2">
-            <Crown className="h-7 w-7 text-yellow-500" />דאשבורד מנהלת
+            <Crown className="h-7 w-7 text-warning" />דאשבורד מנהלת
           </h1>
           <p className="text-sm text-muted-foreground font-body mt-1">מבט-על על כלל בית הספר</p>
         </div>
@@ -567,7 +567,7 @@ const PrincipalDashboardPage = () => {
           </Button>
           <Button size="sm" variant="outline" className="gap-1.5 font-heading text-xs"
             onClick={() => { setBroadcastSeverity("emergency"); setBroadcastDialog(true); }}>
-            <Radio className="h-3.5 w-3.5 text-red-500" />שידור חירום
+            <Radio className="h-3.5 w-3.5 text-destructive" />שידור חירום
           </Button>
           <Button size="sm" variant="outline" className="gap-1.5 font-heading text-xs"
             onClick={() => navigate("/dashboard/approvals")}>
@@ -585,10 +585,10 @@ const PrincipalDashboardPage = () => {
         <motion.div variants={item} className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {[
             { label: "תלמידים", val: stats.totalStudents, icon: Users, color: "text-primary" },
-            { label: "מורים", val: stats.totalTeachers, icon: BookOpen, color: "text-green-600" },
-            { label: "נוכחים היום", val: stats.presentToday || 0, icon: UserCheck, color: "text-blue-600" },
+            { label: "מורים", val: stats.totalTeachers, icon: BookOpen, color: "text-success" },
+            { label: "נוכחים היום", val: stats.presentToday || 0, icon: UserCheck, color: "text-info" },
             { label: "חיסורים היום", val: stats.absentToday || 0, icon: AlertTriangle, color: (stats.absentToday || 0) > 0 ? "text-destructive" : "text-muted-foreground" },
-            { label: "ממוצע בי\"ס", val: stats.avgGrade ?? "—", icon: BarChart3, color: stats.avgGrade ? (stats.avgGrade >= 75 ? "text-green-600" : "text-yellow-600") : "text-muted-foreground" },
+            { label: "ממוצע בי\"ס", val: stats.avgGrade ?? "—", icon: BarChart3, color: stats.avgGrade ? (stats.avgGrade >= 75 ? "text-success" : "text-warning") : "text-muted-foreground" },
             { label: "ממתינים", val: stats.pendingApprovals, icon: UserCheck, color: stats.pendingApprovals > 0 ? "text-destructive" : "text-muted-foreground" },
           ].map((s, i) => (
             <Card key={i} className={s.label === "ממתינים לאישור" && stats.pendingApprovals > 0 ? "border-destructive/30" : ""}>
@@ -671,7 +671,7 @@ const PrincipalDashboardPage = () => {
                 </div>
                 {trendPrediction ? (
                   <div className="flex items-center gap-2 mt-2 justify-center text-xs font-body">
-                    {trendPrediction.direction === "up" && <TrendingUp className="h-4 w-4 text-green-600" />}
+                    {trendPrediction.direction === "up" && <TrendingUp className="h-4 w-4 text-success" />}
                     {trendPrediction.direction === "down" && <TrendingDown className="h-4 w-4 text-destructive" />}
                     <span className="text-muted-foreground">
                       תחזית לשנה"ל {trendPrediction.nextYear}/{String(trendPrediction.nextYear + 1).slice(2)}: ממוצע משוער <b className="text-foreground">{trendPrediction.predicted}</b>
@@ -692,19 +692,19 @@ const PrincipalDashboardPage = () => {
       {/* Bottleneck detection */}
       {bottlenecks.length > 0 && (
         <motion.div variants={item}>
-          <Card className="border-orange-400/40">
+          <Card className="border-warning/40">
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-heading flex items-center gap-2">
-                <GitBranch className="h-5 w-5 text-orange-500" />זיהוי צווארי בקבוק
+                <GitBranch className="h-5 w-5 text-warning" />זיהוי צווארי בקבוק
                 <Badge variant="destructive" className="text-[10px]">{bottlenecks.length}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {bottlenecks.map(b => (
                 <div key={b.id} className={`flex items-start gap-3 p-2.5 rounded-lg border ${
-                  b.severity === "high" ? "bg-destructive/5 border-destructive/30" : "bg-orange-50/50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800"
+                  b.severity === "high" ? "bg-destructive/5 border-destructive/30" : "bg-warning/10 border-warning/30"
                 }`}>
-                  <AlertTriangle className={`h-4 w-4 shrink-0 mt-0.5 ${b.severity === "high" ? "text-destructive" : "text-orange-500"}`} />
+                  <AlertTriangle className={`h-4 w-4 shrink-0 mt-0.5 ${b.severity === "high" ? "text-destructive" : "text-warning"}`} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-heading font-medium">{b.title}</p>
                     <p className="text-xs text-muted-foreground font-body">{b.description}</p>
@@ -721,30 +721,30 @@ const PrincipalDashboardPage = () => {
 
       {/* Compliance Guard */}
       <motion.div variants={item}>
-        <Card className={compliance.length > 0 ? "border-orange-400/40" : "border-green-500/30"}>
+        <Card className={compliance.length > 0 ? "border-warning/40" : "border-success/30"}>
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-heading flex items-center gap-2">
-              <Shield className={`h-5 w-5 ${compliance.length > 0 ? "text-orange-500" : "text-green-500"}`} />
+              <Shield className={`h-5 w-5 ${compliance.length > 0 ? "text-warning" : "text-success"}`} />
               Compliance Guard — מגן זכויות כלל-בית-ספרי
-              {compliance.length === 0 && <Badge className="text-[10px] bg-green-500">הכל תקין ✓</Badge>}
+              {compliance.length === 0 && <Badge className="text-[10px] bg-success">הכל תקין ✓</Badge>}
               {compliance.length > 0 && <Badge variant="destructive" className="text-[10px]">{compliance.length} חריגות</Badge>}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {compliance.length === 0 ? (
               <p className="text-sm text-muted-foreground font-body text-center py-4">
-                כל המורים עומדים בנהלים — אין חריגות כרגע 🎉
+                כל המורים עומדים בנהלים — אין חריגות כרגע
               </p>
             ) : (
               <div className="space-y-2">
                 {compliance.map((c, i) => (
-                  <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg bg-orange-50/50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800">
-                    <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
+                  <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg bg-warning/10 border border-warning/30">
+                    <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-heading font-medium">{c.teacherName}</p>
                       <p className="text-xs text-muted-foreground font-body">{c.detail}</p>
                     </div>
-                    <Badge variant="outline" className="text-[9px] shrink-0 border-orange-300 text-orange-600">{c.violation}</Badge>
+                    <Badge variant="outline" className="text-[9px] shrink-0 border-warning/50 text-warning">{c.violation}</Badge>
                   </div>
                 ))}
               </div>
@@ -759,14 +759,14 @@ const PrincipalDashboardPage = () => {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-heading flex items-center gap-2">
-                <Brain className="h-5 w-5 text-purple-500" />Teacher Wellness AI — זיהוי שחיקת מורים
+                <Brain className="h-5 w-5 text-accent" />Teacher Wellness AI — זיהוי שחיקת מורים
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {teacherLoads.map(t => (
                 <div key={t.id} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/40 transition-colors">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${t.burnoutRisk === "high" ? "bg-destructive" : t.burnoutRisk === "medium" ? "bg-yellow-500" : "bg-green-500"}`} />
+                    <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${t.burnoutRisk === "high" ? "bg-destructive" : t.burnoutRisk === "medium" ? "bg-warning" : "bg-success"}`} />
                     <div>
                       <p className="font-heading text-sm font-medium">{t.name}</p>
                       <p className="text-[10px] text-muted-foreground">
@@ -777,7 +777,7 @@ const PrincipalDashboardPage = () => {
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <div className="w-24 hidden sm:block">
-                      <Progress value={Math.min((t.classCount / 10) * 100, 100)} className={`h-1.5 ${t.burnoutRisk === "high" ? "[&>div]:bg-destructive" : t.burnoutRisk === "medium" ? "[&>div]:bg-yellow-500" : ""}`} />
+                      <Progress value={Math.min((t.classCount / 10) * 100, 100)} className={`h-1.5 ${t.burnoutRisk === "high" ? "[&>div]:bg-destructive" : t.burnoutRisk === "medium" ? "[&>div]:bg-warning" : ""}`} />
                     </div>
                     <Badge variant={t.burnoutRisk === "high" ? "destructive" : "outline"} className="text-[10px]">
                       {t.burnoutRisk === "high" ? "סיכון גבוה" : t.burnoutRisk === "medium" ? "לעקוב" : "תקין"}
@@ -796,7 +796,7 @@ const PrincipalDashboardPage = () => {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <CardTitle className="text-base font-heading flex items-center gap-2">
-                <Inbox className="h-5 w-5 text-blue-600" />תיבת פניות מפקחת
+                <Inbox className="h-5 w-5 text-info" />תיבת פניות מפקחת
                 {inquiries.filter(i => i.status === "pending").length > 0 && (
                   <Badge variant="destructive" className="text-[10px]">
                     {inquiries.filter(i => i.status === "pending").length} ממתינות
@@ -885,11 +885,11 @@ const PrincipalDashboardPage = () => {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
                 { label: "אישורים ממתינים", icon: UserCheck, route: "/dashboard/approvals", color: "text-primary" },
-                { label: "עץ ארגוני", icon: Building2, route: profile.schoolId ? "/dashboard/org-tree" : "/dashboard/system-org-tree", color: "text-purple-600" },
-                { label: "לוח שנה", icon: BarChart3, route: "/dashboard/schedule", color: "text-green-600" },
-                { label: "שיחות", icon: FileText, route: "/dashboard/chat", color: "text-blue-600" },
-                { label: "דוחות AI", icon: Brain, route: "/dashboard/grade-progress", color: "text-orange-600" },
-                { label: "שידור לכולם", icon: Radio, onClick: () => { setBroadcastSeverity("info"); setBroadcastDialog(true); }, color: "text-red-500" },
+                { label: "עץ ארגוני", icon: Building2, route: profile.schoolId ? "/dashboard/org-tree" : "/dashboard/system-org-tree", color: "text-accent" },
+                { label: "לוח שנה", icon: BarChart3, route: "/dashboard/schedule", color: "text-success" },
+                { label: "שיחות", icon: FileText, route: "/dashboard/chat", color: "text-info" },
+                { label: "דוחות AI", icon: Brain, route: "/dashboard/grade-progress", color: "text-warning" },
+                { label: "שידור לכולם", icon: Radio, onClick: () => { setBroadcastSeverity("info"); setBroadcastDialog(true); }, color: "text-destructive" },
               ].map((a, i) => (
                 <button key={i}
                   className="flex flex-col items-center gap-2 p-3 rounded-xl border border-border hover:border-primary/40 hover:bg-muted/50 transition-all"
@@ -908,14 +908,14 @@ const PrincipalDashboardPage = () => {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="font-heading flex items-center gap-2">
-              <Radio className="h-5 w-5 text-red-500 animate-pulse" />
+              <Radio className="h-5 w-5 text-destructive" />
               שידור לכלל הקהילה
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="p-3 bg-destructive/10 rounded-lg">
               <p className="text-xs text-destructive font-body">
-                ⚠️ ההודעה תוצג לכל התלמידים, המורים וההורים. השתמש בכלי זה רק לאירועים חשובים.
+                ההודעה תוצג לכל התלמידים, המורים וההורים. השתמש בכלי זה רק לאירועים חשובים.
               </p>
             </div>
             <Textarea
@@ -938,7 +938,7 @@ const PrincipalDashboardPage = () => {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="font-heading flex items-center gap-2">
-              <Inbox className="h-5 w-5 text-blue-600" />
+              <Inbox className="h-5 w-5 text-info" />
               רישום פנייה מהמפקחת
             </DialogTitle>
           </DialogHeader>

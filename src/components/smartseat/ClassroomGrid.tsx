@@ -62,9 +62,8 @@ export function ClassroomGrid({ config, students, mode, highlightedId, getStuden
             <motion.div 
                 initial={{ y: -20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                className="w-64 h-14 rounded-2xl bg-gradient-to-b from-primary/25 to-primary/15 border-2 border-primary/40 flex items-center justify-center text-sm font-heading font-bold text-primary shadow-xl mb-4 relative"
+                className="w-64 h-14 rounded-lg bg-primary/15 border-2 border-primary/40 flex items-center justify-center text-sm font-heading font-bold text-primary mb-4 relative"
             >
-                <div className="absolute inset-0 bg-white/5 blur-sm rounded-2xl"></div>
                 שולחן מורה
             </motion.div>
 
@@ -87,10 +86,10 @@ export function ClassroomGrid({ config, students, mode, highlightedId, getStuden
                                 key={`${r}-${c}`}
                                 layoutId={student?.id}
                                 className={cn(
-                                    'grid-cell group relative h-32 rounded-3xl border-2 transition-all duration-300 flex flex-col items-center justify-center p-3 overflow-hidden',
-                                    student ? statusColors[student.attendance] : 'bg-white/40 border-dashed border-muted-foreground/20 hover:border-primary/40 hover:bg-white/60 shadow-sm',
+                                    'grid-cell group relative h-32 rounded-lg border-2 transition-all duration-300 flex flex-col items-center justify-center p-3 overflow-hidden',
+                                    student ? statusColors[student.attendance] : 'bg-card/40 border-dashed border-muted-foreground/20 hover:border-primary/40 hover:bg-card/60 shadow-sm',
                                     isHighlighted && 'ring-4 ring-primary ring-offset-4 ring-offset-background z-30',
-                                    isDragOver && 'border-primary bg-primary/10 scale-105 shadow-2xl z-20 border-solid',
+                                    isDragOver && 'border-primary bg-primary/10 scale-105 z-20 border-solid',
                                     mode === 'edit' ? (student ? 'cursor-grab active:cursor-grabbing' : 'cursor-default') : (student ? 'cursor-pointer active:scale-95' : 'cursor-default')
                                 )}
                                 onClick={() => onCellClick(r, c, student)}
@@ -118,7 +117,7 @@ export function ClassroomGrid({ config, students, mode, highlightedId, getStuden
                                                     {student.avatar ? (
                                                         <AvatarPreview config={student.avatar} size={52} />
                                                     ) : (
-                                                        <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center shadow-inner">
+                                                        <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center">
                                                             <User className="h-7 w-7 text-muted-foreground/60" />
                                                         </div>
                                                     )}

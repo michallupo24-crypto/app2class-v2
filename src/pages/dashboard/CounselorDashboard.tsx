@@ -183,7 +183,7 @@ const CounselorDashboard = () => {
       <motion.div variants={item} className="flex items-center gap-4">
         {profile.avatar && <AvatarPreview config={profile.avatar} size={72} />}
         <div>
-          <h1 className="text-2xl md:text-3xl font-heading font-bold">שלום, {profile.fullName} 👋</h1>
+          <h1 className="text-2xl md:text-3xl font-heading font-bold">שלום, {profile.fullName}</h1>
           <div className="flex items-center gap-2 mt-1">
             <Badge variant="secondary" className="font-heading">יועץ/ת</Badge>
             {profile.schoolName && <span className="text-sm text-muted-foreground font-body">{profile.schoolName}</span>}
@@ -226,7 +226,7 @@ const CounselorDashboard = () => {
             {loading ? (
               <p className="text-sm text-muted-foreground animate-pulse">מנתח נתוני נוכחות, ריכוז וציונים...</p>
             ) : flagged.length === 0 ? (
-              <p className="text-sm text-muted-foreground">לא זוהו תלמידים עם צניחה רב-מערכתית כרגע 🙌</p>
+              <p className="text-sm text-muted-foreground">לא זוהו תלמידים עם צניחה רב-מערכתית כרגע</p>
             ) : (
               <div className="space-y-2">
                 {flagged.map((f) => (

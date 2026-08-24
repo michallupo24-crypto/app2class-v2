@@ -938,7 +938,7 @@ const ChatPage = () => {
     if (wasNew) {
       const { data: convoRow } = await supabase.from("conversations").select("is_accepted").eq("id", convoId).single();
       if (convoRow && !convoRow.is_accepted) {
-        toast({ title: "📩 בקשת הודעה", description: "ניתן לשלוח הודעה אחת עד שיקבלו" });
+        toast({ title: "בקשת הודעה", description: "ניתן לשלוח הודעה אחת עד שיקבלו" });
       }
     }
   };
@@ -985,7 +985,7 @@ const ChatPage = () => {
     setShowNewGroup(false);
     resetGroupDialog();
     setCreatingGroup(false);
-    toast({ title: "✅ הקבוצה נוצרה" });
+    toast({ title: "הקבוצה נוצרה" });
   };
 
   /* ── Send message ─────────────────────────────────────── */
@@ -999,7 +999,7 @@ const ChatPage = () => {
         .from("messages").select("*", { count: "exact", head: true })
         .eq("conversation_id", selectedId).eq("sender_id", profile.id);
       if ((count || 0) >= 1) {
-        toast({ title: "⏳ ממתין לתגובה", description: "ניתן לשלוח הודעה אחת עד שיענו", variant: "destructive" });
+        toast({ title: "ממתין לתגובה", description: "ניתן לשלוח הודעה אחת עד שיענו", variant: "destructive" });
         return;
       }
     }
@@ -1009,7 +1009,7 @@ const ChatPage = () => {
       setConversations(prev => prev.map(c => c.id === selectedId ? { ...c, is_accepted: true } : c));
     }
 
-    if (quietHours) toast({ title: "🌙 שעות שקטות", description: "ההודעה תישלח אך ההתראות מושתקות" });
+    if (quietHours) toast({ title: "שעות שקטות", description: "ההודעה תישלח אך ההתראות מושתקות" });
 
     setSending(true);
     const content = input.trim();
@@ -1115,7 +1115,7 @@ const ChatPage = () => {
 
       if (flagged) {
         toast({
-          title: "⚠️ הודעה נשלחה לבדיקה",
+          title: "הודעה נשלחה לבדיקה",
           description: flagReason || "התוכן סומן לצוות",
           variant: "destructive",
         });
@@ -1250,7 +1250,7 @@ const ChatPage = () => {
       .update({ content: text, edited_at: editedAt, is_flagged: flagged, flag_reason: flagged ? flagReason : null })
       .eq("id", id);
     if (error) toast({ title: "שגיאה בעריכת ההודעה", description: error.message, variant: "destructive" });
-    else if (flagged) toast({ title: "⚠️ ההודעה המעודכנת נשלחה לבדיקה", description: flagReason || "התוכן סומן לצוות", variant: "destructive" });
+    else if (flagged) toast({ title: "ההודעה המעודכנת נשלחה לבדיקה", description: flagReason || "התוכן סומן לצוות", variant: "destructive" });
   };
 
   const deleteMessage = async (id: string) => {
@@ -1458,7 +1458,7 @@ const ChatPage = () => {
     await supabase.from("conversations").update({ is_accepted: true }).eq("id", convoId);
     setConversations(prev => prev.map(c => c.id === convoId ? { ...c, is_accepted: true } : c));
     selectConvo(convoId);
-    toast({ title: "✅ בקשה אושרה" });
+    toast({ title: "בקשה אושרה" });
   };
 
   const declineRequest = async (convoId: string) => {
@@ -1536,13 +1536,13 @@ const ChatPage = () => {
   };
 
   const typeColor = (type: string) => {
-    if (type === "group") return "bg-blue-500/15 text-blue-600 dark:text-blue-400";
-    if (type === "class_subject") return "bg-purple-500/15 text-purple-600 dark:text-purple-400";
-    if (type === "class_homeroom") return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400";
-    if (type === "counseling") return "bg-rose-500/15 text-rose-700 dark:text-rose-400";
-    if (type === "parent_teacher") return "bg-amber-500/15 text-amber-800 dark:text-amber-400";
-    if (type === "class_parent_group") return "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400";
-    if (type === "grade_parent_group") return "bg-blue-700/15 text-blue-800 dark:text-blue-300";
+    if (type === "group") return "bg-info/15 text-info";
+    if (type === "class_subject") return "bg-accent/15 text-accent";
+    if (type === "class_homeroom") return "bg-success/15 text-success";
+    if (type === "counseling") return "bg-destructive/15 text-destructive";
+    if (type === "parent_teacher") return "bg-warning/15 text-warning";
+    if (type === "class_parent_group") return "bg-secondary/40 text-secondary-foreground";
+    if (type === "grade_parent_group") return "bg-primary/15 text-primary";
     return "bg-muted text-muted-foreground";
   };
 
@@ -1560,7 +1560,7 @@ const ChatPage = () => {
           {c.type === "private" && c.otherAvatar ? (
             <AvatarPreview config={c.otherAvatar} size={42} />
           ) : (
-            <div className={`w-[42px] h-[42px] rounded-2xl flex items-center justify-center ${typeColor(c.type)}`}>
+            <div className={`w-[42px] h-[42px] rounded-lg flex items-center justify-center ${typeColor(c.type)}`}>
               {typeIcon(c.type)}
             </div>
           )}
@@ -1645,7 +1645,7 @@ const ChatPage = () => {
         </details>
       </div>
 
-      <div className="flex flex-1 min-h-0 rounded-2xl border border-border overflow-hidden bg-card">
+      <div className="flex flex-1 min-h-0 rounded-lg border border-border overflow-hidden bg-card">
 
         {/* ── Left panel: conversation list ────────────────── */}
         <div className={`w-full md:w-80 lg:w-96 border-l border-border flex flex-col ${mobileShowChat ? "hidden md:flex" : "flex"}`}>
@@ -1768,7 +1768,7 @@ const ChatPage = () => {
               <div className="flex flex-col gap-3 p-4">
                 {[1, 2, 3, 4].map(i => (
                   <div key={i} className="flex items-center gap-3 animate-pulse">
-                    <div className="w-10 h-10 rounded-2xl bg-muted shrink-0" />
+                    <div className="w-10 h-10 rounded-lg bg-muted shrink-0" />
                     <div className="flex-1 space-y-1.5">
                       <div className="h-3 bg-muted rounded w-32" />
                       <div className="h-2.5 bg-muted rounded w-48" />
@@ -1970,11 +1970,11 @@ const ChatPage = () => {
                                     )}
                                   </div>
                                 )}
-                                <div className={`rounded-2xl px-3.5 py-2 text-sm leading-relaxed min-w-0
+                                <div className={`rounded-lg px-3.5 py-2 text-sm leading-relaxed min-w-0
                                   ${isMe
-                                    ? "bg-primary text-primary-foreground rounded-tl-2xl rounded-tr-sm"
-                                    : "bg-muted rounded-tr-2xl rounded-tl-sm"}
-                                  ${msg.is_flagged ? "ring-1 ring-yellow-400" : ""}`}>
+                                    ? "bg-primary text-primary-foreground rounded-tl-lg rounded-tr-sm"
+                                    : "bg-muted rounded-tr-lg rounded-tl-sm"}
+                                  ${msg.is_flagged ? "ring-1 ring-warning" : ""}`}>
                                   {msg.is_deleted ? (
                                     <span className="italic opacity-60">ההודעה נמחקה</span>
                                   ) : (
@@ -2166,7 +2166,7 @@ const ChatPage = () => {
                         onKeyDown={e => {
                           if (e.key === "Enter" && !e.shiftKey && mentionQuery === null) { e.preventDefault(); sendMessage(); }
                         }}
-                        placeholder={quietHours ? "🌙 שעות שקטות — כתוב הודעה..." : "כתוב הודעה..."}
+                        placeholder={quietHours ? "שעות שקטות — כתוב הודעה..." : "כתוב הודעה..."}
                         disabled={sending}
                         rows={1}
                         className="flex-1 resize-none text-sm min-h-[38px] max-h-24 py-2 bg-muted/40 border-muted"

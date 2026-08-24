@@ -92,7 +92,7 @@ const FlashcardsMode = ({ profile, assignmentId, onBack }: Props) => {
           order_num: i,
         }));
         await supabase.from("task_questions").insert(rows);
-        toast({ title: `${generated.length} כרטיסיות נוצרו מהחומר! ✅` });
+        toast({ title: `${generated.length} כרטיסיות נוצרו מהחומר!` });
       } else {
         toast({ title: "לא הצלחתי לחלץ כרטיסיות מהקובץ", variant: "destructive" });
       }
@@ -110,7 +110,7 @@ const FlashcardsMode = ({ profile, assignmentId, onBack }: Props) => {
     try {
       const { error } = await supabase.from("assignments").update({ published: true }).eq("id", assignmentId);
       if (error) throw error;
-      toast({ title: "כרטיסיות השינון פורסמו לכיתה! 📚🚀" });
+      toast({ title: "כרטיסיות השינון פורסמו לכיתה!" });
     } catch (err: any) {
       toast({ title: "שגיאה", description: err.message, variant: "destructive" });
     } finally {
@@ -128,7 +128,7 @@ const FlashcardsMode = ({ profile, assignmentId, onBack }: Props) => {
       {!assignmentId ? (
         <Card className="border-warning/30 bg-warning/5">
           <CardContent className="py-4 text-center">
-            <p className="text-sm font-heading text-warning">⚠️ בחר משימה פעילה כדי ליצור כרטיסיות</p>
+            <p className="text-sm font-heading text-warning">בחר משימה פעילה כדי ליצור כרטיסיות</p>
           </CardContent>
         </Card>
       ) : loading ? (
@@ -167,15 +167,15 @@ const FlashcardsMode = ({ profile, assignmentId, onBack }: Props) => {
 
                 <div className="cursor-pointer w-full max-w-md" onClick={() => setFlipped(!flipped)} style={{ perspective: "1000px" }}>
                   <motion.div
-                    className="relative w-full h-64 rounded-2xl"
+                    className="relative w-full h-64 rounded-lg"
                     animate={{ rotateY: flipped ? 180 : 0 }}
                     transition={{ duration: 0.5 }}
                     style={{ transformStyle: "preserve-3d" }}
                   >
-                    <div className="absolute inset-0 flex items-center justify-center p-6 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/20" style={{ backfaceVisibility: "hidden" }}>
+                    <div className="absolute inset-0 flex items-center justify-center p-6 rounded-lg bg-primary/10 border-2 border-primary/20" style={{ backfaceVisibility: "hidden" }}>
                       <p className="text-lg font-heading font-bold text-center">{cards[currentIdx]?.front || "..."}</p>
                     </div>
-                    <div className="absolute inset-0 flex items-center justify-center p-6 rounded-2xl bg-gradient-to-br from-success/10 to-success/5 border-2 border-success/20" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
+                    <div className="absolute inset-0 flex items-center justify-center p-6 rounded-lg bg-success/10 border-2 border-success/20" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
                       <p className="text-lg font-heading font-bold text-center">{cards[currentIdx]?.back || "..."}</p>
                     </div>
                   </motion.div>

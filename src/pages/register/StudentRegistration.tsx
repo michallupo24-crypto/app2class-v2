@@ -167,7 +167,7 @@ const StudentRegistration = () => {
 
   if (step === totalSteps + 1) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-background via-muted to-background">
+      <div className="min-h-screen flex items-center justify-center px-4 bg-background">
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -180,11 +180,11 @@ const StudentRegistration = () => {
           >
             <CheckCircle2 className="w-24 h-24 text-success mx-auto mb-6" />
           </motion.div>
-          <h2 className="text-3xl font-heading font-bold mb-3">הרישום הושלם! 🎉</h2>
+          <h2 className="text-3xl font-heading font-bold mb-3">הרישום הושלם!</h2>
           <p className="text-muted-foreground text-lg mb-2">החשבון שלך נוצר בהצלחה</p>
           <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 mb-6">
             <p className="text-sm font-heading font-medium text-warning">
-              ⏳ ממתין לאישור מחנך/ת
+              ממתין לאישור מחנך/ת
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               החשבון שלך ייפתח לאחר אישור המחנך/ת שלך
@@ -194,7 +194,7 @@ const StudentRegistration = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => navigate("/")}
-            className="px-8 py-3 bg-primary text-primary-foreground rounded-xl font-heading font-bold shadow-lg"
+            className="px-8 py-3 bg-primary text-primary-foreground rounded-xl font-heading font-bold"
           >
             חזרה לדף הראשי
           </motion.button>
@@ -299,7 +299,7 @@ const StudentRegistration = () => {
 
       {step === 2 && isHighSchool && (
         <div>
-          <h3 className="text-xl font-heading font-bold mb-4">הקבצות ומגמות 📋</h3>
+          <h3 className="text-xl font-heading font-bold mb-4">הקבצות ומגמות</h3>
           <p className="text-sm text-muted-foreground mb-6">סמן/י את המגמות וההקבצות שלך</p>
           <TrackSelector grade={grade} schoolId={schoolId} value={tracks} onChange={setTracks} />
         </div>
@@ -307,7 +307,7 @@ const StudentRegistration = () => {
 
       {step === (isHighSchool ? 3 : 2) && (
         <div>
-          <h3 className="text-xl font-heading font-bold mb-4">עיצוב הדמות שלך 🎨</h3>
+          <h3 className="text-xl font-heading font-bold mb-4">עיצוב הדמות שלך</h3>
           <p className="text-sm text-muted-foreground mb-6">בחר/י את המראה שלך - תוכל/י לשנות בכל עת!</p>
           <AvatarStudio config={avatar} onChange={setAvatar} variant="student" />
 

@@ -245,10 +245,10 @@ const LiveLessonTab = ({ profile, subjectName }: LiveLessonTabProps) => {
       {/* Live indicator */}
       <div className="flex items-center gap-2">
         <span className="flex h-3 w-3 relative">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-          <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+          <span className="relative inline-flex rounded-full h-3 w-3 bg-success" />
         </span>
-        <span className="text-sm font-heading font-bold text-green-600">שיעור חי</span>
+        <span className="text-sm font-heading font-bold text-success">שיעור חי</span>
       </div>
 
       {/* Shared content */}
@@ -330,7 +330,7 @@ const LiveLessonTab = ({ profile, subjectName }: LiveLessonTabProps) => {
                     className={`w-full text-right px-4 py-3 rounded-lg border transition-all text-sm font-body ${
                       isMyChoice
                         ? isCorrect
-                          ? "border-green-500 bg-green-50 text-green-700"
+                          ? "border-success bg-success/10 text-success"
                           : "border-primary bg-primary/10 text-primary"
                         : hasVoted
                           ? "border-border bg-muted/50 text-muted-foreground"
@@ -396,14 +396,14 @@ const LiveLessonTab = ({ profile, subjectName }: LiveLessonTabProps) => {
             <div className="space-y-2">
               {sortedQuestions.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  אין שאלות עדיין. היו הראשונים לשאול! 🙋
+                  אין שאלות עדיין. היו הראשונים לשאול!
                 </p>
               ) : (
                 sortedQuestions.map((q) => (
                   <div
                     key={q.id}
                     className={`flex items-start gap-3 p-3 rounded-lg border ${
-                      q.is_answered ? "bg-green-50/50 border-green-200" : "bg-background"
+                      q.is_answered ? "bg-success/5 border-success/20" : "bg-background"
                     }`}
                   >
                     <button
@@ -420,7 +420,7 @@ const LiveLessonTab = ({ profile, subjectName }: LiveLessonTabProps) => {
                       <p className="text-[10px] text-muted-foreground mt-1">
                         {q.is_anonymous ? "אנונימי/ת" : "תלמיד/ה"}
                         {q.is_answered && (
-                          <Badge variant="outline" className="mr-2 text-[9px] bg-green-50 text-green-600 border-green-200">
+                          <Badge variant="outline" className="mr-2 text-[9px] bg-success/10 text-success border-success/20">
                             נענה ✓
                           </Badge>
                         )}

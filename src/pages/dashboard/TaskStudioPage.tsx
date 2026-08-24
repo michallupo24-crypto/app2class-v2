@@ -47,7 +47,7 @@ const STUDIO_MODES: StudioMode[] = [
   { id: "flashcards", title: "Flashcards", description: "כרטיסיות שינון אוטומטיות מהחומר", icon: <Layers className="h-6 w-6" />, category: "create", color: "bg-success/10 text-success" },
   { id: "smart-template", title: "טמפלטים חכמים", description: "בניית מבחן/דף עבודה עם ייבוא מ-PDF", icon: <FileSpreadsheet className="h-6 w-6" />, category: "create", color: "bg-primary/10 text-primary" },
   { id: "adaptive-tier", title: "מסלול מותאם אישית", description: "שאלה אחת, שלוש רמות - כל תלמיד מקבל אוטומטית את הרמה שמתאימה לו, בלי עבודת שיבוץ ידנית", icon: <Sprout className="h-6 w-6" />, category: "create", color: "bg-success/10 text-success", badge: "AI" },
-  { id: "misconception-coach", title: "בוחן עם מאמן AI", description: "כשתלמיד טועה, ה-AI מסביר את התפיסה השגויה שלו ומוודא הבנה לפני שממשיכים - ומייצר לך דוח טעויות נפוצות", icon: <GraduationCap className="h-6 w-6" />, category: "create", color: "bg-purple-500/10 text-purple-600", badge: "AI" },
+  { id: "misconception-coach", title: "בוחן עם מאמן AI", description: "כשתלמיד טועה, ה-AI מסביר את התפיסה השגויה שלו ומוודא הבנה לפני שממשיכים - ומייצר לך דוח טעויות נפוצות", icon: <GraduationCap className="h-6 w-6" />, category: "create", color: "bg-accent/10 text-accent", badge: "AI" },
   { id: "mountain-climb", title: "טיפוס על הר", description: "תשובות נכונות מקדמות את האווטאר להצלת נסיכה", icon: <Mountain className="h-6 w-6" />, category: "game", color: "bg-success/10 text-success" },
   { id: "snakes-ladders", title: "נחשים וסולמות", description: "לוח משחק אינטראקטיבי מותנה בפתרון תרגילים", icon: <Dice5 className="h-6 w-6" />, category: "game", color: "bg-destructive/10 text-destructive" },
   { id: "coop-game", title: "בן האש ובת המים", description: "משימת Co-op זוגית עם שיתוף פעולה", icon: <Flame className="h-6 w-6" />, category: "game", color: "bg-warning/10 text-warning" },
@@ -176,10 +176,10 @@ const TaskStudioPage = () => {
       >
         {filteredModes.map((mode) => (
           <motion.div key={mode.id} variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }}>
-            <Card className="cursor-pointer group hover:shadow-lg hover:border-primary/30 transition-all duration-300 h-full" onClick={() => setActiveMode(mode.id)}>
+            <Card className="cursor-pointer group hover:border-primary/30 transition-colors h-full" onClick={() => setActiveMode(mode.id)}>
               <CardContent className="p-5 flex flex-col h-full">
                 <div className="flex items-start justify-between mb-3">
-                  <div className={`p-2.5 rounded-xl ${mode.color} transition-transform group-hover:scale-110`}>{mode.icon}</div>
+                  <div className={`p-2.5 rounded-xl ${mode.color}`}>{mode.icon}</div>
                   {mode.badge && <Badge variant="secondary" className="text-[10px] font-heading bg-accent/20 text-accent border-0">{mode.badge}</Badge>}
                 </div>
                 <h3 className="font-heading font-bold text-sm mb-1">{mode.title}</h3>

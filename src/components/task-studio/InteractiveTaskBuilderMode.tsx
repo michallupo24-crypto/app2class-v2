@@ -210,7 +210,7 @@ const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGene
 
       await supabase.from("assignments").update({ published: true }).eq("id", assignmentId);
       setAutosavedAt(new Date().toLocaleTimeString("he-IL"));
-      toast({ title: "המשימה נשמרה ושוגרה לכיתה! 🚀" });
+      toast({ title: "המשימה נשמרה ושוגרה לכיתה!" });
     } catch (err: any) {
       toast({ variant: "destructive", title: "שגיאה בשמירה", description: err.message });
     } finally {
@@ -314,13 +314,13 @@ const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGene
               className="bg-muted rounded-lg px-2 py-1.5 text-xs outline-none"
               title="מצב יצירה: אני בונה חוויה מלאה, או שהתלמיד כותב את הפתרון בעצמו"
             >
-              <option value="consume">🧩 מורה בונה משימה/משחק</option>
-              <option value="solve">💻 תלמיד כותב פתרון (Python)</option>
+              <option value="consume">מורה בונה משימה/משחק</option>
+              <option value="solve">תלמיד כותב פתרון (Python)</option>
             </select>
             {taskMode === "consume" && (
               <select value={language} onChange={(e) => setLanguage(e.target.value as TaskLanguage)} className="bg-muted rounded-lg px-2 py-1.5 text-xs outline-none">
-                <option value="web">🌐 Web (HTML/CSS/JS)</option>
-                <option value="python">🐍 Python (Pyodide)</option>
+                <option value="web">Web (HTML/CSS/JS)</option>
+                <option value="python">Python (Pyodide)</option>
               </select>
             )}
           </div>

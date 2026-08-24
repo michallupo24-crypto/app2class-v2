@@ -415,11 +415,11 @@ export function createPageBreakElementHtml(
   showPageNumbers = true,
   format = 'standard'
 ): string {
-  const badgePrev = showPageNumbers 
-    ? `<span class="docword-page-num-badge font-mono font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200 text-[10px] shadow-2xs">${formatPageNumberText(pageNumPrev, totalPages, format)}</span>` 
+  const badgePrev = showPageNumbers
+    ? `<span class="docword-page-num-badge font-mono font-bold bg-muted text-muted-foreground px-2 py-0.5 rounded border border-border text-[10px]">${formatPageNumberText(pageNumPrev, totalPages, format)}</span>`
     : '';
-  const badgeNext = showPageNumbers 
-    ? `<span class="docword-page-num-badge font-mono font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200 text-[10px] shadow-2xs">${formatPageNumberText(pageNumNext, totalPages, format)}</span>` 
+  const badgeNext = showPageNumbers
+    ? `<span class="docword-page-num-badge font-mono font-bold bg-muted text-muted-foreground px-2 py-0.5 rounded border border-border text-[10px]">${formatPageNumberText(pageNumNext, totalPages, format)}</span>`
     : '';
 
   return `<div class="docword-page-break" data-page-break="true" contenteditable="false">
@@ -429,7 +429,7 @@ export function createPageBreakElementHtml(
     </div>
     <div class="docword-page-gap" title="מעבר עמוד (רווח בין עמודי A4)">
       <span class="docword-page-gap-label">
-        <svg class="w-3 h-3 text-slate-500 inline-block ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <svg class="w-3 h-3 text-primary inline-block ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         מעבר עמוד (A4)
       </span>
     </div>

@@ -93,7 +93,7 @@ const BagrutCoverageBar = ({ profile, assignmentId, onBack }: Props) => {
         <div className="space-y-4">
           <Card className="overflow-hidden">
             <CardContent className="p-0">
-              <div className="p-6 bg-gradient-to-l from-warning/10 to-transparent">
+              <div className="p-6 bg-warning/10">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-heading font-bold">חיפוי כולל</h3>
                   <Badge className={`text-lg font-bold ${
@@ -128,7 +128,7 @@ const BagrutCoverageBar = ({ profile, assignmentId, onBack }: Props) => {
           <Card className="border-info/30 bg-info/5">
             <CardContent className="p-4 text-center">
               <p className="text-xs font-body text-info">
-                💡 הנתונים מחושבים בהתאם לתגיות הנושאים במשימות הקיימות אל מול סילבוס הבגרות
+                הנתונים מחושבים בהתאם לתגיות הנושאים במשימות הקיימות אל מול סילבוס הבגרות
               </p>
             </CardContent>
           </Card>

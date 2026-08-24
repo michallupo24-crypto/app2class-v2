@@ -20,15 +20,15 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const ROLE_COLORS: Record<string, string> = {
-  student: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-  parent: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-  educator: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-  professional_teacher: "bg-purple-500/10 text-purple-600 border-purple-500/20",
-  subject_coordinator: "bg-pink-500/10 text-pink-600 border-pink-500/20",
-  grade_coordinator: "bg-orange-500/10 text-orange-600 border-orange-500/20",
-  counselor: "bg-teal-500/10 text-teal-600 border-teal-500/20",
-  management: "bg-red-500/10 text-red-600 border-red-500/20",
-  system_admin: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
+  student: "bg-student/10 text-student border-student/20",
+  parent: "bg-parent/10 text-parent border-parent/20",
+  educator: "bg-staff/10 text-staff border-staff/20",
+  professional_teacher: "bg-primary/10 text-primary border-primary/20",
+  subject_coordinator: "bg-accent/10 text-accent-foreground border-accent/20",
+  grade_coordinator: "bg-secondary/10 text-secondary-foreground border-secondary/20",
+  counselor: "bg-info/10 text-info border-info/20",
+  management: "bg-management/10 text-management border-management/20",
+  system_admin: "bg-admin/10 text-admin border-admin/20",
 };
 
 interface Stats {
@@ -136,7 +136,7 @@ const DashboardHome = () => {
       <motion.div variants={item} className="flex items-center gap-4">
         {profile.avatar && <AvatarPreview config={profile.avatar} size={80} />}
         <div>
-          <h1 className="text-2xl md:text-3xl font-heading font-bold">שלום, {profile.fullName} 👋</h1>
+          <h1 className="text-2xl md:text-3xl font-heading font-bold">שלום, {profile.fullName}</h1>
           <div className="flex flex-wrap gap-2 mt-2">
             {profile.roles.map((r) => (
               <span key={r} className={`text-xs px-2.5 py-1 rounded-full font-heading border ${ROLE_COLORS[r] || "bg-muted text-muted-foreground"}`}>
@@ -233,7 +233,7 @@ const DashboardHome = () => {
             )}
             <p>
               <span className="text-muted-foreground">סטטוס:</span>{" "}
-              {profile.isApproved ? "✅ מאושר" : "⏳ ממתין לאישור"}
+              {profile.isApproved ? "מאושר" : "ממתין לאישור"}
             </p>
           </CardContent>
         </Card>

@@ -333,9 +333,9 @@ const SubjectDetailPage = () => {
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-heading font-bold text-sm ${
                       g.grade === null ? "bg-muted text-muted-foreground" :
-                      g.grade >= 85 ? "bg-green-100 text-green-700" :
-                      g.grade >= 70 ? "bg-amber-100 text-amber-700" :
-                      "bg-red-100 text-red-700"
+                      g.grade >= 85 ? "bg-success/15 text-success" :
+                      g.grade >= 70 ? "bg-warning/15 text-warning" :
+                      "bg-destructive/15 text-destructive"
                     }`}>
                       {g.grade ?? "—"}
                     </div>
@@ -392,10 +392,10 @@ const SubjectDetailPage = () => {
                 {quizQuestions.map((q: any, i: number) => {
                   const correct = quizAnswers[i] === q.correct_answer;
                   return (
-                    <div key={i} className={`p-3 rounded-lg text-sm ${correct ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30"}`}>
+                    <div key={i} className={`p-3 rounded-lg text-sm ${correct ? "bg-success/10" : "bg-destructive/10"}`}>
                       <p className="font-heading font-medium text-xs mb-1">{q.question_text}</p>
-                      <p className="text-xs">תשובתך: <span className={correct ? "text-green-600" : "text-destructive"}>{quizAnswers[i] || "—"}</span></p>
-                      {!correct && <p className="text-xs text-green-600">נכון: {q.correct_answer}</p>}
+                      <p className="text-xs">תשובתך: <span className={correct ? "text-success" : "text-destructive"}>{quizAnswers[i] || "—"}</span></p>
+                      {!correct && <p className="text-xs text-success">נכון: {q.correct_answer}</p>}
                     </div>
                   );
                 })}
@@ -420,7 +420,7 @@ const SubjectDetailPage = () => {
                 <Button variant="outline" className="flex-1" disabled={quizIdx === 0} onClick={() => { setQuizIdx(i => i - 1); setFlashFlipped(false); }}>← הקודם</Button>
                 {quizIdx < quizQuestions.length - 1
                   ? <Button className="flex-1" onClick={() => { setQuizIdx(i => i + 1); setFlashFlipped(false); }}>הבא →</Button>
-                  : <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => setQuizDone(true)}>סיום ✓</Button>}
+                  : <Button className="flex-1 bg-success hover:bg-success/90" onClick={() => setQuizDone(true)}>סיום ✓</Button>}
               </div>
               <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => setActiveQuiz(null)}>← חזור</Button>
             </CardContent></Card>
@@ -457,7 +457,7 @@ const SubjectDetailPage = () => {
                 <Button variant="outline" className="flex-1" disabled={quizIdx === 0} onClick={() => setQuizIdx(i => i - 1)}>← הקודם</Button>
                 {quizIdx < quizQuestions.length - 1
                   ? <Button className="flex-1" onClick={() => setQuizIdx(i => i + 1)}>הבא →</Button>
-                  : <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={submitPracticeQuiz} disabled={!quizAnswers[quizIdx]}>הגש ובדוק</Button>}
+                  : <Button className="flex-1 bg-success hover:bg-success/90" onClick={submitPracticeQuiz} disabled={!quizAnswers[quizIdx]}>הגש ובדוק</Button>}
               </div>
               <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => setActiveQuiz(null)}>← חזור</Button>
             </CardContent></Card>

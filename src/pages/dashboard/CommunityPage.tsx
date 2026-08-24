@@ -141,7 +141,7 @@ const CommunityPage = () => {
       toast({ title: "שגיאה בהצטרפות", description: error.message, variant: "destructive" });
       return;
     }
-    toast({ title: "הצטרפת לפלג! 🎉" });
+    toast({ title: "הצטרפת לפלג!" });
     loadFactions();
   };
 
@@ -170,7 +170,7 @@ const CommunityPage = () => {
 
     setPosts(data.map((p: any) => ({
       ...p,
-      author_name: p.is_anonymous ? "אנונימי 🎭" : (nameMap.get(p.author_id) || "?"),
+      author_name: p.is_anonymous ? "אנונימי" : (nameMap.get(p.author_id) || "?"),
       hasVoted: voteSet.has(p.id),
       commentCount: 0,
       plugin_data: p.plugin_data || null,
@@ -201,7 +201,7 @@ const CommunityPage = () => {
     setNewPostAnon(false);
     setShowNewPost(false);
     loadPosts(selectedFaction.id);
-    toast({ title: "הפוסט פורסם! ✨" });
+    toast({ title: "הפוסט פורסם!" });
   };
 
   const votePost = async (postId: string, hasVoted: boolean) => {
@@ -248,7 +248,7 @@ const CommunityPage = () => {
       return;
     }
     applyPluginUpdate(post.id, newPluginData);
-    toast({ title: attending ? "תודה! נרשמת כמגיע/ה ✅" : "תודה על העדכון" });
+    toast({ title: attending ? "תודה! נרשמת כמגיע/ה" : "תודה על העדכון" });
   };
 
   const loadComments = async (postId: string) => {
@@ -266,7 +266,7 @@ const CommunityPage = () => {
 
     setComments(data.map((c: any) => ({
       ...c,
-      author_name: c.is_anonymous ? "אנונימי 🎭" : (nameMap.get(c.author_id) || "?"),
+      author_name: c.is_anonymous ? "אנונימי" : (nameMap.get(c.author_id) || "?"),
     })));
   };
 
@@ -300,8 +300,8 @@ const CommunityPage = () => {
       const voters: string[] = plugin.data.voters || [];
       const hasVoted = voters.includes(profile.id);
       return (
-        <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-100 dark:border-white/5 space-y-3">
-          <p className="text-xs font-heading font-bold flex items-center gap-2"><Plus className="h-3 w-3 text-indigo-500" /> סקר פעיל</p>
+        <div className="bg-muted p-4 rounded-lg border border-border space-y-3">
+          <p className="text-xs font-heading font-bold flex items-center gap-2"><Plus className="h-3 w-3 text-primary" /> סקר פעיל</p>
           {plugin.data.options.map((opt: string, i: number) => {
              const votes = plugin.data.votes as number[];
              const total = votes.reduce((a, b) => a + b, 0);
@@ -318,8 +318,8 @@ const CommunityPage = () => {
                     <span>{opt}</span>
                     <span>{pct}%</span>
                  </div>
-                 <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} className="h-full bg-indigo-500" />
+                 <div className="h-2 bg-muted-foreground/20 rounded-full overflow-hidden">
+                    <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} className="h-full bg-primary" />
                  </div>
                </button>
              );
@@ -332,16 +332,16 @@ const CommunityPage = () => {
       const responses: Record<string, boolean> = plugin.data.responses || {};
       const myResponse = responses[profile.id];
       return (
-        <div className="bg-green-50/50 dark:bg-emerald-900/10 p-4 rounded-2xl border border-green-100/50 flex items-center justify-between">
+        <div className="bg-success/10 p-4 rounded-lg border border-success/30 flex items-center justify-between">
           <div>
-            <p className="text-xs font-heading font-bold text-emerald-800 dark:text-emerald-300">אישור הגעה לאירוע</p>
-            <p className="text-[10px] text-emerald-600">האם תגיעו למפגש ההורים?</p>
+            <p className="text-xs font-heading font-bold text-success">אישור הגעה לאירוע</p>
+            <p className="text-[10px] text-success">האם תגיעו למפגש ההורים?</p>
           </div>
           <div className="flex gap-2">
             <Button
               size="sm"
               variant={myResponse === true ? "default" : "outline"}
-              className={myResponse === true ? "bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] h-8 px-4" : "text-[10px] h-8 px-4"}
+              className={myResponse === true ? "bg-success hover:bg-success/90 text-success-foreground text-[10px] h-8 px-4" : "text-[10px] h-8 px-4"}
               onClick={() => rsvpEvent(post, true)}
             >
               כן, נגיע
@@ -487,8 +487,9 @@ const CommunityPage = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Switch checked={newPostAnon} onCheckedChange={setNewPostAnon} id="anon-post" />
-                  <Label htmlFor="anon-post" className="text-sm">
-                    {newPostAnon ? "🎭 אנונימי" : "👤 גלוי"}
+                  <Label htmlFor="anon-post" className="text-sm flex items-center gap-1">
+                    {newPostAnon ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    {newPostAnon ? "אנונימי" : "גלוי"}
                   </Label>
                 </div>
                 <Button onClick={createPost} disabled={!newPostContent.trim()} className="font-heading">
@@ -503,7 +504,7 @@ const CommunityPage = () => {
           <Card>
             <CardContent className="py-12 text-center">
               <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
-              <p className="text-muted-foreground">עדיין אין פוסטים. תהיה הראשון! 🌟</p>
+              <p className="text-muted-foreground">עדיין אין פוסטים. תהיה הראשון!</p>
             </CardContent>
           </Card>
         ) : (
@@ -587,7 +588,7 @@ const CommunityPage = () => {
                   {facs.map(f => (
                     <Card
                       key={f.id}
-                      className={`transition-all ${f.isEligible ? "cursor-pointer hover:shadow-md hover:-translate-y-0.5" : "opacity-50"}`}
+                      className={`transition-colors ${f.isEligible ? "cursor-pointer hover:border-primary/40" : "opacity-50"}`}
                       onClick={() => f.isMember ? openFaction(f) : f.isEligible ? joinFaction(f.id) : null}
                     >
                       <CardContent className="py-4 flex items-center gap-3">

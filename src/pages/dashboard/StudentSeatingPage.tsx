@@ -37,7 +37,7 @@ const StudentSeatingPage = () => {
     if (loading || (classId && ss.loading)) {
         return (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground font-heading italic">
-                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full shadow-lg" />
+                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
                 <span>טוען את מפת הכיתה...</span>
             </div>
         );
@@ -63,13 +63,13 @@ const StudentSeatingPage = () => {
                     </h1>
                     <p className="text-muted-foreground font-body mt-1">כאן תוכל לראות איפה המקום שלך בכיתה ומי יושב מסביבך</p>
                 </div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-2xl text-primary font-bold">
+                <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-lg text-primary font-bold">
                     <Users className="h-5 w-5" />
                     <span>{ss.students.length} תלמידים בכיתה</span>
                 </div>
             </div>
 
-            <Card className="border-none shadow-2xl bg-white/60 backdrop-blur-md overflow-hidden ring-1 ring-black/[0.03]">
+            <Card className="border border-border bg-card overflow-hidden">
                 <CardHeader className="bg-muted/30 border-b flex flex-row items-center justify-between">
                     <CardTitle className="text-sm font-heading font-black uppercase tracking-widest text-muted-foreground">תצוגת כיתה חכמה</CardTitle>
                     <div className="flex items-center gap-4 text-[10px] font-bold">
@@ -95,7 +95,7 @@ const StudentSeatingPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="bg-primary/5 border-primary/10">
                     <CardContent className="p-4 flex items-center gap-4">
-                        <div className="p-3 bg-primary/10 rounded-2xl"><Users className="h-6 w-6 text-primary" /></div>
+                        <div className="p-3 bg-primary/10 rounded-lg"><Users className="h-6 w-6 text-primary" /></div>
                         <div>
                             <p className="text-xs font-bold text-muted-foreground uppercase">החברים שלך</p>
                             <p className="text-sm font-body">שים לב למי שיושב לידך, שיתוף פעולה עוזר ללמידה!</p>

@@ -34,10 +34,10 @@ export const LibrarySelectorModal: React.FC<LibrarySelectorModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#111111] border border-[#2A2A2A] rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-[#E0E0E0]">
+      <div className="bg-[#111111] border border-[#2A2A2A] rounded-lg w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-[#E0E0E0]">
         <div className="flex items-center justify-between p-5 border-b border-[#2A2A2A] bg-[#1A1A1A]">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-600/10 text-blue-400 rounded-xl border border-blue-500/20">
+            <div className="p-2.5 bg-primary/10 text-primary rounded-lg border border-primary/20">
               <Code className="w-5 h-5" />
             </div>
             <div>
@@ -58,15 +58,15 @@ export const LibrarySelectorModal: React.FC<LibrarySelectorModalProps> = ({
               <div
                 key={lib.id}
                 onClick={() => onToggleLibrary(lib.id)}
-                className={`p-4 rounded-xl border transition cursor-pointer flex flex-col justify-between ${
-                  isSelected ? 'border-blue-500 bg-blue-600/10' : 'border-[#2A2A2A] bg-[#1A1A1A] hover:border-gray-600'
+                className={`p-4 rounded-lg border transition cursor-pointer flex flex-col justify-between ${
+                  isSelected ? 'border-primary bg-primary/10' : 'border-[#2A2A2A] bg-[#1A1A1A] hover:border-gray-600'
                 }`}
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-semibold text-white text-sm">{lib.name}</span>
                     <span className={`w-5 h-5 rounded-full flex items-center justify-center border transition ${
-                      isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-[#3A3A3A]'
+                      isSelected ? 'bg-primary border-primary text-primary-foreground' : 'border-[#3A3A3A]'
                     }`}>
                       {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                     </span>
@@ -82,7 +82,7 @@ export const LibrarySelectorModal: React.FC<LibrarySelectorModalProps> = ({
                         <button
                           onClick={(e) => handleInsertSample(e, lib.id, lib.sampleSnippet)}
                           className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold transition cursor-pointer ${
-                            isInjected ? 'bg-emerald-600 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white'
+                            isInjected ? 'bg-success text-white' : 'bg-primary hover:opacity-90 text-primary-foreground'
                           }`}
                           title="הכנס קטע קוד זה ישירות לעורך"
                         >
@@ -103,7 +103,7 @@ export const LibrarySelectorModal: React.FC<LibrarySelectorModalProps> = ({
           <span className="text-xs font-medium text-gray-400">נבחרו {selectedLibraries.length} ספריות</span>
           <button
             onClick={onClose}
-            className="bg-white text-black hover:bg-gray-200 font-semibold px-6 py-2 rounded-xl text-xs transition cursor-pointer shadow-md"
+            className="bg-primary text-primary-foreground hover:opacity-90 font-semibold px-6 py-2 rounded-lg text-xs transition cursor-pointer"
           >
             אישור וסגירה
           </button>

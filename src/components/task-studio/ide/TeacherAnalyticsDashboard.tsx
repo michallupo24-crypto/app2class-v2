@@ -95,12 +95,12 @@ export const TeacherAnalyticsDashboard: React.FC<TeacherAnalyticsDashboardProps>
 
   const statusBadge = (status: TaskProgress['status']) => {
     if (status === 'submitted') return (
-      <span className="inline-flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-2.5 py-1 rounded-full font-semibold text-[11px]">
+      <span className="inline-flex items-center gap-1 bg-success/10 border border-success/30 text-success px-2.5 py-1 rounded-full font-semibold text-[11px]">
         <CheckCircle2 className="w-3 h-3" /><span>הוגש</span>
       </span>
     );
     if (status === 'in_progress') return (
-      <span className="inline-flex items-center gap-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 px-2.5 py-1 rounded-full font-semibold text-[11px]">
+      <span className="inline-flex items-center gap-1 bg-warning/10 border border-warning/30 text-warning px-2.5 py-1 rounded-full font-semibold text-[11px]">
         <Clock className="w-3 h-3" /><span>בתהליך</span>
       </span>
     );
@@ -112,8 +112,8 @@ export const TeacherAnalyticsDashboard: React.FC<TeacherAnalyticsDashboardProps>
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#0A0A0A] text-[#E0E0E0] rounded-2xl border border-[#2A2A2A] p-4 gap-4 overflow-y-auto w-full">
-      <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
+    <div className="flex flex-col h-full bg-[#0A0A0A] text-[#E0E0E0] rounded-lg border border-[#2A2A2A] p-4 gap-4 overflow-y-auto w-full">
+      <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg p-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <button onClick={onBack} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2A2A2A] hover:bg-[#333333] text-gray-300 rounded-lg text-xs font-semibold transition cursor-pointer border border-[#3A3A3A]">
             <ChevronRight className="w-4 h-4 text-gray-400" />
@@ -121,7 +121,7 @@ export const TeacherAnalyticsDashboard: React.FC<TeacherAnalyticsDashboardProps>
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs bg-purple-600/20 text-purple-400 font-semibold px-2.5 py-0.5 rounded-md border border-purple-500/30">
+              <span className="text-xs bg-accent/20 text-accent font-semibold px-2.5 py-0.5 rounded-md border border-accent/30">
                 דאשבורד מעקב מורה
               </span>
               <h1 className="text-base font-bold text-white">{taskTitle}</h1>
@@ -144,50 +144,50 @@ export const TeacherAnalyticsDashboard: React.FC<TeacherAnalyticsDashboardProps>
           שמור/י את המשימה למטלה קודם כדי לראות מעקב תלמידים.
         </div>
       ) : isLoading ? (
-        <div className="flex-1 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div>
+        <div className="flex-1 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-[#111111] border border-[#2A2A2A] rounded-xl p-4 flex items-center justify-between">
+            <div className="bg-[#111111] border border-[#2A2A2A] rounded-lg p-4 flex items-center justify-between">
               <div>
                 <span className="text-xs text-gray-400 font-medium block">סה"כ תלמידים בכיתה</span>
                 <span className="text-2xl font-bold text-white mt-1 block">{totalStudents}</span>
               </div>
-              <div className="p-3 bg-blue-600/10 text-blue-400 rounded-xl border border-blue-500/20"><Users className="w-5 h-5" /></div>
+              <div className="p-3 bg-info/10 text-info rounded-lg border border-info/20"><Users className="w-5 h-5" /></div>
             </div>
 
-            <div className="bg-[#111111] border border-[#2A2A2A] rounded-xl p-4 flex items-center justify-between">
+            <div className="bg-[#111111] border border-[#2A2A2A] rounded-lg p-4 flex items-center justify-between">
               <div>
                 <span className="text-xs text-gray-400 font-medium block">הוגשו</span>
                 <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-2xl font-bold text-emerald-400">{submittedCount}</span>
+                  <span className="text-2xl font-bold text-success">{submittedCount}</span>
                   <span className="text-xs text-gray-400 font-medium">({totalStudents ? Math.round((submittedCount / totalStudents) * 100) : 0}%)</span>
                 </div>
               </div>
-              <div className="p-3 bg-emerald-600/10 text-emerald-400 rounded-xl border border-emerald-500/20"><CheckCircle2 className="w-5 h-5" /></div>
+              <div className="p-3 bg-success/10 text-success rounded-lg border border-success/20"><CheckCircle2 className="w-5 h-5" /></div>
             </div>
 
-            <div className="bg-[#111111] border border-[#2A2A2A] rounded-xl p-4 flex items-center justify-between">
+            <div className="bg-[#111111] border border-[#2A2A2A] rounded-lg p-4 flex items-center justify-between">
               <div>
                 <span className="text-xs text-gray-400 font-medium block">ממוצע ציונים</span>
-                <span className="text-2xl font-bold text-purple-400 mt-1 block">{averageScore === null ? '—' : `${averageScore}%`}</span>
+                <span className="text-2xl font-bold text-accent mt-1 block">{averageScore === null ? '—' : `${averageScore}%`}</span>
               </div>
-              <div className="p-3 bg-purple-600/10 text-purple-400 rounded-xl border border-purple-500/20"><Award className="w-5 h-5" /></div>
+              <div className="p-3 bg-accent/10 text-accent rounded-lg border border-accent/20"><Award className="w-5 h-5" /></div>
             </div>
 
-            <div className="bg-[#111111] border border-[#2A2A2A] rounded-xl p-4 flex items-center justify-between">
+            <div className="bg-[#111111] border border-[#2A2A2A] rounded-lg p-4 flex items-center justify-between">
               <div>
                 <span className="text-xs text-gray-400 font-medium block">זמן עבודה ממוצע</span>
-                <span className="text-2xl font-bold text-amber-400 mt-1 block">{avgTimeMinutes === null ? '—' : `${avgTimeMinutes} דק'`}</span>
+                <span className="text-2xl font-bold text-warning mt-1 block">{avgTimeMinutes === null ? '—' : `${avgTimeMinutes} דק'`}</span>
               </div>
-              <div className="p-3 bg-amber-600/10 text-amber-400 rounded-xl border border-amber-500/20"><Clock className="w-5 h-5" /></div>
+              <div className="p-3 bg-warning/10 text-warning rounded-lg border border-warning/20"><Clock className="w-5 h-5" /></div>
             </div>
           </div>
 
-          <div className="bg-[#111111] border border-[#2A2A2A] rounded-xl p-5 flex flex-col space-y-4">
+          <div className="bg-[#111111] border border-[#2A2A2A] rounded-lg p-5 flex flex-col space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#2A2A2A] pb-4">
               <div className="flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-blue-400" />
+                <BarChart3 className="w-4 h-4 text-primary" />
                 <h2 className="text-sm font-bold text-white">רשימת תלמידים והתקדמות</h2>
               </div>
 
@@ -199,7 +199,7 @@ export const TeacherAnalyticsDashboard: React.FC<TeacherAnalyticsDashboardProps>
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="חפש תלמיד..."
-                    className="bg-[#0A0A0A] border border-[#2A2A2A] text-xs text-white rounded-lg pr-8 pl-3 py-1.5 focus:outline-none focus:border-blue-500 w-44"
+                    className="bg-[#0A0A0A] border border-[#2A2A2A] text-xs text-white rounded-lg pr-8 pl-3 py-1.5 focus:outline-none focus:border-primary w-44"
                   />
                 </div>
                 <div className="flex items-center bg-[#0A0A0A] p-1 rounded-lg border border-[#2A2A2A] text-xs">
@@ -239,7 +239,7 @@ export const TeacherAnalyticsDashboard: React.FC<TeacherAnalyticsDashboardProps>
                     filteredStudents.map((student) => (
                       <tr key={student.studentId} className="hover:bg-[#1A1A1A]/60 transition">
                         <td className="py-3.5 px-4 font-semibold text-white flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-blue-600/20 border border-blue-500/30 text-blue-400 font-bold flex items-center justify-center text-xs">
+                          <div className="w-7 h-7 rounded-full bg-primary/20 border border-primary/30 text-primary font-bold flex items-center justify-center text-xs">
                             {student.studentName.charAt(0)}
                           </div>
                           <span>{student.studentName}</span>
@@ -248,8 +248,8 @@ export const TeacherAnalyticsDashboard: React.FC<TeacherAnalyticsDashboardProps>
                         <td className="py-3.5 px-4 font-bold">
                           {student.status === 'submitted' && student.total ? (
                             <span className={
-                              Math.round(((student.score || 0) / student.total) * 100) >= 80 ? 'text-emerald-400' :
-                              Math.round(((student.score || 0) / student.total) * 100) >= 60 ? 'text-amber-400' : 'text-rose-400'
+                              Math.round(((student.score || 0) / student.total) * 100) >= 80 ? 'text-success' :
+                              Math.round(((student.score || 0) / student.total) * 100) >= 60 ? 'text-warning' : 'text-destructive'
                             }>
                               {Math.round(((student.score || 0) / student.total) * 100)}% ({student.score}/{student.total})
                             </span>
@@ -263,7 +263,7 @@ export const TeacherAnalyticsDashboard: React.FC<TeacherAnalyticsDashboardProps>
                           <button
                             onClick={() => setSelectedStudent(student)}
                             disabled={student.status === 'not_started'}
-                            className="px-3 py-1 bg-[#2A2A2A] hover:bg-[#3A3A3A] disabled:opacity-30 disabled:cursor-not-allowed text-blue-400 hover:text-blue-300 rounded-lg font-semibold transition cursor-pointer border border-[#3A3A3A] inline-flex items-center gap-1.5"
+                            className="px-3 py-1 bg-[#2A2A2A] hover:bg-[#3A3A3A] disabled:opacity-30 disabled:cursor-not-allowed text-primary hover:opacity-80 rounded-lg font-semibold transition cursor-pointer border border-[#3A3A3A] inline-flex items-center gap-1.5"
                           >
                             <Eye className="w-3.5 h-3.5" /><span>בדוק מענה</span>
                           </button>
@@ -280,20 +280,20 @@ export const TeacherAnalyticsDashboard: React.FC<TeacherAnalyticsDashboardProps>
 
       {selectedStudent && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#111111] border border-[#2A2A2A] rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col text-[#E0E0E0]">
+          <div className="bg-[#111111] border border-[#2A2A2A] rounded-lg w-full max-w-xl overflow-hidden flex flex-col text-[#E0E0E0]">
             <div className="flex items-center justify-between p-4 border-b border-[#2A2A2A] bg-[#1A1A1A]">
               <div className="flex items-center gap-2">
-                <FileCode2 className="w-5 h-5 text-blue-400" />
+                <FileCode2 className="w-5 h-5 text-primary" />
                 <h3 className="font-bold text-sm text-white">מענה תלמיד: {selectedStudent.studentName}</h3>
               </div>
               <button onClick={() => setSelectedStudent(null)} className="text-gray-400 hover:text-white px-2 py-1 rounded text-xs font-bold">✕</button>
             </div>
 
             <div className="p-5 space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3 bg-[#0A0A0A] p-3 rounded-xl border border-[#2A2A2A]">
+              <div className="grid grid-cols-2 gap-3 bg-[#0A0A0A] p-3 rounded-lg border border-[#2A2A2A]">
                 <div>
                   <span className="text-gray-500 block text-[11px]">ציון סופי:</span>
-                  <span className="text-lg font-bold text-emerald-400">
+                  <span className="text-lg font-bold text-success">
                     {selectedStudent.status === 'submitted' && selectedStudent.total ? `${Math.round(((selectedStudent.score || 0) / selectedStudent.total) * 100)}%` : '—'}
                   </span>
                 </div>
@@ -306,14 +306,14 @@ export const TeacherAnalyticsDashboard: React.FC<TeacherAnalyticsDashboardProps>
               {selectedStudent.state?.code ? (
                 <div>
                   <span className="text-gray-400 font-semibold block mb-1">קוד שכתב/ה התלמיד/ה:</span>
-                  <pre className="bg-[#0A0A0A] p-3 rounded-xl border border-[#2A2A2A] text-gray-300 font-mono text-[11px] overflow-x-auto max-h-64" dir="ltr">
+                  <pre className="bg-[#0A0A0A] p-3 rounded-lg border border-[#2A2A2A] text-gray-300 font-mono text-[11px] overflow-x-auto max-h-64" dir="ltr">
                     {selectedStudent.state.code}
                   </pre>
                 </div>
               ) : selectedStudent.state ? (
                 <div>
                   <span className="text-gray-400 font-semibold block mb-1">מצב שנשמר במשימה:</span>
-                  <pre className="bg-[#0A0A0A] p-3 rounded-xl border border-[#2A2A2A] text-gray-300 font-mono text-[11px] overflow-x-auto max-h-64">
+                  <pre className="bg-[#0A0A0A] p-3 rounded-lg border border-[#2A2A2A] text-gray-300 font-mono text-[11px] overflow-x-auto max-h-64">
                     {JSON.stringify(selectedStudent.state, null, 2)}
                   </pre>
                 </div>
@@ -323,7 +323,7 @@ export const TeacherAnalyticsDashboard: React.FC<TeacherAnalyticsDashboardProps>
             </div>
 
             <div className="p-4 border-t border-[#2A2A2A] bg-[#1A1A1A] flex justify-end">
-              <button onClick={() => setSelectedStudent(null)} className="bg-white text-black hover:bg-gray-200 font-semibold px-5 py-1.5 rounded-lg text-xs">סגור</button>
+              <button onClick={() => setSelectedStudent(null)} className="bg-primary text-primary-foreground hover:opacity-90 font-semibold px-5 py-1.5 rounded-lg text-xs">סגור</button>
             </div>
           </div>
         </div>

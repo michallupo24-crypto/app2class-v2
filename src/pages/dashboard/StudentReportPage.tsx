@@ -183,26 +183,26 @@ const StudentReportPage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50/50 p-4 md:p-8 dir-rtl text-right">
+    <div className="min-h-screen bg-background p-4 md:p-8 dir-rtl text-right">
       {/* Tool Bar - Hidden on Print */}
       <div className="max-w-4xl mx-auto mb-8 flex items-center justify-between print:hidden">
-         <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2 text-slate-500">
+         <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2 text-muted-foreground">
             <ArrowRight className="h-4 w-4" /> חזרה לדאשבורד
          </Button>
-         <Button onClick={handlePrint} className="gap-2 rounded-xl shadow-lg shadow-primary/20 bg-primary h-12 px-8 font-bold">
+         <Button onClick={handlePrint} className="gap-2 rounded-lg bg-primary h-12 px-8 font-bold">
             <Printer className="h-4 w-4" /> הדפס תעודה רשמית (PDF)
          </Button>
       </div>
 
       {/* THE CERTIFICATE */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-4xl mx-auto bg-white shadow-2xl rounded-[32px] overflow-hidden border border-slate-100 print:shadow-none print:border-none print:m-0"
+        className="max-w-4xl mx-auto bg-card rounded-lg overflow-hidden border border-border print:shadow-none print:border-none print:m-0"
       >
         {/* Certificate Decoration Header */}
-        <div className="h-4 w-full bg-gradient-to-r from-primary via-blue-400 to-indigo-500" />
-        
+        <div className="h-4 w-full bg-primary" />
+
         <div className="p-8 md:p-12">
             {/* Header: School Info & Logo */}
             <div className="flex flex-col md:flex-row justify-between items-start gap-8 mb-12">
@@ -215,80 +215,80 @@ const StudentReportPage = () => {
                             facialHair: student.avatars.facial_hair || "none", outfit: student.avatars.outfit, outfitColor: student.avatars.outfit_color,
                             accessory: student.avatars.accessory || "none", expression: "smile", background: student.avatars.background,
                         } : null} 
-                        size={100} 
-                        className="shadow-xl ring-4 ring-white"
+                        size={100}
+                        className="ring-4 ring-card"
                      />
-                     <div className="absolute -bottom-2 -right-2 bg-yellow-400 p-2 rounded-xl rotate-12 shadow-md">
-                        <Star className="h-5 w-5 text-white fill-white" />
+                     <div className="absolute -bottom-2 -right-2 bg-warning p-2 rounded-lg">
+                        <Star className="h-5 w-5 text-warning-foreground fill-warning-foreground" />
                      </div>
                   </div>
                   <div>
-                     <h1 className="text-4xl font-heading font-black text-slate-800 tracking-tighter mb-1">תעודת הערכה לרבעון א'</h1>
+                     <h1 className="text-4xl font-heading font-black text-foreground tracking-tighter mb-1">תעודת הערכה לרבעון א'</h1>
                      <p className="text-xl font-heading font-bold text-primary">{student.full_name}</p>
-                     <p className="text-sm text-slate-400 font-medium">כיתה {student.classes?.grade}' {student.classes?.class_number} • שנת לימודים תשפ״ה</p>
+                     <p className="text-sm text-muted-foreground font-medium">כיתה {student.classes?.grade}' {student.classes?.class_number} • שנת לימודים תשפ״ה</p>
                   </div>
                </div>
                <div className="text-left md:text-left flex flex-col items-end">
-                  <div className="h-16 w-16 bg-slate-900 rounded-3xl flex items-center justify-center text-white mb-3 rotate-3">
+                  <div className="h-16 w-16 bg-primary rounded-lg flex items-center justify-center text-primary-foreground mb-3">
                      <Award className="h-8 w-8" />
                   </div>
                   <h3 className="font-heading font-black text-xl">App2Lev8</h3>
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none">Smart Pedagogical System</p>
+                  <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest leading-none">Smart Pedagogical System</p>
                </div>
             </div>
 
             {/* Summary Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-               <Card className="bg-slate-50 border-none p-6 text-center shadow-inner rounded-3xl">
-                  <p className="text-[10px] text-slate-400 font-black uppercase mb-1">ממוצע משוקלל</p>
+               <Card className="bg-muted border-none p-6 text-center rounded-lg">
+                  <p className="text-[10px] text-muted-foreground font-black uppercase mb-1">ממוצע משוקלל</p>
                   <p className="text-5xl font-heading font-black text-primary">{grades.length > 0 ? overallAvg : "—"}</p>
                   {grades.length === 0 ? (
-                    <Badge variant="outline" className="mt-4 border-slate-200 text-slate-400">אין נתונים</Badge>
+                    <Badge variant="outline" className="mt-4 border-border text-muted-foreground">אין נתונים</Badge>
                   ) : overallAvg >= 90 ? (
-                    <Badge variant="outline" className="mt-4 border-primary/20 text-primary">מצטיין רבעוני 🏆</Badge>
+                    <Badge variant="outline" className="mt-4 border-primary/20 text-primary">מצטיין רבעוני</Badge>
                   ) : overallAvg >= 70 ? (
-                    <Badge variant="outline" className="mt-4 border-success/20 text-success">עמידה ביעדים ✅</Badge>
+                    <Badge variant="outline" className="mt-4 border-success/20 text-success">עמידה ביעדים</Badge>
                   ) : (
-                    <Badge variant="outline" className="mt-4 border-destructive/20 text-destructive">נדרש חיזוק 📈</Badge>
+                    <Badge variant="outline" className="mt-4 border-destructive/20 text-destructive">נדרש חיזוק</Badge>
                   )}
                </Card>
-               <Card className="bg-slate-50 border-none p-6 text-center shadow-inner rounded-3xl">
-                  <p className="text-[10px] text-slate-400 font-black uppercase mb-1">התקדמות סילבוס</p>
+               <Card className="bg-muted border-none p-6 text-center rounded-lg">
+                  <p className="text-[10px] text-muted-foreground font-black uppercase mb-1">התקדמות סילבוס</p>
                   <p className="text-5xl font-heading font-black text-success">{syllabusPct !== null ? `${syllabusPct}%` : "—"}</p>
                   {syllabusPct === null ? (
-                    <Badge variant="outline" className="mt-4 border-slate-200 text-slate-400">אין נתונים</Badge>
+                    <Badge variant="outline" className="mt-4 border-border text-muted-foreground">אין נתונים</Badge>
                   ) : syllabusPct >= 90 ? (
-                    <Badge variant="outline" className="mt-4 border-success/20 text-success">עמידה ביעדים ✅</Badge>
+                    <Badge variant="outline" className="mt-4 border-success/20 text-success">עמידה ביעדים</Badge>
                   ) : syllabusPct >= 60 ? (
-                    <Badge variant="outline" className="mt-4 border-primary/20 text-primary">בקצב תקין ⏱️</Badge>
+                    <Badge variant="outline" className="mt-4 border-primary/20 text-primary">בקצב תקין</Badge>
                   ) : (
-                    <Badge variant="outline" className="mt-4 border-destructive/20 text-destructive">פיגור בלו"ז ⚠️</Badge>
+                    <Badge variant="outline" className="mt-4 border-destructive/20 text-destructive">פיגור בלו"ז</Badge>
                   )}
                </Card>
-               <Card className="bg-slate-50 border-none p-6 text-center shadow-inner rounded-3xl">
-                  <p className="text-[10px] text-slate-400 font-black uppercase mb-1">נוכחות</p>
-                  <p className="text-5xl font-heading font-black text-blue-500">{attendancePct !== null ? `${attendancePct}%` : "—"}</p>
+               <Card className="bg-muted border-none p-6 text-center rounded-lg">
+                  <p className="text-[10px] text-muted-foreground font-black uppercase mb-1">נוכחות</p>
+                  <p className="text-5xl font-heading font-black text-info">{attendancePct !== null ? `${attendancePct}%` : "—"}</p>
                   {attendancePct === null ? (
-                    <Badge variant="outline" className="mt-4 border-slate-200 text-slate-400">אין נתונים</Badge>
+                    <Badge variant="outline" className="mt-4 border-border text-muted-foreground">אין נתונים</Badge>
                   ) : attendancePct >= 95 ? (
-                    <Badge variant="outline" className="mt-4 border-blue-200 text-blue-500">התמדה ללא רבב ⭐</Badge>
+                    <Badge variant="outline" className="mt-4 border-info/30 text-info">התמדה ללא רבב</Badge>
                   ) : attendancePct >= 85 ? (
                     <Badge variant="outline" className="mt-4 border-primary/20 text-primary">נוכחות תקינה</Badge>
                   ) : (
-                    <Badge variant="outline" className="mt-4 border-destructive/20 text-destructive">נדרשת תשומת לב ⚠️</Badge>
+                    <Badge variant="outline" className="mt-4 border-destructive/20 text-destructive">נדרשת תשומת לב</Badge>
                   )}
                </Card>
             </div>
 
             {/* AI Summary Section */}
-            <div className="bg-primary/5 rounded-[24px] p-6 mb-12 border border-primary/10 relative">
+            <div className="bg-primary/5 rounded-lg p-6 mb-12 border border-primary/10 relative">
                <div className="absolute top-4 left-4 text-primary/20">
                   <BrainCircuit className="h-12 w-12" />
                </div>
                <h3 className="font-heading font-black text-lg text-primary mb-3 flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5" /> דבר ה-AI מנטור
                </h3>
-               <p className="text-sm font-medium leading-relaxed text-slate-700 max-w-[90%]">
+               <p className="text-sm font-medium leading-relaxed text-foreground max-w-[90%]">
                   {aiInsight}
                </p>
             </div>
@@ -296,12 +296,12 @@ const StudentReportPage = () => {
             {/* Grades Table */}
             <div className="mb-12">
                <h3 className="font-heading font-black text-xl mb-6 flex items-center gap-3">
-                  <TableIcon className="h-6 w-6 text-slate-300" /> רכיבי הערכה לפי מקצועות
+                  <TableIcon className="h-6 w-6 text-muted-foreground" /> רכיבי הערכה לפי מקצועות
                </h3>
-               <div className="border rounded-2xl overflow-hidden">
+               <div className="border rounded-lg overflow-hidden">
                   <table className="w-full text-right">
                      <thead>
-                        <tr className="bg-slate-50 text-[10px] text-slate-400 font-black uppercase border-b">
+                        <tr className="bg-muted text-[10px] text-muted-foreground font-black uppercase border-b">
                            <th className="p-4">מקצוע</th>
                            <th className="p-4">ציון</th>
                            <th className="p-4">הערות ותובנות פדגוגיות</th>
@@ -309,14 +309,14 @@ const StudentReportPage = () => {
                      </thead>
                      <tbody className="text-sm">
                         {subjectAverages.map((s, idx) => (
-                           <tr key={idx} className="border-b last:border-0 hover:bg-slate-50/50 transition-colors">
-                              <td className="p-4 font-bold text-slate-800">{s.subject}</td>
+                           <tr key={idx} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                              <td className="p-4 font-bold text-foreground">{s.subject}</td>
                               <td className="p-4">
-                                 <span className={`text-xl font-heading font-black ${s.avg >= 90 ? 'text-green-600' : s.avg >= 70 ? 'text-primary' : 'text-destructive'}`}>
+                                 <span className={`text-xl font-heading font-black ${s.avg >= 90 ? 'text-success' : s.avg >= 70 ? 'text-primary' : 'text-destructive'}`}>
                                     {s.avg}
                                  </span>
                               </td>
-                              <td className="p-4 text-xs text-slate-500 font-medium italic">
+                              <td className="p-4 text-xs text-muted-foreground font-medium italic">
                                  {grades.find(g => g.subject === s.subject)?.feedback || "טרם ניתן משוב פרטני למקצוע זה."}
                               </td>
                            </tr>
@@ -327,27 +327,27 @@ const StudentReportPage = () => {
             </div>
 
             {/* QR & Verifier */}
-            <div className="flex flex-col md:flex-row justify-between items-center pt-12 border-t border-slate-100 mt-20">
+            <div className="flex flex-col md:flex-row justify-between items-center pt-12 border-t border-border mt-20">
                <div>
-                  <p className="text-xs text-slate-400 font-bold mb-1">חתימת מחנך/ת הכיתה</p>
+                  <p className="text-xs text-muted-foreground font-bold mb-1">חתימת מחנך/ת הכיתה</p>
                   <div className="h-12 w-48 border-b border-primary/30 font-accent text-primary/60 flex items-end pb-1 text-sm">
                      {educatorName || 'טרם שובץ מחנך/ת לכיתה'}
                   </div>
                </div>
                <div className="mt-8 md:mt-0 text-center">
-                  <div className="h-20 w-20 bg-slate-50 border rounded-xl flex items-center justify-center p-2 mx-auto mb-2">
+                  <div className="h-20 w-20 bg-muted border rounded-lg flex items-center justify-center p-2 mx-auto mb-2">
                       {/* Placeholder for QR - could be a real one linking to verification */}
                       <div className="grid grid-cols-4 gap-0.5 opacity-20">
                          {verification.cells.map((filled, i) => (
-                            <div key={i} className={`h-3 w-3 ${filled ? 'bg-black' : 'bg-transparent'}`} />
+                            <div key={i} className={`h-3 w-3 ${filled ? 'bg-foreground' : 'bg-transparent'}`} />
                          ))}
                       </div>
                   </div>
-                  <p className="text-[8px] text-slate-300 font-black uppercase tracking-widest">Digital Verification Key: {verification.key}</p>
+                  <p className="text-[8px] text-muted-foreground font-black uppercase tracking-widest">Digital Verification Key: {verification.key}</p>
                </div>
                <div className="mt-8 md:mt-0">
-                  <p className="text-xs text-slate-400 font-bold mb-1">חותמת בית הספר</p>
-                  <div className="h-16 w-16 rounded-full border-2 border-primary/20 flex items-center justify-center text-[10px] text-primary/30 p-2 text-center leading-none font-black uppercase rotate-12">
+                  <p className="text-xs text-muted-foreground font-bold mb-1">חותמת בית הספר</p>
+                  <div className="h-16 w-16 rounded-full border-2 border-primary/20 flex items-center justify-center text-[10px] text-primary/30 p-2 text-center leading-none font-black uppercase">
                      Official Seal 2025
                   </div>
                </div>
@@ -355,12 +355,12 @@ const StudentReportPage = () => {
         </div>
 
         {/* Footer Decoration */}
-        <div className="p-8 bg-slate-900 text-white flex justify-between items-center print:hidden">
+        <div className="p-8 bg-foreground text-background flex justify-between items-center print:hidden">
             <div>
-               <p className="text-xs font-bold text-slate-400">הופק באופן אוטומטי על ידי</p>
+               <p className="text-xs font-bold text-background/70">הופק באופן אוטומטי על ידי</p>
                <h4 className="font-heading font-black text-lg">App2Lev8 AI Engine</h4>
             </div>
-            <Button variant="ghost" className="text-slate-400 hover:text-white hover:bg-white/10" onClick={handlePrint}>
+            <Button variant="ghost" className="text-background/70 hover:text-background hover:bg-background/10" onClick={handlePrint}>
                תצוגת הדפסה מלאה
             </Button>
         </div>

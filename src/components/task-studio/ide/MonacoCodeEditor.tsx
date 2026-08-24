@@ -91,7 +91,7 @@ export const MonacoCodeEditor: React.FC<MonacoCodeEditorProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#111111] text-[#E0E0E0] rounded-2xl border border-[#2A2A2A] shadow-xl overflow-hidden">
+    <div className="flex flex-col h-full bg-[#111111] text-[#E0E0E0] rounded-lg border border-[#2A2A2A] overflow-hidden">
       <div className="flex flex-wrap items-center justify-between bg-[#1A1A1A] px-4 py-2 border-b border-[#2A2A2A] gap-2">
         <div className="flex items-center gap-1 bg-[#0A0A0A] p-1 rounded-lg border border-[#2A2A2A]">
           {languageMode === 'web' && (
@@ -99,28 +99,28 @@ export const MonacoCodeEditor: React.FC<MonacoCodeEditorProps> = ({
               <button
                 onClick={() => setActiveTab('html')}
                 className={`flex items-center gap-2 px-3 py-1 rounded-md text-xs font-medium transition cursor-pointer ${
-                  activeTab === 'html' ? 'bg-[#2A2A2A] text-white border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-300'
+                  activeTab === 'html' ? 'bg-[#2A2A2A] text-white border-b-2 border-warning' : 'text-gray-500 hover:text-gray-300'
                 }`}
               >
-                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                <span className="w-2 h-2 rounded-full bg-warning"></span>
                 index.html
               </button>
               <button
                 onClick={() => setActiveTab('css')}
                 className={`flex items-center gap-2 px-3 py-1 rounded-md text-xs font-medium transition cursor-pointer ${
-                  activeTab === 'css' ? 'bg-[#2A2A2A] text-white border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-300'
+                  activeTab === 'css' ? 'bg-[#2A2A2A] text-white border-b-2 border-info' : 'text-gray-500 hover:text-gray-300'
                 }`}
               >
-                <span className="w-2 h-2 rounded-full bg-sky-500"></span>
+                <span className="w-2 h-2 rounded-full bg-info"></span>
                 styles.css
               </button>
               <button
                 onClick={() => setActiveTab('js')}
                 className={`flex items-center gap-2 px-3 py-1 rounded-md text-xs font-medium transition cursor-pointer ${
-                  activeTab === 'js' ? 'bg-[#2A2A2A] text-white border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-300'
+                  activeTab === 'js' ? 'bg-[#2A2A2A] text-white border-b-2 border-accent' : 'text-gray-500 hover:text-gray-300'
                 }`}
               >
-                <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                <span className="w-2 h-2 rounded-full bg-accent"></span>
                 script.js
               </button>
             </>
@@ -130,10 +130,10 @@ export const MonacoCodeEditor: React.FC<MonacoCodeEditorProps> = ({
             <button
               onClick={() => setActiveTab('python')}
               className={`flex items-center gap-2 px-3 py-1 rounded-md text-xs font-medium transition cursor-pointer ${
-                activeTab === 'python' ? 'bg-[#2A2A2A] text-white border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-300'
+                activeTab === 'python' ? 'bg-[#2A2A2A] text-white border-b-2 border-success' : 'text-gray-500 hover:text-gray-300'
               }`}
             >
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span className="w-2 h-2 rounded-full bg-success"></span>
               main.py (Python)
             </button>
           )}
@@ -142,10 +142,10 @@ export const MonacoCodeEditor: React.FC<MonacoCodeEditorProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={onOpenAI}
-            className="flex items-center gap-1.5 px-3 py-1 bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600/30 rounded-lg text-xs font-semibold transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1 bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 rounded-lg text-xs font-semibold transition cursor-pointer"
             title="עוזר בינה מלאכותית ליצירת קוד או ניפוי שגיאות"
           >
-            <Sparkles className="w-3.5 h-3.5 text-blue-300" />
+            <Sparkles className="w-3.5 h-3.5 text-accent" />
             <span>AI Tutor</span>
           </button>
 
@@ -154,13 +154,13 @@ export const MonacoCodeEditor: React.FC<MonacoCodeEditorProps> = ({
             className="p-1.5 text-gray-400 hover:text-white hover:bg-[#2A2A2A] rounded-lg transition cursor-pointer"
             title="העתק קוד ללוח"
           >
-            {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+            {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
           </button>
 
           <button
             onClick={() => setWordWrap(wordWrap === 'on' ? 'off' : 'on')}
             className={`p-1.5 rounded-lg transition cursor-pointer ${
-              wordWrap === 'on' ? 'bg-[#2A2A2A] text-blue-400' : 'text-gray-400 hover:bg-[#2A2A2A]'
+              wordWrap === 'on' ? 'bg-[#2A2A2A] text-info' : 'text-gray-400 hover:bg-[#2A2A2A]'
             }`}
             title="גלישת שורות"
           >
@@ -190,7 +190,7 @@ export const MonacoCodeEditor: React.FC<MonacoCodeEditorProps> = ({
             className="text-xs px-2 py-1 bg-[#2A2A2A] hover:bg-[#333333] text-gray-300 rounded-lg transition cursor-pointer"
             title="החלף ערכת נושא"
           >
-            {editorTheme === 'vs-dark' ? '🌙 Dark' : '☀️ Light'}
+            {editorTheme === 'vs-dark' ? 'Dark' : 'Light'}
           </button>
         </div>
       </div>
@@ -233,7 +233,7 @@ export const MonacoCodeEditor: React.FC<MonacoCodeEditorProps> = ({
 
         <div className="flex items-center gap-2 text-gray-500">
           {autosavedAt && (
-            <span className="flex items-center gap-1 text-emerald-400">
+            <span className="flex items-center gap-1 text-success">
               <Save className="w-3 h-3" />
               <span>נשמר בטיוטה: {autosavedAt}</span>
             </span>

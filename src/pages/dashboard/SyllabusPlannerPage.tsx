@@ -158,7 +158,7 @@ const SyllabusPlannerPage = () => {
         return;
       }
 
-      toast({ title: "הסילבוס נשמר בהצלחה! 💾", description: "כל המורים המלמדים מקצוע זה יוכלו לצפות בתכנון עכשיו." });
+      toast({ title: "הסילבוס נשמר בהצלחה!", description: "כל המורים המלמדים מקצוע זה יוכלו לצפות בתכנון עכשיו." });
     } catch (e: any) {
       toast({ title: "שגיאה בשמירה", description: e.message, variant: "destructive" });
     } finally {
@@ -183,7 +183,7 @@ const SyllabusPlannerPage = () => {
       );
       
       setCalculationResult({ ...result, ...analysis });
-      toast({ title: "ניתוח הספק הושלם! 🚀" });
+      toast({ title: "ניתוח הספק הושלם!" });
     } catch (e: any) {
       toast({ title: "שגיאה בחישוב", description: e.message, variant: "destructive" });
     } finally {
@@ -213,7 +213,7 @@ const SyllabusPlannerPage = () => {
       const result = data?.topics || [];
       if (result.length > 0) {
         setTopics(result.map((r: any) => ({ topic: r.topic, estimated_hours: r.hours || 1 })));
-        toast({ title: "ה-AI זיהה את נושאי הלימוד! 🧠" });
+        toast({ title: "ה-AI זיהה את נושאי הלימוד!" });
       } else {
         toast({ title: "לא זוהו נושאים בקובץ", variant: "destructive" });
       }
@@ -245,12 +245,12 @@ const SyllabusPlannerPage = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <motion.div variants={item}>
           <h1 className="text-4xl font-heading font-black text-primary flex items-center gap-4 tracking-tighter">
-            <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center rotate-3 shadow-inner">
+            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
               <BrainCircuit className="h-7 w-7 text-primary" />
             </div>
             תכנון סילבוס חכם
           </h1>
-          <p className="text-slate-500 font-medium mt-2 flex items-center gap-2">
+          <p className="text-muted-foreground font-medium mt-2 flex items-center gap-2">
             <Calculator className="h-4 w-4" /> ניהול נושאי לימוד, שעות הוראה ואינטגרציית חגים
           </p>
         </motion.div>
@@ -258,19 +258,19 @@ const SyllabusPlannerPage = () => {
         <motion.div variants={item} className="flex items-center gap-3">
            <Button 
             variant="outline" 
-            className="rounded-xl gap-2 border-primary/20 bg-white/50 backdrop-blur-sm hover:bg-primary/5 transition-all"
+            className="rounded-xl gap-2 border-primary/20 bg-card hover:bg-primary/5 transition-colors"
             onClick={() => document.getElementById('syllabus-ai-upload')?.click()}
             disabled={analyzing}
            >
             {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4 text-primary" />}
-            ייבוא סילבוס ב-AI ⚡
+            ייבוא סילבוס ב-AI
            </Button>
            <input id="syllabus-ai-upload" type="file" className="hidden" accept=".pdf,image/*" onChange={handleFileUpload} />
-           
-           <Button 
-            onClick={saveSyllabus} 
-            disabled={saving || topics.length === 0} 
-            className="rounded-xl gap-2 shadow-lg shadow-primary/20"
+
+           <Button
+            onClick={saveSyllabus}
+            disabled={saving || topics.length === 0}
+            className="rounded-xl gap-2"
            >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             שמור סילבוס
@@ -282,14 +282,14 @@ const SyllabusPlannerPage = () => {
         {/* ─── LEFT: CONTROLS & TOPICS (8 COLS) ─── */}
         <div className="lg:col-span-8 space-y-6">
           <motion.div variants={item}>
-            <Card className="border-none shadow-xl bg-white/60 backdrop-blur-md overflow-hidden ring-1 ring-black/[0.03]">
+            <Card className="border border-border bg-card overflow-hidden">
               <CardHeader className="border-b bg-muted/20 pb-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                      <div className="space-y-1">
                         <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1">מקצוע</label>
                         <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                          <SelectTrigger className="w-40 h-10 rounded-xl bg-white shadow-sm">
+                          <SelectTrigger className="w-40 h-10 rounded-xl bg-background shadow-sm">
                             <SelectValue placeholder="בחר מקצוע" />
                           </SelectTrigger>
                           <SelectContent>
@@ -300,7 +300,7 @@ const SyllabusPlannerPage = () => {
                      <div className="space-y-1">
                         <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1">כיתת השוואה</label>
                         <Select value={selectedClass} onValueChange={setSelectedClass}>
-                          <SelectTrigger className="w-40 h-10 rounded-xl bg-white shadow-sm">
+                          <SelectTrigger className="w-40 h-10 rounded-xl bg-background shadow-sm">
                             <SelectValue placeholder="בחר כיתה" />
                           </SelectTrigger>
                           <SelectContent>
@@ -315,7 +315,7 @@ const SyllabusPlannerPage = () => {
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                 <div className="divide-y divide-slate-100">
+                 <div className="divide-y divide-border">
                     <AnimatePresence>
                       {topics.length === 0 ? (
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-12 text-center text-muted-foreground space-y-3">
@@ -330,9 +330,9 @@ const SyllabusPlannerPage = () => {
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: -20 }}
-                            className="p-4 flex items-center gap-4 hover:bg-slate-50/50 transition-colors group"
+                            className="p-4 flex items-center gap-4 hover:bg-muted/50 transition-colors group"
                           >
-                            <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center font-black text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors text-xs shrink-0">
+                            <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center font-black text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors text-xs shrink-0">
                               {index + 1}
                             </div>
                             <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-12 gap-4">
@@ -351,15 +351,15 @@ const SyllabusPlannerPage = () => {
                                   />
                                </div>
                                <div className="md:col-span-4 flex items-center justify-end gap-3">
-                                  <div className="flex items-center gap-2 bg-slate-100/50 p-1 px-3 rounded-lg ring-1 ring-slate-200">
-                                    <Clock className="h-3 w-3 text-slate-400" />
-                                    <Input 
-                                      type="number" 
-                                      value={t.estimated_hours} 
+                                  <div className="flex items-center gap-2 bg-muted/50 p-1 px-3 rounded-lg ring-1 ring-border">
+                                    <Clock className="h-3 w-3 text-muted-foreground" />
+                                    <Input
+                                      type="number"
+                                      value={t.estimated_hours}
                                       onChange={(e) => updateTopic(index, 'estimated_hours', Number(e.target.value))}
                                       className="w-10 h-7 bg-transparent border-none focus-visible:ring-0 text-center font-bold p-0 text-sm"
                                     />
-                                    <span className="text-[10px] font-bold text-slate-400">שעות</span>
+                                    <span className="text-[10px] font-bold text-muted-foreground">שעות</span>
                                   </div>
                                   <Button variant="ghost" size="icon" onClick={() => removeTopic(index)} className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
                                     <Trash2 className="h-4 w-4" />
@@ -379,7 +379,7 @@ const SyllabusPlannerPage = () => {
         {/* ─── RIGHT: ANALYTICS (4 COLS) ─── */}
         <div className="lg:col-span-4 space-y-6">
            <motion.div variants={item}>
-              <Card className="border-none shadow-xl bg-gradient-to-br from-primary/10 via-background to-background ring-1 ring-primary/20">
+              <Card className="border border-primary/20 bg-primary/5">
                 <CardHeader>
                   <CardTitle className="text-xl font-heading flex items-center gap-2">
                     <Calculator className="h-5 w-5 text-primary" /> מנוע חיזוי פדגוגי
@@ -388,19 +388,19 @@ const SyllabusPlannerPage = () => {
                 </CardHeader>
                 <CardContent className="space-y-6">
                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-500">תאריך יעד לימודי (סוף מחצית/בגרות)</label>
-                      <Input 
-                        type="date" 
-                        value={targetDate} 
-                        onChange={(e) => setTargetDate(e.target.value)} 
-                        className="rounded-xl border-slate-200"
+                      <label className="text-xs font-bold text-muted-foreground">תאריך יעד לימודי (סוף מחצית/בגרות)</label>
+                      <Input
+                        type="date"
+                        value={targetDate}
+                        onChange={(e) => setTargetDate(e.target.value)}
+                        className="rounded-xl border-border"
                       />
                    </div>
 
-                   <div className="p-4 bg-white/50 rounded-2xl border border-white space-y-4">
+                   <div className="p-4 bg-muted/30 rounded-lg border border-border space-y-4">
                       <div className="flex items-center justify-between">
-                         <span className="text-sm font-medium text-slate-600">סך שעות סילבוס</span>
-                         <Badge variant="secondary" className="bg-slate-100 text-slate-700">
+                         <span className="text-sm font-medium text-muted-foreground">סך שעות סילבוס</span>
+                         <Badge variant="secondary">
                           {topics.reduce((sum, t) => sum + t.estimated_hours, 0)} שעות
                          </Badge>
                       </div>
@@ -418,17 +418,17 @@ const SyllabusPlannerPage = () => {
                           className="space-y-4"
                         >
                            <div className="grid grid-cols-2 gap-3">
-                              <div className="p-4 rounded-2xl bg-white shadow-sm border border-slate-100 text-center space-y-1">
+                              <div className="p-4 rounded-lg bg-card shadow-sm border border-border text-center space-y-1">
                                  <p className="text-[10px] font-bold text-muted-foreground">שיעורים נטו</p>
                                  <p className="text-2xl font-heading font-black text-primary">{calculationResult.actualLessons}</p>
                               </div>
-                              <div className="p-4 rounded-2xl bg-white shadow-sm border border-slate-100 text-center space-y-1">
+                              <div className="p-4 rounded-lg bg-card shadow-sm border border-border text-center space-y-1">
                                  <p className="text-[10px] font-bold text-muted-foreground">מפגשים שיבוטלו</p>
-                                 <p className="text-2xl font-heading font-black text-orange-500">{calculationResult.cancelledByHolidays + calculationResult.cancelledByEvents}</p>
+                                 <p className="text-2xl font-heading font-black text-warning">{calculationResult.cancelledByHolidays + calculationResult.cancelledByEvents}</p>
                               </div>
                            </div>
 
-                           <div className={`p-5 rounded-2xl border ${calculationResult.status === 'behind' ? 'bg-destructive/10 border-destructive/20' : calculationResult.status === 'ahead' ? 'bg-green-500/10 border-green-500/20' : 'bg-blue-500/10 border-blue-500/20'}`}>
+                           <div className={`p-5 rounded-lg border ${calculationResult.status === 'behind' ? 'bg-destructive/10 border-destructive/20' : calculationResult.status === 'ahead' ? 'bg-success/10 border-success/20' : 'bg-info/10 border-info/20'}`}>
                               <div className="flex items-start gap-3">
                                  {calculationResult.status === 'behind' ? <AlertCircle className="h-6 w-6 text-destructive shrink-0 mt-0.5" /> : <Info className="h-6 w-6 text-primary shrink-0 mt-0.5" />}
                                  <div className="space-y-1">
@@ -449,13 +449,10 @@ const SyllabusPlannerPage = () => {
            </motion.div>
 
            <motion.div variants={item}>
-              <Card className="border-none shadow-lg bg-slate-900 text-white overflow-hidden">
+              <Card className="border border-border bg-card overflow-hidden">
                 <CardContent className="p-6 relative">
-                   <div className="absolute top-0 right-0 p-8 opacity-10">
-                      <BrainCircuit className="h-24 w-24" />
-                   </div>
-                   <h4 className="text-sm font-heading font-bold mb-2">טיפ חכם מה-AI 🤖</h4>
-                   <p className="text-xs text-slate-300 leading-relaxed">
+                   <h4 className="text-sm font-heading font-bold mb-2">טיפ חכם מה-AI</h4>
+                   <p className="text-xs text-muted-foreground leading-relaxed">
                      השתמש בייבוא ה-AI לסילבוס כדי לחסוך זמן. ה-AI יודע לזהות את נושאי הלימוד הליבה ואת השעות המקובלות לפי הנחיות משרד החינוך.
                    </p>
                 </CardContent>

@@ -43,7 +43,7 @@ const TeacherCountsBySubject = ({ schoolId, subjects, highlightMissing, onStatus
   if (!loaded || subjects.length === 0) return null;
 
   return (
-    <Card className={highlightMissing && !subjects.every(s => (counts[s] ?? 0) > 0) ? "border-amber-500/50" : undefined}>
+    <Card className={highlightMissing && !subjects.every(s => (counts[s] ?? 0) > 0) ? "border-warning/50" : undefined}>
       <CardHeader>
         <CardTitle className="text-lg font-heading flex items-center gap-2">
           <Users className="h-5 w-5 text-primary" />
@@ -59,7 +59,7 @@ const TeacherCountsBySubject = ({ schoolId, subjects, highlightMissing, onStatus
           return (
             <div
               key={subject}
-              className={`flex items-center gap-2 p-2 rounded-lg ${highlightMissing && missing ? "bg-amber-500/10 ring-1 ring-amber-500/30" : "bg-muted/30"}`}
+              className={`flex items-center gap-2 p-2 rounded-lg ${highlightMissing && missing ? "bg-warning/10 ring-1 ring-warning/30" : "bg-muted/30"}`}
             >
               <span className="text-sm flex-1 truncate">{subject}</span>
               <Input

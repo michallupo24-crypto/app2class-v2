@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowRight, ArrowLeft, CheckCircle2, XCircle, Layers, PlayCircle,
-  BookOpen, Loader2, RotateCcw, Trophy, Brain, Sparkles, ChevronLeft, Gamepad2,
+  BookOpen, Loader2, RotateCcw, Trophy, Brain, ChevronLeft, Gamepad2,
 } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -218,7 +218,7 @@ const StudentPracticePage = () => {
             }, { onConflict: "task_id,student_id" });
             if (error) throw error;
           }
-          toast({ title: "🎉 הציון נשמר!", description: `${data.score}/${total}` });
+          toast({ title: "הציון נשמר!", description: `${data.score}/${total}` });
         } catch {
           toast({ variant: "destructive", title: "שגיאה בשמירת הציון", description: "הציון לא נשמר. בדוק/י את החיבור ונסה/י שוב." });
         }
@@ -281,7 +281,7 @@ const StudentPracticePage = () => {
       }
 
       setSolveTask((prev) => (prev ? { ...prev, submitted: true, savedCode: code } : prev));
-      toast({ title: "הפתרון הוגש בהצלחה! 🎉" });
+      toast({ title: "הפתרון הוגש בהצלחה!" });
     } catch (e: any) {
       toast({ variant: "destructive", title: "שגיאה בהגשה", description: e.message });
     } finally {
@@ -321,7 +321,7 @@ const StudentPracticePage = () => {
         if (error) throw error;
       }
 
-      toast({ title: "🎯 הקוד שלך דיווח ציון", description: `${autoScore}/${autoTotal}` });
+      toast({ title: "הקוד שלך דיווח ציון", description: `${autoScore}/${autoTotal}` });
     } catch (e: any) {
       toast({ variant: "destructive", title: "שגיאה בשמירת הציון", description: e.message || "נסה/י שוב, או פנה/י למורה אם זה חוזר על עצמו." });
     }
@@ -517,7 +517,7 @@ const StudentPracticePage = () => {
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
             <Card className="border-success/40 bg-success/5">
               <CardContent className="py-3 flex items-center justify-between">
-                <p className="text-sm font-heading font-bold text-success">🎉 ציון נשמר: {htmlResult.score}/{htmlResult.total}</p>
+                <p className="text-sm font-heading font-bold text-success">ציון נשמר: {htmlResult.score}/{htmlResult.total}</p>
                 <Button size="sm" variant="outline" onClick={() => { setHtmlResult(null); const c = htmlCode; setHtmlCode(null); setTimeout(() => setHtmlCode(c), 0); }}>
                   <RotateCcw className="h-3.5 w-3.5 ml-1" /> נסה שוב
                 </Button>
@@ -563,7 +563,7 @@ const StudentPracticePage = () => {
         <div className="text-center space-y-4 py-8">
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: "spring" }}>
             {pct >= 80
-              ? <Trophy className="h-20 w-20 mx-auto text-yellow-500" />
+              ? <Trophy className="h-20 w-20 mx-auto text-warning" />
               : pct >= 60
               ? <CheckCircle2 className="h-20 w-20 mx-auto text-primary" />
               : <Brain className="h-20 w-20 mx-auto text-muted-foreground" />
@@ -574,7 +574,7 @@ const StudentPracticePage = () => {
             <p className="text-muted-foreground font-body mt-1">{score} מתוך {shuffled.length} נכונות</p>
           </div>
           <p className="text-lg font-heading">
-            {pct >= 90 ? "מצוין! שלטת בחומר! 🏆" : pct >= 75 ? "עבודה טובה! 💪" : pct >= 60 ? "לא רע, אפשר לשפר 📚" : "כדאי לחזור על החומר 🔁"}
+            {pct >= 90 ? "מצוין! שלטת בחומר!" : pct >= 75 ? "עבודה טובה!" : pct >= 60 ? "לא רע, אפשר לשפר" : "כדאי לחזור על החומר"}
           </p>
           {pct < 100 && saveStatus === "saving" && (
             <p className="text-sm text-muted-foreground flex items-center justify-center gap-1.5">
@@ -648,23 +648,23 @@ const StudentPracticePage = () => {
               title: "כרטיסיות שינון",
               desc: "העבר בין שאלות ותשובות, הפוך כרטיסייה להצגת תשובה",
               icon: <Layers className="h-8 w-8" />,
-              color: "text-green-600",
-              bg: "bg-green-500/10",
+              color: "text-success",
+              bg: "bg-success/10",
             },
             {
               id: "open" as PracticeMode,
               title: "תשובה חופשית + AI",
               desc: "כתוב תשובה בשפה חופשית, ה-AI יבדוק ויחזיר פידבק",
-              icon: <Sparkles className="h-8 w-8" />,
-              color: "text-purple-600",
-              bg: "bg-purple-500/10",
+              icon: <Brain className="h-8 w-8" />,
+              color: "text-accent",
+              bg: "bg-accent/10",
             },
           ].map((m) => (
             <Card key={m.id}
               className={`cursor-pointer transition-all hover:shadow-md hover:border-primary/40 ${mode === m.id ? "border-primary ring-1 ring-primary/30" : ""}`}
               onClick={() => setMode(m.id)}>
               <CardContent className="p-5 text-center space-y-3">
-                <div className={`w-16 h-16 rounded-2xl ${m.bg} flex items-center justify-center mx-auto ${m.color}`}>
+                <div className={`w-16 h-16 rounded-lg ${m.bg} flex items-center justify-center mx-auto ${m.color}`}>
                   {m.icon}
                 </div>
                 <div>
@@ -730,8 +730,8 @@ const StudentPracticePage = () => {
                 const isCorrectOpt = opt.trim().toLowerCase() === (currentQ.correct_answer || "").trim().toLowerCase();
                 let cls = "border-border hover:border-primary/50";
                 if (answered) {
-                  if (isCorrectOpt) cls = "border-green-500 bg-green-50 dark:bg-green-900/20";
-                  else if (isSelected) cls = "border-destructive bg-red-50 dark:bg-red-900/20";
+                  if (isCorrectOpt) cls = "border-success bg-success/10";
+                  else if (isSelected) cls = "border-destructive bg-destructive/10";
                   else cls = "border-border opacity-50";
                 } else if (isSelected) cls = "border-primary bg-primary/5";
 
@@ -740,7 +740,7 @@ const StudentPracticePage = () => {
                     onClick={() => handleAnswer(opt)} disabled={answered}>
                     <div className="flex items-center justify-between">
                       <span className="font-heading text-sm">{opt}</span>
-                      {answered && isCorrectOpt && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />}
+                      {answered && isCorrectOpt && <CheckCircle2 className="h-4 w-4 text-success shrink-0" />}
                       {answered && isSelected && !isCorrectOpt && <XCircle className="h-4 w-4 text-destructive shrink-0" />}
                     </div>
                   </button>
@@ -765,10 +765,10 @@ const StudentPracticePage = () => {
             {/* Feedback */}
             {answered && (
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
-                <Card className={correct ? "border-green-500/50 bg-green-50/50 dark:bg-green-900/10" : "border-destructive/50 bg-red-50/50 dark:bg-red-900/10"}>
+                <Card className={correct ? "border-success/50 bg-success/10" : "border-destructive/50 bg-destructive/10"}>
                   <CardContent className="py-3 space-y-1">
-                    <p className={`font-heading font-bold text-sm ${correct ? "text-green-700 dark:text-green-400" : "text-destructive"}`}>
-                      {correct ? "✅ נכון!" : `❌ לא נכון — התשובה הנכונה: ${currentQ.correct_answer}`}
+                    <p className={`font-heading font-bold text-sm ${correct ? "text-success" : "text-destructive"}`}>
+                      {correct ? "נכון!" : `לא נכון — התשובה הנכונה: ${currentQ.correct_answer}`}
                     </p>
                     {currentQ.explanation && (
                       <p className="text-xs text-muted-foreground font-body">{currentQ.explanation}</p>
@@ -777,24 +777,24 @@ const StudentPracticePage = () => {
                 </Card>
 
                 {!correct && currentQ.coaching_enabled && coachLoading && (
-                  <Card className="border-purple-500/30 bg-purple-50/50 dark:bg-purple-900/10">
+                  <Card className="border-accent/30 bg-accent/10">
                     <CardContent className="py-3 flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
+                      <Loader2 className="h-4 w-4 animate-spin text-accent" />
                       <p className="text-xs font-body text-muted-foreground">מאמן ה-AI בודק מה בדיוק בלבל אותך...</p>
                     </CardContent>
                   </Card>
                 )}
 
                 {!correct && coach && (
-                  <Card className="border-purple-500/40 bg-purple-50/50 dark:bg-purple-900/10">
+                  <Card className="border-accent/40 bg-accent/10">
                     <CardContent className="py-3 space-y-3">
                       <div className="flex items-center gap-2">
-                        <Brain className="h-4 w-4 text-purple-600 shrink-0" />
-                        <Badge variant="secondary" className="text-[10px] bg-purple-500/20 text-purple-700 dark:text-purple-300 border-0">{coach.misconception}</Badge>
+                        <Brain className="h-4 w-4 text-accent shrink-0" />
+                        <Badge variant="secondary" className="text-[10px] bg-accent/20 text-accent border-0">{coach.misconception}</Badge>
                       </div>
                       <p className="text-xs font-body leading-relaxed">{coach.explanation}</p>
 
-                      <div className="pt-1 border-t border-purple-500/20 space-y-2">
+                      <div className="pt-1 border-t border-accent/20 space-y-2">
                         <p className="text-xs font-heading font-bold">רגע לפני שממשיכים - נסה/י שוב:</p>
                         <p className="text-sm font-heading">{coach.microQuestion.question_text}</p>
                         <div className="flex flex-wrap gap-2">
@@ -802,10 +802,10 @@ const StudentPracticePage = () => {
                             const isSel = coachAnswered === opt;
                             const isRight = opt.trim().toLowerCase() === coach.microQuestion.correct_answer.trim().toLowerCase();
                             let cls = "border-border";
-                            if (coachAnswered) cls = isRight ? "border-green-500 bg-green-50 dark:bg-green-900/20" : isSel ? "border-destructive bg-red-50 dark:bg-red-900/20" : "border-border opacity-50";
+                            if (coachAnswered) cls = isRight ? "border-success bg-success/10" : isSel ? "border-destructive bg-destructive/10" : "border-border opacity-50";
                             return (
                               <button key={i} disabled={!!coachAnswered} onClick={() => handleCoachAnswer(opt)}
-                                className={`text-xs px-3 py-1.5 rounded-lg border font-heading ${cls} ${!coachAnswered ? "hover:border-purple-400 cursor-pointer" : "cursor-default"}`}>
+                                className={`text-xs px-3 py-1.5 rounded-lg border font-heading ${cls} ${!coachAnswered ? "hover:border-accent cursor-pointer" : "cursor-default"}`}>
                                 {opt}
                               </button>
                             );
@@ -813,7 +813,7 @@ const StudentPracticePage = () => {
                         </div>
                         {coachAnswered && (
                           <p className="text-xs font-body text-muted-foreground">
-                            {coachAnswered.trim().toLowerCase() === coach.microQuestion.correct_answer.trim().toLowerCase() ? "✅ בדיוק! עכשיו זה ברור." : `לא בדיוק - התשובה: ${coach.microQuestion.correct_answer}. בוא/י נמשיך.`}
+                            {coachAnswered.trim().toLowerCase() === coach.microQuestion.correct_answer.trim().toLowerCase() ? "בדיוק! עכשיו זה ברור." : `לא בדיוק - התשובה: ${coach.microQuestion.correct_answer}. בוא/י נמשיך.`}
                           </p>
                         )}
                       </div>
@@ -851,20 +851,20 @@ const StudentPracticePage = () => {
           <motion.div key={fcIdx} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
             <div className="cursor-pointer" onClick={() => setFlipped(f => !f)} style={{ perspective: "1000px" }}>
               <motion.div
-                className="relative w-full rounded-2xl"
+                className="relative w-full rounded-lg"
                 animate={{ rotateY: flipped ? 180 : 0 }}
                 transition={{ duration: 0.5 }}
                 style={{ transformStyle: "preserve-3d", minHeight: "220px" }}
               >
                 {/* Front */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-8 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/20"
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-8 rounded-lg bg-primary/10 border-2 border-primary/20"
                   style={{ backfaceVisibility: "hidden" }}>
                   <p className="text-[10px] text-muted-foreground mb-3 uppercase tracking-wide">שאלה</p>
                   <p className="text-lg font-heading font-bold text-center leading-relaxed">{card?.question_text}</p>
                   <p className="text-xs text-muted-foreground mt-4">לחץ להפוך ולראות תשובה</p>
                 </div>
                 {/* Back */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-8 rounded-2xl bg-gradient-to-br from-green-500/10 to-green-500/5 border-2 border-green-500/20"
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-8 rounded-lg bg-success/10 border-2 border-success/20"
                   style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
                   <p className="text-[10px] text-muted-foreground mb-3 uppercase tracking-wide">תשובה</p>
                   <p className="text-lg font-heading font-bold text-center leading-relaxed">{card?.correct_answer}</p>
@@ -886,7 +886,7 @@ const StudentPracticePage = () => {
               ? <Button variant="outline" className="font-heading" onClick={() => setFlipped(true)}>הצג תשובה</Button>
               : fcIdx < shuffled.length - 1
               ? <Button className="font-heading" onClick={() => { setFcIdx(i => i + 1); setFlipped(false); }}>הבא <ArrowLeft className="h-4 w-4 mr-1" /></Button>
-              : <Button className="font-heading" onClick={() => setStarted(false)}>סיום 🎉</Button>
+              : <Button className="font-heading" onClick={() => setStarted(false)}>סיום</Button>
             }
           </div>
           <Button variant="outline" onClick={() => { setFcIdx(i => Math.min(shuffled.length - 1, i + 1)); setFlipped(false); }} disabled={fcIdx === shuffled.length - 1}>
@@ -928,7 +928,7 @@ const StudentPracticePage = () => {
               <div className="flex gap-2">
                 <Button className="flex-1 gap-2 font-heading" onClick={checkOpenAnswer}
                   disabled={!openAnswer.trim() || checkingOpen}>
-                  {checkingOpen ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  {checkingOpen ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
                   {checkingOpen ? "ה-AI בודק..." : "בדוק עם AI"}
                 </Button>
                 <Button variant="outline" className="font-heading" onClick={() => {
@@ -943,10 +943,10 @@ const StudentPracticePage = () => {
 
             {openFeedback && (
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-                <Card className="border-purple-500/40 bg-purple-50/50 dark:bg-purple-900/10">
+                <Card className="border-accent/40 bg-accent/10">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-heading flex items-center gap-2 text-purple-700 dark:text-purple-300">
-                      <Sparkles className="h-4 w-4" />פידבק AI
+                    <CardTitle className="text-sm font-heading flex items-center gap-2 text-accent">
+                      <Brain className="h-4 w-4" />פידבק AI
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0">

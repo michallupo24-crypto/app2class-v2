@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, Search, ClipboardList, Crown } from "lucide-react";
+import { Users, Search, ClipboardList, Crown, User as UserIcon } from "lucide-react";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -174,11 +174,13 @@ const MyClassesPage = () => {
         >
           {filteredStudents.map(s => (
             <motion.div key={s.id} variants={item}>
-              <Card className="flex flex-col items-center gap-2 p-4 hover:shadow-lg hover:-translate-y-0.5 transition-all border-none bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm">
+              <Card className="flex flex-col items-center gap-2 p-4 transition-colors hover:border-primary/40">
                 {s.avatarConfig ? (
                   <AvatarPreview config={s.avatarConfig} size={72} />
                 ) : (
-                  <div className="w-[72px] h-[72px] rounded-2xl bg-muted flex items-center justify-center text-2xl">👤</div>
+                  <div className="w-[72px] h-[72px] rounded-lg bg-muted flex items-center justify-center">
+                    <UserIcon className="h-8 w-8 text-muted-foreground" />
+                  </div>
                 )}
                 <p className="text-xs font-heading font-bold text-center leading-tight">{s.fullName}</p>
               </Card>

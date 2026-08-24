@@ -92,7 +92,7 @@ const MountainClimbMode = ({ profile, assignmentId, onBack }: Props) => {
         description: JSON.stringify({ game: "mountain-climb", stages, questionsPerStage, timePerQuestion }),
       }).eq("id", assignmentId);
       if (error) throw error;
-      toast({ title: "משחק הטיפוס שוגר לכיתה! 🏔️🚀" });
+      toast({ title: "משחק הטיפוס שוגר לכיתה!" });
     } catch (err: any) {
       toast({ title: "שגיאה", description: err.message, variant: "destructive" });
     } finally {
@@ -111,7 +111,7 @@ const MountainClimbMode = ({ profile, assignmentId, onBack }: Props) => {
       {!assignmentId && (
         <Card className="border-warning/30 bg-warning/5">
           <CardContent className="py-4 text-center">
-            <p className="text-sm font-heading text-warning">⚠️ בחר משימה פעילה וצור שאלות קודם</p>
+            <p className="text-sm font-heading text-warning">בחר משימה פעילה וצור שאלות קודם</p>
           </CardContent>
         </Card>
       )}
@@ -130,7 +130,7 @@ const MountainClimbMode = ({ profile, assignmentId, onBack }: Props) => {
           {/* Mountain visual */}
           <Card className="overflow-hidden">
             <CardContent className="p-0">
-              <div className="relative h-56 bg-gradient-to-b from-sky-200 via-blue-100 to-green-200 flex items-end justify-center">
+              <div className="relative h-56 bg-muted flex items-end justify-center">
                 <div className="absolute top-4 right-4 text-4xl">☀️</div>
                 <div className="absolute top-2 left-1/2 -translate-x-1/2 text-4xl">🏰</div>
                 {/* Mountain stages */}
@@ -140,7 +140,7 @@ const MountainClimbMode = ({ profile, assignmentId, onBack }: Props) => {
                   const width = 100 - i * 15;
                   return (
                     <div key={i} className="absolute" style={{ bottom: `${bottom}%`, left: `${left}%`, width: `${width}%`, height: "12px", backgroundColor: i % 2 === 0 ? "#4ade80" : "#86efac", borderRadius: "4px" }}>
-                      <span className="absolute -top-5 right-2 text-[10px] font-bold text-slate-600">שלב {i + 1}</span>
+                      <span className="absolute -top-5 right-2 text-[10px] font-bold text-muted-foreground">שלב {i + 1}</span>
                     </div>
                   );
                 })}
@@ -212,7 +212,7 @@ const MountainClimbMode = ({ profile, assignmentId, onBack }: Props) => {
           {gameOver ? (
             <Card className="border-success/30 bg-success/5 text-center">
               <CardContent className="py-8">
-                <div className="text-6xl mb-3">🏔️🎉</div>
+                <div className="text-6xl mb-3">🏔️</div>
                 <h3 className="font-heading font-bold text-xl">הגעת לפסגה!</h3>
                 <p className="text-sm text-muted-foreground mt-1">ניקוד: {score} / {stages * questionsPerStage}</p>
                 <Button className="mt-4" onClick={startPreview}>שחק שוב</Button>
@@ -232,7 +232,7 @@ const MountainClimbMode = ({ profile, assignmentId, onBack }: Props) => {
                     <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
                       className={`flex items-center gap-2 p-3 rounded-lg ${feedback === "correct" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
                       {feedback === "correct" ? <CheckCircle2 className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
-                      <span className="font-heading font-bold">{feedback === "correct" ? "נכון! 🎉" : `שגוי — ${currentQ.correct_answer}`}</span>
+                      <span className="font-heading font-bold">{feedback === "correct" ? "נכון!" : `שגוי — ${currentQ.correct_answer}`}</span>
                     </motion.div>
                   )}
                 </AnimatePresence>

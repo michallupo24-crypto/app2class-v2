@@ -71,7 +71,7 @@ const CoopGameMode = ({ profile, assignmentId, onBack }: Props) => {
         description: JSON.stringify({ game: "coop-firewater", players: 2 }),
       }).eq("id", assignmentId);
       if (error) throw error;
-      toast({ title: "חדרי המשחק נוצרו! 🔥💧🚀" });
+      toast({ title: "חדרי המשחק נוצרו!" });
     } catch (err: any) {
       toast({ title: "שגיאה", description: err.message, variant: "destructive" });
     } finally {
@@ -93,10 +93,10 @@ const CoopGameMode = ({ profile, assignmentId, onBack }: Props) => {
       {!previewMode ? (
         <Card className="overflow-hidden">
           <CardContent className="p-0">
-            <div className="relative h-48 bg-gradient-to-b from-orange-900/80 via-blue-900/60 to-slate-900 flex items-center justify-center">
+            <div className="relative h-48 bg-muted flex items-center justify-center">
               <div className="flex gap-12 justify-center">
-                <div className="text-center"><span className="text-5xl">🔥</span><p className="text-white text-xs mt-1 font-heading">בן האש</p></div>
-                <div className="text-center"><span className="text-5xl">💧</span><p className="text-white text-xs mt-1 font-heading">בת המים</p></div>
+                <div className="text-center"><span className="text-5xl">🔥</span><p className="text-foreground text-xs mt-1 font-heading">בן האש</p></div>
+                <div className="text-center"><span className="text-5xl">💧</span><p className="text-foreground text-xs mt-1 font-heading">בת המים</p></div>
               </div>
             </div>
             <div className="p-5 space-y-4">
@@ -127,7 +127,7 @@ const CoopGameMode = ({ profile, assignmentId, onBack }: Props) => {
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <Badge className={`${activePlayer === "fire" ? "bg-orange-500" : "bg-blue-500"} text-white`}>
+            <Badge className={`${activePlayer === "fire" ? "bg-warning" : "bg-info"} text-white`}>
               {activePlayer === "fire" ? "🔥 תור בן האש" : "💧 תור בת המים"}
             </Badge>
             <Button variant="ghost" size="sm" onClick={() => setPreviewMode(false)}>← חזרה</Button>
@@ -135,10 +135,10 @@ const CoopGameMode = ({ profile, assignmentId, onBack }: Props) => {
 
           {/* Scores */}
           <div className="grid grid-cols-2 gap-3">
-            <Card className={`p-3 text-center ${activePlayer === "fire" ? "ring-2 ring-orange-400" : ""}`}>
+            <Card className={`p-3 text-center ${activePlayer === "fire" ? "ring-2 ring-warning" : ""}`}>
               <p className="text-2xl">🔥</p><p className="font-bold">{fireScore}</p>
             </Card>
-            <Card className={`p-3 text-center ${activePlayer === "water" ? "ring-2 ring-blue-400" : ""}`}>
+            <Card className={`p-3 text-center ${activePlayer === "water" ? "ring-2 ring-info" : ""}`}>
               <p className="text-2xl">💧</p><p className="font-bold">{waterScore}</p>
             </Card>
           </div>

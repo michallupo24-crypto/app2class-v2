@@ -194,7 +194,7 @@ export function MobileBottomNav({ profile }: MobileBottomNavProps) {
                 <span className="text-[10px] font-heading leading-tight">עוד</span>
               </button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="rounded-t-2xl pb-8">
+            <SheetContent side="bottom" className="rounded-t-lg pb-8">
               <div className="grid grid-cols-3 gap-3 pt-4">
                 {overflow.map((item) => (
                   <button
@@ -204,7 +204,7 @@ export function MobileBottomNav({ profile }: MobileBottomNavProps) {
                       setSheetOpen(false);
                     }}
                     className={cn(
-                      "flex flex-col items-center justify-center gap-2 py-5 px-3 rounded-2xl transition-colors relative",
+                      "flex flex-col items-center justify-center gap-2 py-5 px-3 rounded-lg transition-colors relative",
                       isActive(item.url)
                         ? "bg-primary/10 text-primary"
                         : "bg-muted/50 text-foreground active:bg-muted"

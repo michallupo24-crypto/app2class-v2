@@ -390,7 +390,7 @@ const TeacherLiveLessonPage = () => {
     setPollOptions([{ text: "", isCorrect: false }, { text: "", isCorrect: false }]);
     setShowPollForm(false);
     await loadSessionData(activeSession.id);
-    toast({ title: pollType === "quiz" ? "חידון נוצר! 🧠" : "סקר נוצר! 📊" });
+    toast({ title: pollType === "quiz" ? "חידון נוצר!" : "סקר נוצר!" });
   };
 
   const togglePollResults = async (pollId: string, show: boolean) => {
@@ -447,10 +447,10 @@ const TeacherLiveLessonPage = () => {
         </h1>
         <div className="flex items-center gap-2">
           <span className="flex h-3 w-3 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-success" />
           </span>
-          <Badge className="bg-green-500/10 text-green-600 border-green-200">משדר</Badge>
+          <Badge className="bg-success/10 text-success border-success/30">משדר</Badge>
         </div>
       </div>
 
@@ -595,7 +595,7 @@ const TeacherLiveLessonPage = () => {
                 <div className="space-y-2">
                   {questions.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-8">
-                      אין שאלות עדיין. התלמידים יכולים לשאול דרך הפורטל שלהם 🙋
+                      אין שאלות עדיין. התלמידים יכולים לשאול דרך הפורטל שלהם
                     </p>
                   ) : (
                     [...questions].sort((a, b) => b.upvotes - a.upvotes).map(q => (
@@ -664,7 +664,7 @@ const TeacherLiveLessonPage = () => {
                       const pct = totalResponses > 0 ? Math.round((count / totalResponses) * 100) : 0;
                       return (
                         <div key={i} className={`px-3 py-2 rounded-lg border text-sm relative overflow-hidden ${
-                          poll.poll_type === "quiz" && opt.isCorrect ? "border-green-300 bg-green-50/50" : "border-border"
+                          poll.poll_type === "quiz" && opt.isCorrect ? "border-success/50 bg-success/10" : "border-border"
                         }`}>
                           {totalResponses > 0 && (
                             <div
@@ -676,7 +676,7 @@ const TeacherLiveLessonPage = () => {
                             <span>
                               {opt.text}
                               {poll.poll_type === "quiz" && opt.isCorrect && (
-                                <Badge className="mr-2 text-[9px] bg-green-100 text-green-700">תשובה נכונה</Badge>
+                                <Badge className="mr-2 text-[9px] bg-success/15 text-success">תשובה נכונה</Badge>
                               )}
                             </span>
                             <span className="text-xs text-muted-foreground font-mono">
@@ -708,8 +708,8 @@ const TeacherLiveLessonPage = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex gap-2">
-                  <Button variant={pollType === "poll" ? "default" : "outline"} size="sm" onClick={() => setPollType("poll")}>📊 סקר</Button>
-                  <Button variant={pollType === "quiz" ? "default" : "outline"} size="sm" onClick={() => setPollType("quiz")}>🧠 חידון</Button>
+                  <Button variant={pollType === "poll" ? "default" : "outline"} size="sm" onClick={() => setPollType("poll")}>סקר</Button>
+                  <Button variant={pollType === "quiz" ? "default" : "outline"} size="sm" onClick={() => setPollType("quiz")}>חידון</Button>
                 </div>
                 <Input value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} placeholder="שאלה..." className="text-sm" />
                 <div className="space-y-2">

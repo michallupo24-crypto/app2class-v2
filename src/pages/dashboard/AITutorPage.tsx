@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import {
-  Brain, Send, Sparkles, BookOpen, FileText, Calendar,
+  Brain, Send, BookOpen, FileText, Calendar,
   Zap, Target, ChevronDown, ChevronUp, Loader2, Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ const QUICK_PROMPTS = [
   { label: "סכם שיעור", icon: FileText, prompt: "תסכם לי את הנושא האחרון בצורה מסודרת" },
   { label: "תוכנית מבחן", icon: Calendar, prompt: "עזור לי לבנות תוכנית לימודים למבחן" },
   { label: "הסבר מושג", icon: BookOpen, prompt: "הסבר לי מושג שאני לא מבין" },
-  { label: "בדוק תשובה", icon: Sparkles, prompt: "בדוק לי תשובה שכתבתי" },
+  { label: "בדוק תשובה", icon: Target, prompt: "בדוק לי תשובה שכתבתי" },
 ];
 
 const AITutorPage = () => {
@@ -115,15 +115,15 @@ const AITutorPage = () => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-7rem)] md:h-[calc(100vh-5rem)] max-w-3xl mx-auto rounded-3xl overflow-hidden bg-background border shadow-2xl relative">
+    <div className="flex flex-col h-[calc(100vh-7rem)] md:h-[calc(100vh-5rem)] max-w-3xl mx-auto rounded-lg overflow-hidden bg-background border relative">
       <div className="flex items-center justify-between p-4 border-b bg-muted/20">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
-            <Brain className="h-5 w-5 text-white" />
+          <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+            <Brain className="h-5 w-5 text-primary-foreground" />
           </div>
           <div>
             <h1 className="font-heading text-lg font-bold">C.H.E.E.S.E.</h1>
-            <p className="text-[10px] text-muted-foreground font-black">AI TUTOR ACTIVE</p>
+            <p className="text-[10px] text-muted-foreground font-black">כאן כדי לעזור</p>
           </div>
         </div>
         <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
@@ -131,7 +131,7 @@ const AITutorPage = () => {
           <SheetContent>
             <SheetHeader><SheetTitle>שיחות אחרונות</SheetTitle></SheetHeader>
             <div className="mt-4 space-y-2">
-              {sessions.map(s => <button key={s.id} onClick={() => loadSession(s.id)} className={cn("w-full text-right p-3 rounded-lg border text-sm", activeSessionId === s.id ? "bg-indigo-600 text-white" : "")}>{s.title}</button>)}
+              {sessions.map(s => <button key={s.id} onClick={() => loadSession(s.id)} className={cn("w-full text-right p-3 rounded-lg border text-sm", activeSessionId === s.id ? "bg-primary text-primary-foreground" : "")}>{s.title}</button>)}
               <Button onClick={startNewChat} className="w-full mt-4">שיחה חדשה</Button>
             </div>
           </SheetContent>
@@ -141,14 +141,14 @@ const AITutorPage = () => {
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-6 text-center">
-            <div className="w-24 h-24 rounded-[2.5rem] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-2xl">
-              <Brain className="h-12 w-12 text-white" />
+            <div className="w-24 h-24 rounded-lg bg-primary flex items-center justify-center">
+              <Brain className="h-12 w-12 text-primary-foreground" />
             </div>
             <h2 className="font-heading text-2xl font-black tracking-tight">היי {profile.fullName.split(" ")[0]}!</h2>
             <div className="grid grid-cols-2 gap-3 w-full max-w-sm">
               {QUICK_PROMPTS.map(qp => (
-                <button key={qp.label} onClick={() => send(qp.prompt)} className="p-4 rounded-3xl border bg-card hover:bg-muted transition-all text-center flex flex-col items-center gap-2">
-                  <qp.icon className="h-5 w-5 text-indigo-500" />
+                <button key={qp.label} onClick={() => send(qp.prompt)} className="p-4 rounded-lg border bg-card hover:bg-muted transition-colors text-center flex flex-col items-center gap-2">
+                  <qp.icon className="h-5 w-5 text-primary" />
                   <span className="text-xs font-bold">{qp.label}</span>
                 </button>
               ))}
@@ -157,7 +157,7 @@ const AITutorPage = () => {
         ) : (
           messages.map((msg, i) => (
             <div key={i} className={cn("flex gap-3", msg.role === "user" ? "flex-row-reverse" : "flex-row")}>
-              <Card className={cn("max-w-[85%] px-5 py-3 rounded-3xl", msg.role === "user" ? "bg-indigo-600 text-white" : "bg-muted/30")}>
+              <Card className={cn("max-w-[85%] px-5 py-3 rounded-lg", msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted/30")}>
                 <div className="prose prose-sm dark:prose-invert max-w-none">
                   <ReactMarkdown>{msg.content}</ReactMarkdown>
                 </div>
@@ -171,9 +171,9 @@ const AITutorPage = () => {
         <div className="flex gap-2 items-end relative">
           <Textarea
             value={input} onChange={e => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), send(input))}
-            placeholder="שאל אותי משהו..." className="resize-none min-h-[60px] max-h-[150px] rounded-3xl bg-muted/40 border-none pr-14" disabled={isLoading}
+            placeholder="שאל אותי משהו..." className="resize-none min-h-[60px] max-h-[150px] rounded-lg bg-muted/40 border-none pr-14" disabled={isLoading}
           />
-          <Button size="icon" className="absolute left-3 bottom-2.5 h-10 w-10 rounded-2xl bg-indigo-600" onClick={() => send(input)} disabled={!input.trim() || isLoading}>
+          <Button size="icon" className="absolute left-3 bottom-2.5 h-10 w-10 rounded-lg bg-primary" onClick={() => send(input)} disabled={!input.trim() || isLoading}>
             {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5 ml-1" />}
           </Button>
         </div>

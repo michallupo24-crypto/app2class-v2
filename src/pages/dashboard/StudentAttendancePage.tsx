@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileUp, Calendar, AlertTriangle, CheckCircle2, Star, Clock, Heart, Minus, ShieldCheck, Paperclip, Send } from "lucide-react";
+import { FileUp, Calendar, AlertTriangle, CheckCircle2, Star, Clock, Heart, Minus, ShieldCheck, Paperclip, Send, Trophy, Hand, HeartHandshake, Smartphone, XCircle, FileText } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -191,19 +191,19 @@ export default function StudentAttendancePage() {
     }
   };
 
-  const getEmojiForCategory = (cat: string) => {
+  const getIconForCategory = (cat: string) => {
     switch (cat) {
-      case "excellence": return "🌟";
-      case "positive_participation": return "🙋🏽‍♀️";
-      case "helped_peer": return "🤝";
-      case "disruption": return "⚠️";
-      case "phone": return "📱";
-      case "no_homework": return "❌";
-      default: return "📝";
+      case "excellence": return Trophy;
+      case "positive_participation": return Hand;
+      case "helped_peer": return HeartHandshake;
+      case "disruption": return AlertTriangle;
+      case "phone": return Smartphone;
+      case "no_homework": return XCircle;
+      default: return FileText;
     }
   };
 
-  if (loading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-10 w-10 animate-spin text-indigo-600" /></div>;
+  if (loading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="max-w-5xl mx-auto px-4 py-10 space-y-12 pb-32">
@@ -212,26 +212,25 @@ export default function StudentAttendancePage() {
       <motion.div variants={item} className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="space-y-1">
            <h1 className="text-3xl font-heading font-black tracking-tighter flex items-center gap-3">
-              <Clock className="h-8 w-8 text-indigo-600" /> יומן נוכחות ואירועים
+              <Clock className="h-8 w-8 text-primary" /> יומן נוכחות ואירועים
            </h1>
-           <p className="text-sm text-slate-500 font-bold">
+           <p className="text-sm text-muted-foreground font-bold">
               {isParentView ? `מעקב נוכחות עבור: ${studentName}` : "היסטוריית חיסורים, איחורים וציונים לשבח"}
            </p>
         </div>
         <div className="flex items-center gap-3">
-           <Badge className="bg-indigo-600 text-white px-4 py-1.5 rounded-full text-xs font-black shadow-lg shadow-indigo-100 uppercase tracking-widest">Live Sync</Badge>
+           <Badge className="bg-primary text-primary-foreground px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest">מתעדכן בזמן אמת</Badge>
         </div>
       </motion.div>
 
       {/* 2. ATTENDANCE PULSE CARD */}
       <motion.div variants={item}>
-         <Card className={`border-none text-white rounded-[3rem] p-10 overflow-hidden relative shadow-2xl ${stats.nearRedLine ? "bg-rose-600 shadow-rose-100" : "bg-indigo-600 shadow-indigo-100"}`}>
-            <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full -mr-40 -mt-40 blur-3xl" />
+         <Card className={`border-none text-primary-foreground rounded-lg p-10 overflow-hidden relative ${stats.nearRedLine ? "bg-destructive" : "bg-primary"}`}>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-12">
                <div className="space-y-4 text-center md:text-right">
-                  <p className={`text-[10px] uppercase font-black tracking-widest ${stats.nearRedLine ? "text-rose-200" : "text-indigo-200"}`}>מדד נוכחות והתמדה</p>
+                  <p className="text-[10px] uppercase font-black tracking-widest text-primary-foreground/70">מדד נוכחות והתמדה</p>
                   <h2 className="text-6xl font-heading font-black">{stats.presencePct}%</h2>
-                  <div className={`flex items-center gap-2 font-bold text-xs ${stats.nearRedLine ? "text-rose-100" : "text-indigo-100"}`}>
+                  <div className="flex items-center gap-2 font-bold text-xs text-primary-foreground/80">
                      {stats.nearRedLine ? (
                         <><AlertTriangle className="h-4 w-4" /> {stats.absencePct}% היעדרות — מתקרב לקו האדום (15%)</>
                      ) : (
@@ -240,15 +239,15 @@ export default function StudentAttendancePage() {
                   </div>
                </div>
                <div className="flex-1 w-full max-w-md space-y-6">
-                  <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest text-indigo-200">
+                  <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest text-primary-foreground/70">
                      <span>Presence Health</span>
                      <span>Excellent</span>
                   </div>
-                  <Progress value={stats.presencePct} className="h-4 bg-white/10" />
+                  <Progress value={stats.presencePct} className="h-4 bg-primary-foreground/10" />
                   <div className="grid grid-cols-3 gap-4">
-                     <div className="text-center"><p className="text-xl font-black">{stats.unexcused}</p><p className="text-[9px] uppercase font-black text-indigo-200">חיסורים</p></div>
-                     <div className="text-center"><p className="text-xl font-black">{stats.lates}</p><p className="text-[9px] uppercase font-black text-indigo-200">איחורים</p></div>
-                     <div className="text-center"><p className="text-xl font-black">{stats.highlights}</p><p className="text-[9px] uppercase font-black text-indigo-200">ציונים לשבח</p></div>
+                     <div className="text-center"><p className="text-xl font-black">{stats.unexcused}</p><p className="text-[9px] uppercase font-black text-primary-foreground/70">חיסורים</p></div>
+                     <div className="text-center"><p className="text-xl font-black">{stats.lates}</p><p className="text-[9px] uppercase font-black text-primary-foreground/70">איחורים</p></div>
+                     <div className="text-center"><p className="text-xl font-black">{stats.highlights}</p><p className="text-[9px] uppercase font-black text-primary-foreground/70">ציונים לשבח</p></div>
                   </div>
                </div>
             </div>
@@ -262,38 +261,38 @@ export default function StudentAttendancePage() {
          <motion.div variants={item} className="space-y-6">
             <div className="flex items-center justify-between px-4">
                <h3 className="text-xl font-heading font-black flex items-center gap-3">
-                  <AlertTriangle className="h-5 w-5 text-rose-500" /> חיסורים ואיחורים
+                  <AlertTriangle className="h-5 w-5 text-destructive" /> חיסורים ואיחורים
                </h3>
-               <Badge variant="outline" className="rounded-full text-rose-500 border-rose-100 px-3">{records.length}</Badge>
+               <Badge variant="outline" className="rounded-full text-destructive border-destructive/30 px-3">{records.length}</Badge>
             </div>
-            
+
             {records.length === 0 ? (
-               <Card className="border-dashed border-2 border-slate-200 bg-transparent rounded-[2rem] p-10 text-center space-y-3 opacity-50">
-                  <CheckCircle2 className="h-10 w-10 mx-auto text-emerald-500" />
+               <Card className="border-dashed border-2 border-border bg-transparent rounded-lg p-10 text-center space-y-3 opacity-50">
+                  <CheckCircle2 className="h-10 w-10 mx-auto text-success" />
                   <p className="text-sm font-bold font-heading">אין אירועי משמעת או חיסורים להצגה</p>
                </Card>
             ) : (
                <div className="space-y-4">
                   {records.map(r => (
-                    <Card key={r.id} className="border-none bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all group overflow-hidden">
+                    <Card key={r.id} className="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-all overflow-hidden">
                        <div className="flex items-center justify-between">
                           <div className="flex items-center gap-5">
-                             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${r.status === "absent" ? "bg-rose-50 text-rose-500" : "bg-amber-50 text-amber-500"}`}>
+                             <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${r.status === "absent" ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning"}`}>
                                 {r.status === "absent" ? <Minus className="h-6 w-6" /> : <Clock className="h-6 w-6" />}
                              </div>
                              <div>
                                 <p className="text-sm font-black">{r.subject}</p>
-                                <p className="text-[10px] text-slate-400 font-bold">שיעור {r.lesson_number} • {new Date(r.date).toLocaleDateString("he-IL")}</p>
+                                <p className="text-[10px] text-muted-foreground font-bold">שיעור {r.lesson_number} • {new Date(r.date).toLocaleDateString("he-IL")}</p>
                              </div>
                           </div>
                           {r.status === "excused" ? (
-                             <Badge className="bg-emerald-100 text-emerald-600 border-transparent rounded-lg text-[9px] font-black uppercase">מוצדק</Badge>
+                             <Badge className="bg-success/10 text-success border-transparent rounded-lg text-[9px] font-black uppercase">מוצדק</Badge>
                           ) : r.justificationStatus === "pending" ? (
-                             <Badge className="bg-amber-100 text-amber-600 border-transparent rounded-lg text-[9px] font-black uppercase">ממתין לאישור מחנך</Badge>
+                             <Badge className="bg-warning/10 text-warning border-transparent rounded-lg text-[9px] font-black uppercase">ממתין לאישור מחנך</Badge>
                           ) : r.justificationStatus === "rejected" ? (
-                             <Badge variant="outline" className="rounded-lg text-[9px] font-black uppercase text-rose-500 border-rose-100">הצדקה נדחתה</Badge>
+                             <Badge variant="outline" className="rounded-lg text-[9px] font-black uppercase text-destructive border-destructive/30">הצדקה נדחתה</Badge>
                           ) : (
-                             <Button size="sm" variant="outline" className="rounded-xl border-slate-100 hover:bg-slate-50 text-[10px] font-black uppercase h-9 px-4" onClick={() => setSelectedRecordId(r.id)}>הגש הצדקה</Button>
+                             <Button size="sm" variant="outline" className="rounded-lg border-border hover:bg-muted text-[10px] font-black uppercase h-9 px-4" onClick={() => setSelectedRecordId(r.id)}>הגש הצדקה</Button>
                           )}
                        </div>
                     </Card>
@@ -306,34 +305,37 @@ export default function StudentAttendancePage() {
          <motion.div variants={item} className="space-y-6">
             <div className="flex items-center justify-between px-4">
                <h3 className="text-xl font-heading font-black flex items-center gap-3">
-                  <Star className="h-5 w-5 text-amber-500" /> קיר הצטיינות וציונים לשבח
+                  <Star className="h-5 w-5 text-warning" /> קיר הצטיינות וציונים לשבח
                </h3>
-               <Badge className="bg-amber-100 text-amber-600 rounded-full px-3">{notes.length}</Badge>
+               <Badge className="bg-warning/10 text-warning rounded-full px-3">{notes.length}</Badge>
             </div>
 
             {notes.length === 0 ? (
-               <Card className="border-dashed border-2 border-slate-200 bg-transparent rounded-[2rem] p-10 text-center space-y-3 opacity-50">
-                  <Heart className="h-10 w-10 mx-auto text-rose-300" />
+               <Card className="border-dashed border-2 border-border bg-transparent rounded-lg p-10 text-center space-y-3 opacity-50">
+                  <Heart className="h-10 w-10 mx-auto text-muted-foreground" />
                   <p className="text-sm font-bold font-heading">עדיין לא נרשמו הערות מיוחדות</p>
                </Card>
             ) : (
                <div className="space-y-4">
-                  {notes.map(n => (
-                    <Card key={n.id} className="border-none bg-amber-500/5 dark:bg-amber-500/10 rounded-3xl p-6 border border-amber-500/10 shadow-sm hover:shadow-md transition-all group">
+                  {notes.map(n => {
+                    const NoteIcon = getIconForCategory(n.category);
+                    return (
+                    <Card key={n.id} className="bg-warning/5 rounded-lg p-6 border border-warning/20 shadow-sm hover:shadow-md transition-all">
                        <div className="flex items-start gap-5">
-                          <div className="text-3xl bg-white dark:bg-slate-900 w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm">
-                             {getEmojiForCategory(n.category)}
+                          <div className="bg-card w-14 h-14 rounded-lg flex items-center justify-center shadow-sm shrink-0">
+                             <NoteIcon className="h-6 w-6 text-warning" />
                           </div>
                           <div className="flex-1 space-y-2">
                              <div className="flex justify-between items-start">
                                 <p className="text-sm font-black">{n.subject}</p>
-                                <p className="text-[10px] text-amber-600 font-bold">{new Date(n.date).toLocaleDateString("he-IL")}</p>
+                                <p className="text-[10px] text-warning font-bold">{new Date(n.date).toLocaleDateString("he-IL")}</p>
                              </div>
-                             {n.comment && <p className="text-[11px] text-slate-600 dark:text-slate-300 italic leading-relaxed">" {n.comment} "</p>}
+                             {n.comment && <p className="text-[11px] text-muted-foreground italic leading-relaxed">" {n.comment} "</p>}
                           </div>
                        </div>
                     </Card>
-                  ))}
+                    );
+                  })}
                </div>
             )}
          </motion.div>
@@ -341,23 +343,23 @@ export default function StudentAttendancePage() {
 
       {/* EXCUSE MODAL */}
       <Dialog open={!!selectedRecordId} onOpenChange={o => { if (!o) { setSelectedRecordId(null); setExcuseReason(""); setExcuseText(""); setAttachmentFile(null); } }}>
-         <DialogContent className="rounded-[2.5rem] p-10 max-w-md text-right" dir="rtl">
+         <DialogContent className="rounded-lg p-10 max-w-md text-right" dir="rtl">
             <DialogHeader className="mb-6">
                <DialogTitle className="text-2xl font-black font-heading flex items-center gap-3">
-                  <FileUp className="h-7 w-7 text-indigo-600" /> הגשת הצדקה רשמית
+                  <FileUp className="h-7 w-7 text-primary" /> הגשת הצדקה רשמית
                </DialogTitle>
             </DialogHeader>
             <div className="space-y-6">
-               <div className="p-4 bg-indigo-50 rounded-[1.5rem] border border-indigo-100 flex items-center gap-4">
-                  <Clock className="h-5 w-5 text-indigo-600" />
+               <div className="p-4 bg-primary/10 rounded-lg border border-primary/20 flex items-center gap-4">
+                  <Clock className="h-5 w-5 text-primary" />
                   <div>
                      <p className="text-sm font-black italic">בקשה עבור חיסור בתאריך {records.find(r => r.id === selectedRecordId)?.date}</p>
                   </div>
                </div>
                <div className="space-y-2">
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest px-2">סיבת ההיעדרות</p>
+                  <p className="text-xs font-black text-muted-foreground uppercase tracking-widest px-2">סיבת ההיעדרות</p>
                   <Select value={excuseReason} onValueChange={setExcuseReason}>
-                     <SelectTrigger className="rounded-2xl border-slate-100 bg-slate-50/50 h-12 text-sm">
+                     <SelectTrigger className="rounded-lg border-border bg-muted/50 h-12 text-sm">
                         <SelectValue placeholder="בחר/י סיבה" />
                      </SelectTrigger>
                      <SelectContent>
@@ -368,12 +370,12 @@ export default function StudentAttendancePage() {
                   </Select>
                </div>
                <div className="space-y-2">
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest px-2">פירוט נוסף (אופציונלי)</p>
+                  <p className="text-xs font-black text-muted-foreground uppercase tracking-widest px-2">פירוט נוסף (אופציונלי)</p>
                   <Textarea
                      value={excuseText}
                      onChange={e => setExcuseText(e.target.value)}
                      placeholder="פרטים נוספים אם צריך..."
-                     className="rounded-2xl border-slate-100 bg-slate-50/50 min-h-[80px] p-4 text-sm"
+                     className="rounded-lg border-border bg-muted/50 min-h-[80px] p-4 text-sm"
                   />
                </div>
                <div className="space-y-2">
@@ -387,14 +389,14 @@ export default function StudentAttendancePage() {
                   <Button
                      type="button"
                      variant="outline"
-                     className="w-full h-12 rounded-2xl border-dashed border-2 border-slate-200 text-xs font-bold gap-2"
+                     className="w-full h-12 rounded-lg border-dashed border-2 border-border text-xs font-bold gap-2"
                      onClick={() => document.getElementById("justification-attachment")?.click()}
                   >
                      {attachmentFile ? <Paperclip className="h-4 w-4" /> : <FileUp className="h-4 w-4" />}
                      {attachmentFile ? attachmentFile.name : "העלאת אישור רפואי / הורים"}
                   </Button>
                </div>
-               <Button onClick={handleExcuseSubmit} disabled={submittingExcuse || !excuseReason} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black gap-3 shadow-xl shadow-indigo-100 transition-all">
+               <Button onClick={handleExcuseSubmit} disabled={submittingExcuse || !excuseReason} className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-black gap-3 transition-colors">
                   {submittingExcuse ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5 rotate-180" />}
                   שלח הצדקה למחנך/ת
                </Button>

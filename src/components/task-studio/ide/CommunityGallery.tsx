@@ -29,12 +29,12 @@ export const CommunityGallery: React.FC<CommunityGalleryProps> = ({
   });
 
   return (
-    <div className="flex-1 bg-[#0A0A0A] p-6 overflow-y-auto text-[#E0E0E0] rounded-2xl border border-[#2A2A2A]">
+    <div className="flex-1 bg-[#0A0A0A] p-6 overflow-y-auto text-[#E0E0E0] rounded-lg border border-[#2A2A2A]">
       <div className="max-w-6xl mx-auto space-y-6">
-        <div className="bg-[#111111] border border-[#2A2A2A] rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="bg-[#111111] border border-[#2A2A2A] rounded-lg p-6 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-2 text-right">
-            <div className="inline-flex items-center gap-2 bg-blue-600/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-xs font-semibold">
-              <Sparkles className="w-3.5 h-3.5 text-blue-300" />
+            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full text-xs font-semibold">
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
               <span>גלריית קהילת המורים</span>
             </div>
             <h1 className="text-2xl md:text-3xl font-extrabold text-white">משימות אינטראקטיביות מוכנות לשימוש</h1>
@@ -44,7 +44,7 @@ export const CommunityGallery: React.FC<CommunityGalleryProps> = ({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-4 bg-[#111111] p-4 rounded-2xl border border-[#2A2A2A] shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 bg-[#111111] p-4 rounded-lg border border-[#2A2A2A]">
           <div className="relative flex-1 min-w-[240px]">
             <Search className="w-4 h-4 absolute right-3 top-3.5 text-gray-500" />
             <input
@@ -52,7 +52,7 @@ export const CommunityGallery: React.FC<CommunityGalleryProps> = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="חפש לפי שם משימה, תיאור או נושא..."
-              className="w-full pr-10 pl-4 py-2 bg-[#0A0A0A] border border-[#2A2A2A] rounded-xl text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full pr-10 pl-4 py-2 bg-[#0A0A0A] border border-[#2A2A2A] rounded-lg text-xs text-white focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -62,7 +62,7 @@ export const CommunityGallery: React.FC<CommunityGalleryProps> = ({
                 key={sub}
                 onClick={() => setSelectedSubject(sub)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
-                  selectedSubject === sub ? 'bg-blue-600 text-white shadow-sm' : 'bg-[#1A1A1A] text-gray-400 hover:text-white border border-[#2A2A2A]'
+                  selectedSubject === sub ? 'bg-primary text-primary-foreground' : 'bg-[#1A1A1A] text-gray-400 hover:text-white border border-[#2A2A2A]'
                 }`}
               >
                 {sub === 'all' ? 'כל המקצועות' : sub}
@@ -80,19 +80,19 @@ export const CommunityGallery: React.FC<CommunityGalleryProps> = ({
             {filteredTasks.map((task) => (
               <div
                 key={task.id}
-                className="bg-[#111111] rounded-2xl border border-[#2A2A2A] hover:border-blue-500/40 shadow-md hover:shadow-xl transition-all duration-300 flex flex-col justify-between overflow-hidden group"
+                className="bg-[#111111] rounded-lg border border-[#2A2A2A] hover:border-primary/40 transition-colors flex flex-col justify-between overflow-hidden group"
               >
                 <div className="p-6 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-blue-600/10 text-blue-400 border border-blue-500/20">
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-primary/10 text-primary border border-primary/20">
                       {task.subject}
                     </span>
                     <span className="text-xs font-mono text-gray-500">
-                      {task.language === 'python' ? '🐍 Python' : '🌐 Web Stack'}
+                      {task.language === 'python' ? 'Python' : 'Web Stack'}
                     </span>
                   </div>
 
-                  <h3 className="font-bold text-base text-white group-hover:text-blue-400 transition">{task.title}</h3>
+                  <h3 className="font-bold text-base text-white group-hover:text-primary transition">{task.title}</h3>
                   <p className="text-xs text-gray-400 leading-relaxed line-clamp-3">{task.description}</p>
 
                   <div className="flex flex-wrap gap-1 pt-2">
@@ -112,13 +112,13 @@ export const CommunityGallery: React.FC<CommunityGalleryProps> = ({
                       onClick={() => onPreviewTask(task)}
                       className="px-3 py-1.5 bg-[#2A2A2A] hover:bg-[#333333] text-gray-300 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1 border border-[#3A3A3A]"
                     >
-                      <Play className="w-3.5 h-3.5 text-green-400" />
+                      <Play className="w-3.5 h-3.5 text-success" />
                       <span>תצוגה</span>
                     </button>
 
                     <button
                       onClick={() => onSelectTaskToFork(task)}
-                      className="px-3.5 py-1.5 bg-white text-black hover:bg-gray-200 rounded-lg text-xs font-semibold shadow transition cursor-pointer flex items-center gap-1"
+                      className="px-3.5 py-1.5 bg-primary text-primary-foreground hover:opacity-90 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1"
                     >
                       <GitFork className="w-3.5 h-3.5" />
                       <span>Fork & העתק</span>

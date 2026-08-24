@@ -111,7 +111,7 @@ const ClassMessenger = ({ classId, userId, isTeacher }: { classId: string; userI
       if (error) throw error;
       setNewMsg("");
       await loadMessages();
-      toast({ title: "ההודעה פורסמה לכל הכיתה! 📢" });
+      toast({ title: "ההודעה פורסמה לכל הכיתה!" });
     } catch (e: any) {
       toast({ title: "שגיאה בפרסום", description: e.message, variant: "destructive" });
     } finally {
@@ -140,11 +140,11 @@ const ClassMessenger = ({ classId, userId, isTeacher }: { classId: string; userI
   if (loading) return <div className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></div>;
 
   return (
-    <Card className="border-none shadow-xl bg-white/70 backdrop-blur-md overflow-hidden ring-1 ring-black/[0.02]">
-      <CardHeader className="p-5 border-b border-slate-100 bg-slate-50/50">
+    <Card className="border border-border bg-card overflow-hidden">
+      <CardHeader className="p-5 border-b border-border bg-muted/50">
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-               <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center">
+               <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
                   <Megaphone className="h-5 w-5 text-primary" />
                </div>
                <div>
@@ -173,8 +173,8 @@ const ClassMessenger = ({ classId, userId, isTeacher }: { classId: string; userI
                          initial={{ opacity: 0, x: 20 }}
                          animate={{ opacity: 1, x: 0 }}
                          transition={{ delay: idx * 0.05 }}
-                         className={`relative p-4 rounded-2xl border transition-all ${
-                            m.is_pinned ? 'bg-primary/5 border-primary/20 shadow-sm' : 'bg-white border-slate-100 shadow-sm hover:shadow-md'
+                         className={`relative p-4 rounded-lg border transition-all ${
+                            m.is_pinned ? 'bg-primary/5 border-primary/20 shadow-sm' : 'bg-card border-border shadow-sm hover:shadow-md'
                          }`}
                        >
                           {m.is_pinned && (
@@ -186,19 +186,19 @@ const ClassMessenger = ({ classId, userId, isTeacher }: { classId: string; userI
                              {m.author_avatar ? (
                                 <AvatarPreview config={m.author_avatar} size={36} />
                              ) : (
-                                <div className="h-9 w-9 rounded-xl bg-slate-100 flex items-center justify-center text-sm">👤</div>
+                                <div className="h-9 w-9 rounded-xl bg-muted flex items-center justify-center text-sm">👤</div>
                              )}
                              <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between mb-1">
-                                   <p className="text-xs font-heading font-black text-slate-800">{m.author_name}</p>
-                                   <span className="text-[9px] text-slate-400 font-medium">
+                                   <p className="text-xs font-heading font-black text-foreground">{m.author_name}</p>
+                                   <span className="text-[9px] text-muted-foreground font-medium">
                                       {new Date(m.created_at).toLocaleDateString('he-IL')} • {new Date(m.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                                    </span>
                                 </div>
-                                <p className="text-sm text-slate-600 font-medium leading-relaxed whitespace-pre-wrap">{m.content}</p>
+                                <p className="text-sm text-foreground font-medium leading-relaxed whitespace-pre-wrap">{m.content}</p>
 
                                 {isTeacher && (
-                                   <div className="flex items-center gap-2 mt-3 pt-2 border-t border-slate-50">
+                                   <div className="flex items-center gap-2 mt-3 pt-2 border-t border-border">
                                       <Button variant="ghost" size="sm" onClick={() => togglePin(m.id, m.is_pinned)} className="h-7 px-2 text-[10px] gap-1 hover:text-primary">
                                          <Pin className="h-3 w-3" /> {m.is_pinned ? 'בטל נעילה' : 'נעץ הודעה'}
                                       </Button>
@@ -217,19 +217,19 @@ const ClassMessenger = ({ classId, userId, isTeacher }: { classId: string; userI
 
            {/* Input Area */}
            {isTeacher ? (
-              <div className="p-4 bg-slate-50/80 border-t border-slate-100">
+              <div className="p-4 bg-muted/50 border-t border-border">
                  <div className="relative">
                     <Textarea
                        value={newMsg}
                        onChange={(e) => setNewMsg(e.target.value)}
                        placeholder="כתוב הודעה לכיתה..."
-                       className="min-h-[80px] rounded-2xl bg-white border-slate-200 focus:ring-primary/20 pr-4 pt-3 text-sm resize-none shadow-sm"
+                       className="min-h-[80px] rounded-lg bg-card border-border focus:ring-primary/20 pr-4 pt-3 text-sm resize-none shadow-sm"
                     />
                     <div className="flex items-center justify-end mt-3">
                        <Button
                          onClick={postMessage}
                          disabled={!newMsg.trim() || sending}
-                         className="rounded-xl h-9 px-6 font-bold gap-2 shadow-lg shadow-primary/20"
+                         className="rounded-xl h-9 px-6 font-bold gap-2"
                        >
                           {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                           שלח הודעה

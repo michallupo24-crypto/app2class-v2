@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   Target, Clock, CheckCircle2, Upload, RotateCcw,
   Loader2, Play, Send, FileText, Paperclip, X, Image as ImageIcon, Gamepad2,
+  MessageSquare, Layers, Lightbulb,
 } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -206,7 +207,7 @@ const TasksPage = () => {
         return;
       }
       setSubmitText((prev) => (prev.trim() ? `${prev}\n\n${text}` : text));
-      toast({ title: "הטקסט חולץ בהצלחה! ✏️", description: "אפשר לערוך אותו לפני ההגשה." });
+      toast({ title: "הטקסט חולץ בהצלחה", description: "אפשר לערוך אותו לפני ההגשה." });
     } catch (err: any) {
       toast({ title: "שגיאה בחילוץ הטקסט", description: err.message, variant: "destructive" });
     } finally {
@@ -263,7 +264,7 @@ const TasksPage = () => {
         if (error) throw error;
       }
 
-      toast({ title: "הוגש בהצלחה! ✅" });
+      toast({ title: "הוגש בהצלחה!" });
       setSubmitTask(null);
       setSubmitText("");
       setSelectedFile(null);
@@ -329,7 +330,7 @@ const TasksPage = () => {
         });
         if (error) throw error;
       }
-      toast({ title: `סיימת! ציון: ${pct}% 🎉` });
+      toast({ title: `סיימת! ציון: ${pct}%` });
       loadTasks();
     } catch {
       setQuizSaveError(true);
@@ -342,7 +343,7 @@ const TasksPage = () => {
     date ? Math.ceil((new Date(date).getTime() - Date.now()) / 86400000) : null;
 
   const urgencyDot = (u: Task["urgency"]) =>
-    u === "red" ? "bg-destructive" : u === "orange" ? "bg-yellow-500" : "bg-green-500";
+    u === "red" ? "bg-destructive" : u === "orange" ? "bg-warning" : "bg-success";
 
   const filtered = tasks.filter(t => {
     if (tab === "pending") return t.status === "pending";
@@ -378,9 +379,9 @@ const TasksPage = () => {
       {/* Stats */}
       <motion.div variants={item} className="grid grid-cols-4 gap-3">
         {[
-          { label: "טרם הוגשו", count: counts.pending, color: "text-yellow-600", icon: Clock, tab: "pending" },
-          { label: "בבדיקה", count: counts.submitted, color: "text-blue-500", icon: Upload, tab: "submitted" },
-          { label: "קיבלו ציון", count: counts.graded, color: "text-green-600", icon: CheckCircle2, tab: "graded" },
+          { label: "טרם הוגשו", count: counts.pending, color: "text-warning", icon: Clock, tab: "pending" },
+          { label: "בבדיקה", count: counts.submitted, color: "text-info", icon: Upload, tab: "submitted" },
+          { label: "קיבלו ציון", count: counts.graded, color: "text-success", icon: CheckCircle2, tab: "graded" },
           { label: "לתיקון", count: counts.revision, color: "text-destructive", icon: RotateCcw, tab: "revision" },
         ].map(s => (
           <Card key={s.tab} className="cursor-pointer hover:shadow-sm transition-all" onClick={() => setTab(s.tab)}>
@@ -396,10 +397,10 @@ const TasksPage = () => {
       <motion.div variants={item}>
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="grid grid-cols-4 w-full">
-            <TabsTrigger value="pending" className="font-heading text-xs">⏳ ממתינות</TabsTrigger>
-            <TabsTrigger value="submitted" className="font-heading text-xs">📤 בבדיקה</TabsTrigger>
-            <TabsTrigger value="graded" className="font-heading text-xs">✅ ציון</TabsTrigger>
-            <TabsTrigger value="revision" className="font-heading text-xs">🔄 לתיקון</TabsTrigger>
+            <TabsTrigger value="pending" className="font-heading text-xs gap-1"><Clock className="h-3 w-3" />ממתינות</TabsTrigger>
+            <TabsTrigger value="submitted" className="font-heading text-xs gap-1"><Upload className="h-3 w-3" />בבדיקה</TabsTrigger>
+            <TabsTrigger value="graded" className="font-heading text-xs gap-1"><CheckCircle2 className="h-3 w-3" />ציון</TabsTrigger>
+            <TabsTrigger value="revision" className="font-heading text-xs gap-1"><RotateCcw className="h-3 w-3" />לתיקון</TabsTrigger>
           </TabsList>
         </Tabs>
       </motion.div>
@@ -451,11 +452,13 @@ const TasksPage = () => {
                       {normalized !== null && (
                         <div className="space-y-1 pt-0.5">
                           <div className="flex items-center justify-between">
-                            <span className={`text-sm font-heading font-bold ${normalized >= 85 ? "text-green-600" : normalized >= 60 ? "text-yellow-600" : "text-destructive"}`}>
+                            <span className={`text-sm font-heading font-bold ${normalized >= 85 ? "text-success" : normalized >= 60 ? "text-warning" : "text-destructive"}`}>
                               {task.grade}/{task.maxGrade}
                             </span>
                             {task.feedback && !task.feedback.startsWith("[ערעור") && (
-                              <span className="text-[10px] text-muted-foreground truncate max-w-[200px]">💬 {task.feedback}</span>
+                              <span className="text-[10px] text-muted-foreground truncate max-w-[200px] flex items-center gap-1">
+                                <MessageSquare className="h-3 w-3 shrink-0" />{task.feedback}
+                              </span>
                             )}
                           </div>
                           <Progress value={normalized} className="h-1.5" />
@@ -472,8 +475,8 @@ const TasksPage = () => {
 
                       {/* Revision feedback */}
                       {task.status === "revision" && task.feedback && (
-                        <div className="p-2 bg-destructive/5 rounded text-[11px] text-destructive">
-                          🔄 {task.feedback}
+                        <div className="p-2 bg-destructive/5 rounded text-[11px] text-destructive flex items-center gap-1">
+                          <RotateCcw className="h-3 w-3 shrink-0" />{task.feedback}
                         </div>
                       )}
 
@@ -493,16 +496,16 @@ const TasksPage = () => {
                         <div className="flex gap-2 flex-wrap pt-0.5">
                           <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1 font-heading"
                             onClick={() => openQuiz(task, "flashcard")}>
-                            🃏 פלאשקארדס
+                            <Layers className="h-3 w-3" />פלאשקארדס
                           </Button>
                           <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1 font-heading"
                             onClick={() => task.needsFullPractice ? navigate(`/dashboard/practice/${task.assignmentId}`) : openQuiz(task, "quiz")}>
-                            <Play className="h-3 w-3" />בוחן{task.needsFullPractice ? " 🧠" : ""}
+                            <Play className="h-3 w-3" />בוחן
                           </Button>
                           {/* FIX: use assignmentId not submission id */}
-                          <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1 font-heading text-green-600 border-green-300 hover:bg-green-50 dark:hover:bg-green-900/20"
+                          <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1 font-heading text-success border-success/30 hover:bg-success/10"
                             onClick={() => navigate(`/dashboard/game/snakes/${task.assignmentId}`)}>
-                            🐍🪜 משחק
+                            <Gamepad2 className="h-3 w-3" />משחק
                           </Button>
                         </div>
                       )}
@@ -569,8 +572,8 @@ const TasksPage = () => {
                 {selectedFile ? (
                   <div className="flex items-center gap-2 p-2.5 bg-muted/50 rounded-lg border border-border">
                     {selectedFile.type.startsWith("image/")
-                      ? <ImageIcon className="h-4 w-4 text-blue-500 shrink-0" />
-                      : <FileText className="h-4 w-4 text-blue-500 shrink-0" />}
+                      ? <ImageIcon className="h-4 w-4 text-info shrink-0" />
+                      : <FileText className="h-4 w-4 text-info shrink-0" />}
                     <span className="text-sm font-body flex-1 truncate">{selectedFile.name}</span>
                     <span className="text-[10px] text-muted-foreground shrink-0">
                       {(selectedFile.size / 1024 / 1024).toFixed(1)} MB
@@ -628,7 +631,7 @@ const TasksPage = () => {
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-heading flex items-center gap-2">
-              {quizMode === "flashcard" ? "🃏" : <Play className="h-5 w-5 text-primary" />}
+              {quizMode === "flashcard" ? <Layers className="h-5 w-5 text-primary" /> : <Play className="h-5 w-5 text-primary" />}
               {quizTask?.title} — {quizMode === "flashcard" ? "פלאשקארדס" : "בוחן"}
             </DialogTitle>
           </DialogHeader>
@@ -661,11 +664,11 @@ const TasksPage = () => {
                 {quizQuestions.map((q, i) => {
                   const isCorrect = (quizAnswers[i] || "").trim().toLowerCase() === (q.correct_answer || "").trim().toLowerCase();
                   return (
-                    <div key={i} className={`p-3 rounded-lg text-sm ${isCorrect ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30"}`}>
+                    <div key={i} className={`p-3 rounded-lg text-sm ${isCorrect ? "bg-success/10" : "bg-destructive/10"}`}>
                       <p className="font-heading font-medium mb-1">{q.question_text}</p>
-                      <p className="text-xs">תשובתך: <span className={isCorrect ? "text-green-600 font-medium" : "text-destructive"}>{quizAnswers[i] || "לא ענית"}</span></p>
-                      {!isCorrect && <p className="text-xs text-green-600 mt-0.5">תשובה נכונה: {q.correct_answer}</p>}
-                      {q.explanation && <p className="text-[10px] text-muted-foreground mt-1">💡 {q.explanation}</p>}
+                      <p className="text-xs">תשובתך: <span className={isCorrect ? "text-success font-medium" : "text-destructive"}>{quizAnswers[i] || "לא ענית"}</span></p>
+                      {!isCorrect && <p className="text-xs text-success mt-0.5">תשובה נכונה: {q.correct_answer}</p>}
+                      {q.explanation && <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1"><Lightbulb className="h-3 w-3 shrink-0" />{q.explanation}</p>}
                     </div>
                   );
                 })}
@@ -682,7 +685,7 @@ const TasksPage = () => {
                 <Progress value={((quizIdx + 1) / quizQuestions.length) * 100} className="h-1.5 flex-1" />
               </div>
               <motion.div
-                className="min-h-[180px] rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-6 cursor-pointer flex items-center justify-center text-center"
+                className="min-h-[180px] rounded-lg border-2 border-primary/20 bg-primary/5 p-6 cursor-pointer flex items-center justify-center text-center"
                 onClick={() => setFlipped(f => !f)}
                 whileTap={{ scale: 0.97 }}
               >
@@ -692,7 +695,7 @@ const TasksPage = () => {
                     {flipped ? quizQuestions[quizIdx]?.correct_answer : quizQuestions[quizIdx]?.question_text}
                   </p>
                   {flipped && quizQuestions[quizIdx]?.explanation && (
-                    <p className="text-[11px] text-muted-foreground mt-2">💡 {quizQuestions[quizIdx].explanation}</p>
+                    <p className="text-[11px] text-muted-foreground mt-2 flex items-center justify-center gap-1"><Lightbulb className="h-3 w-3 shrink-0" />{quizQuestions[quizIdx].explanation}</p>
                   )}
                 </div>
               </motion.div>
@@ -701,7 +704,7 @@ const TasksPage = () => {
                   onClick={() => { setQuizIdx(i => i - 1); setFlipped(false); }}>← הקודם</Button>
                 {quizIdx < quizQuestions.length - 1
                   ? <Button className="flex-1 font-heading" onClick={() => { setQuizIdx(i => i + 1); setFlipped(false); }}>הבא →</Button>
-                  : <Button className="flex-1 font-heading bg-green-600 hover:bg-green-700" onClick={() => setQuizSubmitted(true)}>סיום ✓</Button>}
+                  : <Button className="flex-1 font-heading gap-1 bg-success hover:bg-success/90 text-success-foreground" onClick={() => setQuizSubmitted(true)}><CheckCircle2 className="h-4 w-4" />סיום</Button>}
               </div>
             </div>
           ) : (
@@ -753,7 +756,7 @@ const TasksPage = () => {
                   onClick={() => setQuizIdx(i => i - 1)}>← הקודם</Button>
                 {quizIdx < quizQuestions.length - 1
                   ? <Button className="flex-1 font-heading" onClick={() => setQuizIdx(i => i + 1)}>הבא →</Button>
-                  : <Button className="flex-1 font-heading bg-green-600 hover:bg-green-700"
+                  : <Button className="flex-1 font-heading bg-success hover:bg-success/90 text-success-foreground"
                     onClick={submitQuiz} disabled={Object.keys(quizAnswers).length === 0}>
                     <CheckCircle2 className="h-4 w-4 mr-1" />הגש ובדוק
                   </Button>}
