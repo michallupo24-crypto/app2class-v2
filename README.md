@@ -1,73 +1,91 @@
-# Welcome to your Lovable project
+# App2Class
 
-## Project info
+A school management platform for the Israeli education system (Hebrew UI, RTL). Covers students, parents, teachers, subject/grade coordinators, counselors, management, and system admins in a single app.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Features
 
-## How can I edit this code?
+- **Academics** — grades, attendance & roll call, subject hubs, syllabus planning, exam archive, grade progress reports
+- **Scheduling** — bell schedule setup, track/הקבצה blocks, subject requirements, automatic timetable generation with feasibility checks, master scheduler
+- **Task Studio** — quizzes, games, and a sandboxed Monaco-based mini-app IDE (HTML/CSS/JS or Python via Pyodide) for teacher-built interactive tasks, with an AI assistant and community gallery
+- **AI Tutor** — a Gemini-backed tutoring assistant scoped to the student's own data
+- **Documents** — a Word/Google-Docs-style rich text editor (ribbon toolbar, comments, track-changes, version history, Hebrew spell/grammar check) with real-time multi-user sharing
+- **Student life** — seating maps, badges/streaks, school newspaper, bell-song voting, student council (elections, appointed roles, permissions)
+- **Operations** — approvals workflows, meetings & meeting slots, finance hub, school org tree, chat, notifications
+- **Admin** — system admin console, team/role management, school-scoped RLS across all tables
 
-There are several ways of editing your application.
+## Tech stack
 
-**Use Lovable**
+- [Vite](https://vitejs.dev/) + [React 18](https://react.dev/) + TypeScript
+- [shadcn-ui](https://ui.shadcn.com/) + [Tailwind CSS](https://tailwindcss.com/)
+- [Supabase](https://supabase.com/) (Postgres, Auth, Storage, Edge Functions, Row-Level Security)
+- [Google Gemini](https://ai.google.dev/) for AI features (tutor, task-studio assistant, grade-coordinator assistant, OCR)
+- [Vitest](https://vitest.dev/) + Testing Library
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Getting started
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+**Prerequisites:** Node.js 20+ and npm.
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# Install dependencies
+npm install
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Create .env.local with your own Supabase/Gemini keys (see below)
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start the dev server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Environment variables
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Create a `.env.local` file in the project root:
 
-**Use GitHub Codespaces**
+```
+VITE_SUPABASE_URL=your-supabase-project-url
+VITE_SUPABASE_PROJECT_ID=your-supabase-project-id
+VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-anon-key
+VITE_GEMINI_API_KEY=your-gemini-api-key
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Server-side secrets (service role key, etc.) used by Supabase Edge Functions are configured separately in the Supabase project, not in this file.
 
-## What technologies are used for this project?
+### Scripts
 
-This project is built with:
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the Vite dev server |
+| `npm run build` | Production build |
+| `npm run build:dev` | Development-mode build |
+| `npm run preview` | Preview a production build locally |
+| `npm run lint` | Run ESLint |
+| `npm run typecheck` | Run `tsc --noEmit` |
+| `npm test` | Run the Vitest suite once |
+| `npm run test:watch` | Run Vitest in watch mode |
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs `typecheck` and `test` on every push/PR to `main`.
 
-## How can I deploy this project?
+## Project structure
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+```
+src/
+  pages/            top-level routes (landing, auth, registration) and pages/dashboard/* (role-based dashboard pages)
+  components/       shared UI, layout, and feature-specific components (task-studio, timetable-builder, etc.)
+  hooks/            data-fetching and auth hooks
+  integrations/      Supabase client and generated types
+supabase/
+  migrations/       SQL migrations (schema + RLS policies)
+  functions/        Edge Functions (ai-tutor, task-studio-ai, chat-moderate, ocr-extract, verify-student, admin-manage-user, grade-coordinator-ai)
+infra/              supporting infrastructure (e.g. dictalm-space)
+server/             local DB migration/check tooling
+```
 
-## Can I connect a custom domain to my Lovable project?
+## Database
 
-Yes, you can!
+Schema and Row-Level Security policies live entirely in [supabase/migrations](supabase/migrations). All tables are school-scoped via RLS — access control is enforced at the database layer, not just in the UI. Apply migrations to a linked Supabase project with:
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+```sh
+npx supabase db push
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Deployment
+
+The app is a static SPA (Vite build) with client-side routing. [vercel.json](vercel.json) provides the rewrite rule needed for `BrowserRouter` on Vercel. Any static host that supports SPA fallback routing will work.

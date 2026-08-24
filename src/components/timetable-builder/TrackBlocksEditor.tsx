@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Route, Layers } from "lucide-react";
+import { Plus, Trash2, Route, Layers, Pencil } from "lucide-react";
 import type { GradeLevel } from "@/lib/constants";
 
 type TrackKind = "megama" | "hakbatza";
@@ -30,6 +30,11 @@ interface TrackBlocksEditorProps {
   schoolId: string;
   grade: GradeLevel;
   roomTypes: string[];
+  // Called after any change that adds/removes/renames a subject (not on a
+  // room/hours-only tweak) so the parent's own subject list - e.g. the
+  // "כמה מורים יש לך בכל מקצוע?" panel - can refresh without the coordinator
+  // having to leave and re-enter the tab to see the new option appear there.
+  onChanged?: () => void;
 }
 
 // A מגמה (elective) block is several DIFFERENT subjects sharing one slot -
@@ -47,7 +52,16 @@ interface TrackBlocksEditorProps {
 // SubjectRequirementsEditor, alongside its regular subjects and the plain
 // "add subject" row - so every grade block offers all three add actions in
 // one place instead of a separate page-wide section per kind.
-const TrackBlocksEditor = ({ schoolId, grade, roomTypes }: TrackBlocksEditorProps) => {
+//
+// Local edits (room type, hours, renaming an option) update `blocks` state
+// directly instead of re-fetching the whole grade's rows after every write -
+// a full reload here previously ran on every keystroke's onChange, which
+// both interrupted typing and could reshuffle option order (the DB query has
+// no stable ORDER BY), making it look like the list "auto-sorted" mid-edit.
+// Subject-name inputs below reference list="known-subjects" - a <datalist>
+// rendered once by the parent SubjectRequirementsEditor - for autocomplete
+// suggestions from the school's existing subject names.
+const TrackBlocksEditor = ({ schoolId, grade, roomTypes, onChanged }: TrackBlocksEditorProps) => {
   const { toast } = useToast();
   const [blocks, setBlocks] = useState<TrackBlock[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,7 +129,7 @@ const TrackBlocksEditor = ({ schoolId, grade, roomTypes }: TrackBlocksEditorProp
     const hours = parseInt(newHours) || 1;
     const trackGroup = newKind === "hakbatza" ? `${groupLabel} - הקבצות` : groupLabel;
     const subject = newKind === "hakbatza" ? `${groupLabel} (${firstOption})` : firstOption;
-    const { error } = await supabase.from("subject_requirements").insert({
+    const { data, error } = await supabase.from("subject_requirements").insert({
       school_id: schoolId,
       grade,
       subject,
@@ -124,17 +138,25 @@ const TrackBlocksEditor = ({ schoolId, grade, roomTypes }: TrackBlocksEditorProp
       track_group: trackGroup,
       track_kind: newKind,
       base_subject: newKind === "hakbatza" ? groupLabel : null,
-    });
+    }).select().single();
     if (error) {
       toast({ title: newKind === "hakbatza" ? "שגיאה ביצירת ההקבצה" : "שגיאה ביצירת המגמה", description: error.message, variant: "destructive" });
       return;
     }
+    setBlocks(bs => [...bs, {
+      trackGroup,
+      trackKind: newKind,
+      baseSubject: newKind === "hakbatza" ? groupLabel : null,
+      weeklyHours: hours,
+      blockSize: Math.min(hours, 2),
+      options: [{ id: data.id, subject, preferred_room_type: null, weeklyHours: hours }],
+    }]);
     setNewGroupName("");
     setNewFirstOption("");
     setAdding(null);
     toast({ title: newKind === "hakbatza" ? "ההקבצה נוצרה — כעת הוסיפו לה עוד רמות ✅" : "המגמה נוצרה — כעת הוסיפו לה עוד אפשרויות ✅" });
     await clearApproval();
-    loadData();
+    onChanged?.();
   };
 
   const handleAddOption = async (block: TrackBlock, optionInput: string) => {
@@ -145,7 +167,7 @@ const TrackBlocksEditor = ({ schoolId, grade, roomTypes }: TrackBlocksEditorProp
       toast({ title: "האפשרות הזו כבר קיימת בבלוק", variant: "destructive" });
       return;
     }
-    const { error } = await supabase.from("subject_requirements").insert({
+    const { data, error } = await supabase.from("subject_requirements").insert({
       school_id: schoolId,
       grade,
       subject,
@@ -154,33 +176,57 @@ const TrackBlocksEditor = ({ schoolId, grade, roomTypes }: TrackBlocksEditorProp
       track_group: block.trackGroup,
       track_kind: block.trackKind,
       base_subject: block.trackKind === "hakbatza" ? block.baseSubject : null,
-    });
+    }).select().single();
     if (error) {
       toast({ title: "שגיאה בהוספת אפשרות", description: error.message, variant: "destructive" });
       return;
     }
+    setBlocks(bs => bs.map(b => b.trackGroup === block.trackGroup
+      ? { ...b, options: [...b.options, { id: data.id, subject, preferred_room_type: null, weeklyHours: block.weeklyHours }] }
+      : b
+    ));
     await clearApproval();
-    loadData();
+    onChanged?.();
   };
 
   const handleRemoveOption = async (id: string) => {
+    setBlocks(bs => bs.map(b => ({ ...b, options: b.options.filter(o => o.id !== id) })));
     const { error } = await supabase.from("subject_requirements").delete().eq("id", id);
     if (error) {
       toast({ title: "שגיאה", description: error.message, variant: "destructive" });
+      loadData(); // resync - the optimistic removal above may not match the DB
       return;
     }
     await clearApproval();
-    loadData();
+    onChanged?.();
+  };
+
+  const handleRenameOption = async (id: string, newSubject: string) => {
+    const previous = blocks.flatMap(b => b.options).find(o => o.id === id)?.subject;
+    setBlocks(bs => bs.map(b => ({ ...b, options: b.options.map(o => (o.id === id ? { ...o, subject: newSubject } : o)) })));
+    const { error } = await supabase.from("subject_requirements").update({ subject: newSubject }).eq("id", id);
+    if (error) {
+      const friendly = error.code === "23505"
+        ? "כבר קיים מקצוע בשם הזה בשכבה זו"
+        : error.message;
+      toast({ title: "שגיאה בשינוי השם", description: friendly, variant: "destructive" });
+      if (previous !== undefined) {
+        setBlocks(bs => bs.map(b => ({ ...b, options: b.options.map(o => (o.id === id ? { ...o, subject: previous } : o)) })));
+      }
+      return;
+    }
+    await clearApproval();
+    onChanged?.();
   };
 
   const handleUpdateOptionRoom = async (id: string, room_type: string | null) => {
+    setBlocks(bs => bs.map(b => ({ ...b, options: b.options.map(o => (o.id === id ? { ...o, preferred_room_type: room_type } : o)) })));
     const { error } = await supabase.from("subject_requirements").update({ preferred_room_type: room_type }).eq("id", id);
     if (error) {
       toast({ title: "שגיאה", description: error.message, variant: "destructive" });
       return;
     }
     await clearApproval();
-    loadData();
   };
 
   // Each option can now carry its own weekly-hours (e.g. a 5-יח"ל group
@@ -190,32 +236,37 @@ const TrackBlocksEditor = ({ schoolId, grade, roomTypes }: TrackBlocksEditorProp
   // options no longer have to share one identical total.
   const handleUpdateOptionHours = async (id: string, weekly_hours: number) => {
     if (!weekly_hours || weekly_hours <= 0) return;
+    setBlocks(bs => bs.map(b => ({ ...b, options: b.options.map(o => (o.id === id ? { ...o, weeklyHours: weekly_hours } : o)) })));
     const { error } = await supabase.from("subject_requirements").update({ weekly_hours }).eq("id", id);
     if (error) {
       toast({ title: "שגיאה", description: error.message, variant: "destructive" });
       return;
     }
     await clearApproval();
-    loadData();
   };
 
-  // The block-level input is a bulk convenience ("שעות לכולם") - it sets
-  // every current option to the same number in one click, but each option's
-  // own input (below) can still be changed individually afterward.
+  // The block-level input is a bulk convenience ("שעות לכולם") - applied only
+  // when the coordinator explicitly clicks "החל על כולם" (not on every
+  // keystroke), so it doesn't interrupt adding more options to the block.
   const handleUpdateBlockHours = async (block: TrackBlock, weekly_hours: number) => {
     if (!weekly_hours || weekly_hours <= 0) return;
+    const newBlockSize = Math.min(block.blockSize, weekly_hours);
+    setBlocks(bs => bs.map(b => b.trackGroup === block.trackGroup
+      ? { ...b, weeklyHours: weekly_hours, blockSize: newBlockSize, options: b.options.map(o => ({ ...o, weeklyHours: weekly_hours })) }
+      : b
+    ));
     const { error } = await supabase
       .from("subject_requirements")
-      .update({ weekly_hours, block_size: Math.min(block.blockSize, weekly_hours) })
+      .update({ weekly_hours, block_size: newBlockSize })
       .eq("school_id", schoolId)
       .eq("grade", grade)
       .eq("track_group", block.trackGroup);
     if (error) {
       toast({ title: "שגיאה", description: error.message, variant: "destructive" });
+      loadData();
       return;
     }
     await clearApproval();
-    loadData();
   };
 
   if (loading) {
@@ -234,49 +285,27 @@ const TrackBlocksEditor = ({ schoolId, grade, roomTypes }: TrackBlocksEditorProp
               </span>
               <Badge variant="outline" className="text-[10px]">{block.trackKind === "hakbatza" ? "הקבצה" : "מגמה"}</Badge>
             </div>
-            <div className="flex items-center gap-1">
-              <Input
-                type="number"
-                className="w-16 h-7"
-                value={block.weeklyHours}
-                onChange={(e) => handleUpdateBlockHours(block, parseInt(e.target.value) || 1)}
-              />
-              <span className="text-xs text-muted-foreground">שעות/שבוע לכולם</span>
-            </div>
+            <BulkHoursInput initial={block.weeklyHours} onApply={(hours) => handleUpdateBlockHours(block, hours)} />
           </div>
 
           <div className="space-y-1.5">
             {block.options.map(opt => (
-              <div key={opt.id} className="flex items-center gap-2 bg-muted/30 rounded-md p-1.5">
-                <span className="text-sm flex-1">{opt.subject}</span>
-                <div className="flex items-center gap-1">
-                  <Input
-                    type="number"
-                    className="w-14 h-7 text-xs"
-                    value={opt.weeklyHours}
-                    onChange={(e) => handleUpdateOptionHours(opt.id, parseInt(e.target.value) || 1)}
-                  />
-                  <span className="text-[10px] text-muted-foreground">שעות</span>
-                </div>
-                <Select
-                  value={opt.preferred_room_type || "none"}
-                  onValueChange={(v) => handleUpdateOptionRoom(opt.id, v === "none" ? null : v)}
-                >
-                  <SelectTrigger className="w-32 h-7 text-xs"><SelectValue placeholder="סוג חדר" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">כל חדר</SelectItem>
-                    {roomTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveOption(opt.id)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+              <OptionRow
+                key={opt.id}
+                option={opt}
+                roomTypes={roomTypes}
+                listId={block.trackKind === "megama" ? "known-subjects" : undefined}
+                onRename={handleRenameOption}
+                onHoursApply={handleUpdateOptionHours}
+                onRoomChange={handleUpdateOptionRoom}
+                onRemove={handleRemoveOption}
+              />
             ))}
           </div>
 
           <AddOptionRow
             placeholder={block.trackKind === "hakbatza" ? 'רמה חדשה (למשל: "5 יח״ל")' : "אפשרות חדשה למגמה..."}
+            listId={block.trackKind === "megama" ? "known-subjects" : undefined}
             onAdd={(value) => handleAddOption(block, value)}
           />
         </div>
@@ -302,6 +331,7 @@ const TrackBlocksEditor = ({ schoolId, grade, roomTypes }: TrackBlocksEditorProp
             className="w-40 h-8"
             value={newFirstOption}
             onChange={(e) => setNewFirstOption(e.target.value)}
+            list={newKind === "megama" ? "known-subjects" : undefined}
           />
           <Input type="number" className="w-16 h-8" value={newHours} onChange={(e) => setNewHours(e.target.value)} placeholder="שעות" />
           <Button size="sm" onClick={handleCreateBlock} className="gap-1 h-8">
@@ -325,7 +355,132 @@ const TrackBlocksEditor = ({ schoolId, grade, roomTypes }: TrackBlocksEditorProp
   );
 };
 
-const AddOptionRow = ({ placeholder, onAdd }: { placeholder: string; onAdd: (value: string) => void }) => {
+// Local draft + an explicit "החל על כולם" button, rather than writing to the
+// DB (and re-rendering every option) on each keystroke - which used to make
+// typing a new total feel like it was fighting the input.
+const BulkHoursInput = ({ initial, onApply }: { initial: number; onApply: (hours: number) => void }) => {
+  const [value, setValue] = useState(String(initial));
+
+  useEffect(() => setValue(String(initial)), [initial]);
+
+  const parsed = parseInt(value) || 0;
+  const dirty = parsed > 0 && parsed !== initial;
+
+  return (
+    <div className="flex items-center gap-1">
+      <Input
+        type="number"
+        className="w-16 h-7"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && dirty && onApply(parsed)}
+      />
+      <span className="text-xs text-muted-foreground">שעות/שבוע לכולם</span>
+      <Button
+        size="sm"
+        variant={dirty ? "default" : "outline"}
+        className="h-7 px-2 text-xs"
+        disabled={!dirty}
+        onClick={() => onApply(parsed)}
+      >
+        החל על כולם
+      </Button>
+    </div>
+  );
+};
+
+interface OptionRowProps {
+  option: TrackOption;
+  roomTypes: string[];
+  listId?: string;
+  onRename: (id: string, subject: string) => void;
+  onHoursApply: (id: string, hours: number) => void;
+  onRoomChange: (id: string, room: string | null) => void;
+  onRemove: (id: string) => void;
+}
+
+// Renaming happens in place (click the name, edit, save) instead of the old
+// delete-and-re-add-from-scratch flow, which lost the option's room type and
+// hours the moment it was deleted.
+const OptionRow = ({ option, roomTypes, listId, onRename, onHoursApply, onRoomChange, onRemove }: OptionRowProps) => {
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(option.subject);
+  const [hoursDraft, setHoursDraft] = useState(String(option.weeklyHours));
+
+  useEffect(() => { if (!editingName) setNameDraft(option.subject); }, [option.subject, editingName]);
+  useEffect(() => setHoursDraft(String(option.weeklyHours)), [option.weeklyHours]);
+
+  const commitName = () => {
+    const trimmed = nameDraft.trim();
+    setEditingName(false);
+    if (!trimmed || trimmed === option.subject) {
+      setNameDraft(option.subject);
+      return;
+    }
+    onRename(option.id, trimmed);
+  };
+
+  const commitHours = () => {
+    const n = parseInt(hoursDraft) || 0;
+    if (n > 0 && n !== option.weeklyHours) onHoursApply(option.id, n);
+    else setHoursDraft(String(option.weeklyHours));
+  };
+
+  return (
+    <div className="flex items-center gap-2 bg-muted/30 rounded-md p-1.5">
+      {editingName ? (
+        <Input
+          autoFocus
+          className="h-7 text-sm flex-1"
+          value={nameDraft}
+          onChange={(e) => setNameDraft(e.target.value)}
+          onBlur={commitName}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commitName();
+            if (e.key === "Escape") { setNameDraft(option.subject); setEditingName(false); }
+          }}
+          list={listId}
+        />
+      ) : (
+        <button
+          type="button"
+          className="text-sm flex-1 text-right flex items-center gap-1.5 group"
+          onClick={() => setEditingName(true)}
+          title="לחצו לעריכת השם"
+        >
+          <span className="group-hover:underline">{option.subject}</span>
+          <Pencil className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+        </button>
+      )}
+      <div className="flex items-center gap-1">
+        <Input
+          type="number"
+          className="w-14 h-7 text-xs"
+          value={hoursDraft}
+          onChange={(e) => setHoursDraft(e.target.value)}
+          onBlur={commitHours}
+          onKeyDown={(e) => e.key === "Enter" && commitHours()}
+        />
+        <span className="text-[10px] text-muted-foreground">שעות</span>
+      </div>
+      <Select
+        value={option.preferred_room_type || "none"}
+        onValueChange={(v) => onRoomChange(option.id, v === "none" ? null : v)}
+      >
+        <SelectTrigger className="w-32 h-7 text-xs"><SelectValue placeholder="סוג חדר" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">כל חדר</SelectItem>
+          {roomTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => onRemove(option.id)}>
+        <Trash2 className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
+};
+
+const AddOptionRow = ({ placeholder, listId, onAdd }: { placeholder: string; listId?: string; onAdd: (value: string) => void }) => {
   const [value, setValue] = useState("");
   return (
     <div className="flex items-center gap-2">
@@ -340,6 +495,7 @@ const AddOptionRow = ({ placeholder, onAdd }: { placeholder: string; onAdd: (val
             setValue("");
           }
         }}
+        list={listId}
       />
       <Button
         size="sm"

@@ -788,21 +788,33 @@ export type Database = {
           created_at: string
           election_id: string
           id: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           statement: string | null
+          status: string
           student_id: string
         }
         Insert: {
           created_at?: string
           election_id: string
           id?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           statement?: string | null
+          status?: string
           student_id: string
         }
         Update: {
           created_at?: string
           election_id?: string
           id?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           statement?: string | null
+          status?: string
           student_id?: string
         }
         Relationships: [
@@ -861,28 +873,37 @@ export type Database = {
       }
       council_members: {
         Row: {
+          appointed_by: string | null
+          appointment_type: string
           created_at: string
           id: string
           is_active: boolean
           position: string
+          role_type: string
           school_id: string
           student_id: string
           term_label: string | null
         }
         Insert: {
+          appointed_by?: string | null
+          appointment_type?: string
           created_at?: string
           id?: string
           is_active?: boolean
           position?: string
+          role_type?: string
           school_id: string
           student_id: string
           term_label?: string | null
         }
         Update: {
+          appointed_by?: string | null
+          appointment_type?: string
           created_at?: string
           id?: string
           is_active?: boolean
           position?: string
+          role_type?: string
           school_id?: string
           student_id?: string
           term_label?: string | null
@@ -3942,6 +3963,7 @@ export type Database = {
         | "management"
         | "system_admin"
         | "super_admin"
+        | "council_advisor"
       approval_status: "pending" | "approved" | "rejected"
       assignment_type: "homework" | "exam" | "quiz" | "project" | "exercise"
       attendance_status: "present" | "absent" | "late" | "excused"
@@ -4108,6 +4130,7 @@ export const Constants = {
         "management",
         "system_admin",
         "super_admin",
+        "council_advisor",
       ],
       approval_status: ["pending", "approved", "rejected"],
       assignment_type: ["homework", "exam", "quiz", "project", "exercise"],

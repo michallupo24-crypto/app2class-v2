@@ -9,7 +9,7 @@ import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useSchoolDays } from "@/hooks/useSchoolDays";
-import { SUBJECTS, type GradeLevel } from "@/lib/constants";
+import { SUBJECTS, GRADES, type GradeLevel } from "@/lib/constants";
 import BellScheduleSetup from "@/components/timetable-builder/BellScheduleSetup";
 import RoomsManager from "@/components/timetable-builder/RoomsManager";
 import SubjectRequirementsEditor from "@/components/timetable-builder/SubjectRequirementsEditor";
@@ -114,7 +114,16 @@ const TimetableBuilderPage = () => {
       return;
     }
 
-    const classList: GeneratorClass[] = (classesRes.data || []) as GeneratorClass[];
+    // classes come back from Postgrest with no guaranteed order (effectively
+    // insertion order) - sort by grade (ז before ח before ט...) then class
+    // number, so pickers show ז1 ז2 ז3 ח1 ח2... instead of grouping by
+    // number first (ז1 ח1 ט1...).
+    const gradeRank = new Map(GRADES.map((g, i) => [g, i]));
+    const classList: GeneratorClass[] = ((classesRes.data || []) as GeneratorClass[]).sort((a, b) => {
+      const ra = gradeRank.get(a.grade) ?? 999;
+      const rb = gradeRank.get(b.grade) ?? 999;
+      return ra !== rb ? ra - rb : a.class_number - b.class_number;
+    });
     setClasses(classList);
 
     const roomTypesBySubject: Record<string, string | null> = {};
@@ -230,6 +239,35 @@ const TimetableBuilderPage = () => {
     const teacherCountBySubject = new Map<string, number>(
       (teacherCountsRes.data || []).map((r: any) => [r.subject, r.teacher_count])
     );
+
+    // Teacher count only caps how many classes can share a subject at the
+    // SAME slot - it never checked whether the declared headcount can
+    // physically cover the total weekly hours every class needs across the
+    // whole week. A school with one English teacher but 20 classes each
+    // needing 4 hours/week still "worked" (each class landed on its own free
+    // slot), silently assuming one teacher could be in that many different
+    // places throughout the week. Flag it up front instead of only
+    // discovering it later via an overloaded/unfillable teacher.
+    const totalWeeklySlots = periodList.length * days.length;
+    const neededHoursBySubject = new Map<string, number>();
+    for (const r of resolved) {
+      neededHoursBySubject.set(r.subject, (neededHoursBySubject.get(r.subject) ?? 0) + r.weekly_hours);
+    }
+    const teacherShortageConflicts: TimetableConflict[] = [];
+    for (const [subject, neededHours] of neededHoursBySubject) {
+      const count = teacherCountBySubject.get(subject);
+      if (!count) continue; // no headcount declared for this subject - nothing to check against
+      const capacity = count * totalWeeklySlots;
+      if (neededHours > capacity) {
+        teacherShortageConflicts.push({
+          class_id: null,
+          grade: null,
+          subject,
+          reason: `חוסר במורים במקצוע "${subject}": נדרשות ${neededHours} שעות שבועיות בסך הכל, אך ${count} מור${count === 1 ? "ה" : "ים"} יכול${count === 1 ? "/ה" : "ים"} לספק לכל היותר ${capacity} שעות (לפי ${totalWeeklySlots} שעות אפשריות בשבוע לכל מורה) — יש להוסיף מורים למקצוע זה או להקטין את השעות השבועיות`,
+          severity: "error",
+        });
+      }
+    }
     const subjectsNeeded = new Set(resolved.map(r => r.subject));
     const placeholders: EligibleTeacher[] = [];
     for (const subject of subjectsNeeded) {
@@ -287,7 +325,7 @@ const TimetableBuilderPage = () => {
     }
 
     setSlots(result.slots.map(sanitizePlaceholderTeacher));
-    setConflicts([...result.conflicts, ...earlyEndingConflicts]);
+    setConflicts([...teacherShortageConflicts, ...result.conflicts, ...earlyEndingConflicts]);
     setHasGenerated(true);
     setGenerating(false);
   };

@@ -72,6 +72,7 @@ const ExamArchivePage = lazy(() => import("./pages/dashboard/ExamArchivePage"));
 const MyClassesPage = lazy(() => import("./pages/dashboard/MyClassesPage"));
 const TimetableBuilderPage = lazy(() => import("./pages/dashboard/TimetableBuilderPage"));
 const DocumentsPage = lazy(() => import("./pages/dashboard/DocumentsPage"));
+const TeamRolesPage = lazy(() => import("./pages/dashboard/TeamRolesPage"));
 
 const queryClient = new QueryClient();
 
@@ -147,6 +148,7 @@ const App = () => (
               {/* Grade Coordinator routes */}
               <Route path="grade-coordinator-home" element={<GradeCoordinatorDashboard />} />
               <Route path="timetable-builder" element={<TimetableBuilderPage />} />
+              <Route path="team-roles" element={<TeamRolesPage />} />
               <Route path="master-scheduler" element={<MasterSchedulerPage />} />
               <Route path="grade-progress" element={<GradeProgressPage />} />
               <Route path="tutoring" element={<TutoringManagementPage />} />

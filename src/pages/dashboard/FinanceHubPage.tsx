@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Wallet, Plus, ChevronDown, ChevronUp, Check, X, Ban } from "lucide-react";
@@ -185,7 +186,10 @@ const FinanceHubPage = () => {
                     {GRADES.map((g) => <SelectItem key={g} value={g}>שכבה {g}׳</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">תאריך אחרון לתשלום (אופציונלי)</Label>
+                  <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
+                </div>
                 <Button onClick={createItem} className="w-full">צור פריט</Button>
               </div>
             </DialogContent>

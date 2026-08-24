@@ -39,8 +39,29 @@ const minutesToTime = (m: number): string => {
   return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 };
 
-const buildSchedule = (dailyStart: string, lessonDuration: number, lessonCount: number, breaksByGap: BreaksByGap): ComputedRow[] => {
+const buildSchedule = (
+  dailyStart: string,
+  lessonDuration: number,
+  lessonCount: number,
+  breaksByGap: BreaksByGap,
+  hasZeroHour: boolean,
+  zeroHourDuration: number
+): ComputedRow[] => {
   const rows: ComputedRow[] = [];
+  // שעת אפס gets lesson_number 0, ending exactly where lesson 1 starts, and
+  // isn't part of the seq/lessonCount sequence below - it's an optional extra
+  // period before the regular day, not counted toward lessonCount.
+  if (hasZeroHour) {
+    const start = timeToMinutes(dailyStart) - zeroHourDuration;
+    rows.push({
+      lesson_number: 0,
+      label: "שעת אפס",
+      start_time: minutesToTime(start),
+      end_time: dailyStart,
+      is_break: false,
+      break_duration_minutes: null,
+    });
+  }
   let cursor = timeToMinutes(dailyStart);
   let seq = 1;
   for (let lessonNum = 1; lessonNum <= lessonCount; lessonNum++) {
@@ -81,6 +102,8 @@ const BellScheduleSetup = ({ schoolId }: BellScheduleSetupProps) => {
   const [lessonDuration, setLessonDuration] = useState(45);
   const [lessonCount, setLessonCount] = useState(8);
   const [breaksByGap, setBreaksByGap] = useState<BreaksByGap>({ 4: 20 });
+  const [hasZeroHour, setHasZeroHour] = useState(false);
+  const [zeroHourDuration, setZeroHourDuration] = useState(45);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -93,7 +116,16 @@ const BellScheduleSetup = ({ schoolId }: BellScheduleSetupProps) => {
 
     if (bellRes.data?.length) {
       const sorted = [...bellRes.data].sort((a: any, b: any) => a.lesson_number - b.lesson_number);
-      const nonBreak = sorted.filter((r: any) => !r.is_break);
+      const zeroRow = sorted.find((r: any) => !r.is_break && r.lesson_number === 0);
+      if (zeroRow) {
+        setHasZeroHour(true);
+        setZeroHourDuration(
+          timeToMinutes(zeroRow.end_time?.slice(0, 5)) - timeToMinutes(zeroRow.start_time?.slice(0, 5)) || 45
+        );
+      } else {
+        setHasZeroHour(false);
+      }
+      const nonBreak = sorted.filter((r: any) => !r.is_break && r.lesson_number >= 1);
       if (nonBreak.length > 0) {
         setDailyStart(nonBreak[0].start_time?.slice(0, 5) || "08:00");
         setLessonDuration(timeToMinutes(nonBreak[0].end_time?.slice(0, 5)) - timeToMinutes(nonBreak[0].start_time?.slice(0, 5)) || 45);
@@ -103,6 +135,7 @@ const BellScheduleSetup = ({ schoolId }: BellScheduleSetupProps) => {
       const reconstructed: BreaksByGap = {};
       let lessonsSeen = 0;
       for (const row of sorted) {
+        if (row.lesson_number === 0 && !row.is_break) continue; // שעת אפס isn't part of the gap sequence
         if (!row.is_break) {
           lessonsSeen++;
         } else {
@@ -122,8 +155,8 @@ const BellScheduleSetup = ({ schoolId }: BellScheduleSetupProps) => {
   }, [schoolId]);
 
   const preview = useMemo(
-    () => buildSchedule(dailyStart, lessonDuration, lessonCount, breaksByGap),
-    [dailyStart, lessonDuration, lessonCount, breaksByGap]
+    () => buildSchedule(dailyStart, lessonDuration, lessonCount, breaksByGap, hasZeroHour, zeroHourDuration),
+    [dailyStart, lessonDuration, lessonCount, breaksByGap, hasZeroHour, zeroHourDuration]
   );
 
   const toggleDay = (day: number) => {
@@ -151,6 +184,10 @@ const BellScheduleSetup = ({ schoolId }: BellScheduleSetupProps) => {
     }
     if (lessonCount < 1 || lessonDuration < 1) {
       toast({ title: "יש להזין מספר שיעורים ואורך שיעור תקינים", variant: "destructive" });
+      return;
+    }
+    if (hasZeroHour && zeroHourDuration < 1) {
+      toast({ title: "יש להזין אורך תקין לשעת האפס", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -245,6 +282,29 @@ const BellScheduleSetup = ({ schoolId }: BellScheduleSetupProps) => {
               onChange={(e) => setLessonCount(parseInt(e.target.value) || 0)}
             />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg font-heading">שעת אפס</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox checked={hasZeroHour} onCheckedChange={(v) => setHasZeroHour(!!v)} />
+            <span className="text-sm">יש שעת אפס (שיעור נוסף לפני שיעור 1)</span>
+          </label>
+          {hasZeroHour && (
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">אורך שעת אפס (דקות)</Label>
+              <Input
+                type="number"
+                className="w-28"
+                value={zeroHourDuration}
+                onChange={(e) => setZeroHourDuration(parseInt(e.target.value) || 0)}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 

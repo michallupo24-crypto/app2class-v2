@@ -190,6 +190,13 @@ const SubjectRequirementsEditor = ({ schoolId, profile }: SubjectRequirementsEdi
 
   return (
     <div className="space-y-6">
+      {/* Shared autocomplete source for every subject-name input below (plain
+          "add subject" rows and track/הקבצה option rows alike) - lets a
+          coordinator pick an existing subject instead of retyping it and
+          accidentally creating a near-duplicate like "אומנות"/"אמנות". */}
+      <datalist id="known-subjects">
+        {distinctSubjects.map(s => <option key={s} value={s} />)}
+      </datalist>
       <Card className={approved ? "border-emerald-500/40" : "border-amber-500/40"}>
         <CardContent className="py-4 flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-2">
@@ -298,9 +305,10 @@ const SubjectRequirementsEditor = ({ schoolId, profile }: SubjectRequirementsEdi
             )}
             <AddSubjectRow
               existingSubjects={items.map(i => i.subject)}
+              allSubjects={distinctSubjects}
               onAdd={(subject, hours) => handleAdd(grade, subject, hours)}
             />
-            <TrackBlocksEditor schoolId={schoolId} grade={grade} roomTypes={roomTypes} />
+            <TrackBlocksEditor schoolId={schoolId} grade={grade} roomTypes={roomTypes} onChanged={loadData} />
           </CardContent>
         </Card>
       ))}
@@ -310,7 +318,7 @@ const SubjectRequirementsEditor = ({ schoolId, profile }: SubjectRequirementsEdi
   );
 };
 
-const AddSubjectRow = ({ existingSubjects, onAdd }: { existingSubjects: string[]; onAdd: (subject: string, hours: number) => void }) => {
+const AddSubjectRow = ({ existingSubjects, allSubjects, onAdd }: { existingSubjects: string[]; allSubjects: string[]; onAdd: (subject: string, hours: number) => void }) => {
   const { toast } = useToast();
   const [subject, setSubject] = useState("");
   const [hours, setHours] = useState("2");
@@ -338,6 +346,7 @@ const AddSubjectRow = ({ existingSubjects, onAdd }: { existingSubjects: string[]
         value={subject}
         onChange={(e) => setSubject(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+        list="known-subjects"
       />
       <Input type="number" className="w-20 h-8" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="שעות" />
       <Button size="sm" className="gap-1 h-8" onClick={handleAdd}>

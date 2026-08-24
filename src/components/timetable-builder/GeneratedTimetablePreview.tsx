@@ -187,7 +187,7 @@ const GeneratedTimetablePreview = ({
                               <p className="text-[11px] font-heading font-bold leading-tight text-foreground">{clusterName}</p>
                               {cellSlots.map((s, i) => (
                                 <p key={i} className="text-[10px] text-muted-foreground leading-tight">
-                                  {s.subject}{s.teacher_name ? ` — ${s.teacher_name}` : ""}
+                                  {s.subject}{s.teacher_name ? ` — ${s.teacher_name}` : ""}{s.room ? ` (חדר ${s.room})` : ""}
                                 </p>
                               ))}
                             </>
