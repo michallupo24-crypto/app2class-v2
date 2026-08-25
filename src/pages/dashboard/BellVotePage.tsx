@@ -33,8 +33,9 @@ const BellVotePage = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
   const { toast } = useToast();
   const isManagement = profile.roles.some((r) => ["management", "system_admin"].includes(r));
+  const isCouncilAdvisor = profile.roles.includes("council_advisor");
   const { isCouncilHead } = useCouncilRole(profile.id);
-  const canModerate = isManagement || isCouncilHead;
+  const canModerate = isManagement || isCouncilAdvisor || isCouncilHead;
 
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggesters, setSuggesters] = useState<Record<string, string>>({});
@@ -83,8 +84,14 @@ const BellVotePage = () => {
 
   const addSuggestion = async () => {
     if (!form.title || !form.youtube_url || !profile.schoolId) return;
-    if (!extractYoutubeId(form.youtube_url)) {
+    const videoId = extractYoutubeId(form.youtube_url);
+    if (!videoId) {
       toast({ title: "קישור לא תקין", description: "נא להדביק קישור YouTube תקין", variant: "destructive" });
+      return;
+    }
+    const duplicate = suggestions.some((s) => extractYoutubeId(s.youtube_url) === videoId);
+    if (duplicate) {
+      toast({ title: "השיר כבר הוצע", description: "מישהו כבר הציע את השיר הזה - אפשר להצביע לו במקום", variant: "destructive" });
       return;
     }
     const { error } = await (supabase as any).from("bell_song_suggestions").insert({
