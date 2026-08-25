@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import ArticleRichEditor from "@/components/newspaper/ArticleRichEditor";
 import { sanitizeHtml, stripHtmlToText } from "@/lib/sanitizeHtml";
+import { useCouncilRole } from "@/hooks/useCouncilRole";
 
 interface Article {
   id: string;
@@ -35,7 +36,8 @@ const CATEGORY_LABELS: Record<string, string> = {
 const NewspaperPage = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
   const { toast } = useToast();
-  const isStaff = profile.roles.some((r) => ["educator", "management", "system_admin", "counselor"].includes(r));
+  const { isCouncilHead, isNewspaperEditor } = useCouncilRole(profile.id);
+  const isStaff = profile.roles.some((r) => ["educator", "management", "system_admin", "counselor"].includes(r)) || isCouncilHead || isNewspaperEditor;
 
   const [articles, setArticles] = useState<Article[]>([]);
   const [authors, setAuthors] = useState<Record<string, string>>({});

@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Landmark, Plus, Vote, Trophy, UserPlus, ChevronLeft, Trash2, Search, Crown, Newspaper as NewspaperIcon, X, Check, Undo2, ClipboardList, Pencil } from "lucide-react";
+import { Landmark, Plus, Vote, Trophy, UserPlus, ChevronLeft, Trash2, Search, Crown, Newspaper as NewspaperIcon, X, Check, Undo2, ClipboardList, Pencil, Megaphone } from "lucide-react";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -96,6 +96,10 @@ const CouncilPage = () => {
   const [reviewNote, setReviewNote] = useState("");
   const [editDialog, setEditDialog] = useState<Candidate | null>(null);
   const [editStatement, setEditStatement] = useState("");
+
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [broadcastText, setBroadcastText] = useState("");
+  const [sendingBroadcast, setSendingBroadcast] = useState(false);
 
   const load = async () => {
     if (!profile.schoolId) {
@@ -345,8 +349,26 @@ const CouncilPage = () => {
     load();
   };
 
+  const sendBroadcast = async () => {
+    if (!broadcastText.trim() || !profile.schoolId) return;
+    setSendingBroadcast(true);
+    const { error } = await (supabase as any).from("system_announcements").insert({
+      school_id: profile.schoolId,
+      title: "הודעה ממועצת התלמידים",
+      content: broadcastText.trim(),
+      severity: "info",
+      created_by: profile.id,
+    });
+    setSendingBroadcast(false);
+    if (error) return toast({ title: "שגיאה", description: error.message, variant: "destructive" });
+    toast({ title: "📢 ההודעה שודרה לכל בית הספר" });
+    setBroadcastOpen(false);
+    setBroadcastText("");
+  };
+
   const councilHead = members.find((m) => m.roleType === "head");
   const newspaperEditors = members.filter((m) => m.roleType === "newspaper_editor");
+  const isMeTheHead = councilHead?.id === profile.id;
 
   const canReviewCandidacies = isHomeroomTeacher || canManageCouncil;
   const pendingReview: (Candidate & { election_title: string })[] = canReviewCandidacies
@@ -391,6 +413,35 @@ const CouncilPage = () => {
           </Dialog>
         )}
       </div>
+
+      {isMeTheHead && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-heading text-lg flex items-center gap-2">
+              <Crown className="h-5 w-5 text-warning" /> את/ה ראש/ת המועצה
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">בתור ראש/ת המועצה את/ה יכול/ה לשדר הודעה לכל בית הספר</p>
+          </CardHeader>
+          <CardContent>
+            <Dialog open={broadcastOpen} onOpenChange={setBroadcastOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Megaphone className="h-4 w-4" /> שידור הודעה לבית הספר
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle className="font-heading">שידור הודעה מהמועצה</DialogTitle>
+                </DialogHeader>
+                <Textarea placeholder="תוכן ההודעה..." value={broadcastText} onChange={(e) => setBroadcastText(e.target.value)} rows={4} />
+                <Button onClick={sendBroadcast} disabled={sendingBroadcast || !broadcastText.trim()} className="w-full gap-2">
+                  <Megaphone className="h-4 w-4" /> שדר לכל בית הספר
+                </Button>
+              </DialogContent>
+            </Dialog>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="regular">
         <TabsList>

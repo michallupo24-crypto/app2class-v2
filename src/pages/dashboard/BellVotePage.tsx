@@ -9,6 +9,7 @@ import { Music, Plus, Trophy, Trash2, Vote } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCouncilRole } from "@/hooks/useCouncilRole";
 
 interface Suggestion {
   id: string;
@@ -32,6 +33,8 @@ const BellVotePage = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
   const { toast } = useToast();
   const isManagement = profile.roles.some((r) => ["management", "system_admin"].includes(r));
+  const { isCouncilHead } = useCouncilRole(profile.id);
+  const canModerate = isManagement || isCouncilHead;
 
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggesters, setSuggesters] = useState<Record<string, string>>({});
@@ -176,7 +179,7 @@ const BellVotePage = () => {
                       <Vote className="h-3.5 w-3.5" /> {isMyVote ? "הצבעת ✓" : "הצבע/י"}
                     </Button>
                     <span className="text-xs font-heading font-bold text-muted-foreground shrink-0">{counts[s.id] || 0} קולות</span>
-                    {(isManagement || s.suggested_by === profile.id) && (
+                    {(canModerate || s.suggested_by === profile.id) && (
                       <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-destructive" onClick={() => removeSuggestion(s.id)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
