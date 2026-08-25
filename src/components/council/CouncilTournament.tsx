@@ -280,6 +280,7 @@ const CouncilTournament = ({ profile }: { profile: UserProfile }) => {
         <CardContent className="py-12 text-center space-y-4">
           <Trophy className="h-12 w-12 mx-auto opacity-30" />
           <p className="text-muted-foreground font-heading font-medium">אין טורניר בחירות פעיל כרגע</p>
+          {!canManage && <p className="text-xs text-muted-foreground -mt-2">כשהאחראית על המועצה תפתח טורניר בחירות, אפשרות ההגשה תופיע כאן</p>}
           {canManage && (
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
               <DialogTrigger asChild>

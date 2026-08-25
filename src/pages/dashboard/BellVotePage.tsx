@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Music, Plus, Trophy, Trash2, Vote } from "lucide-react";
+import { Music, Plus, Trophy, Trash2, Vote, BarChart3 } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -45,6 +45,7 @@ const BellVotePage = () => {
 
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState({ title: "", youtube_url: "" });
+  const [studentCount, setStudentCount] = useState(0);
 
   const load = async () => {
     if (!profile.schoolId) {
@@ -75,12 +76,22 @@ const BellVotePage = () => {
       (profs || []).forEach((p: any) => (map[p.id] = p.full_name));
       setSuggesters(map);
     }
+
+    if (canModerate) {
+      const { data: schoolProfiles } = await supabase.from("profiles").select("id").eq("school_id", profile.schoolId);
+      const profileIds = (schoolProfiles || []).map((p) => p.id);
+      const { data: studentRoles } = profileIds.length
+        ? await supabase.from("user_roles").select("user_id").eq("role", "student").in("user_id", profileIds)
+        : { data: [] };
+      setStudentCount(new Set((studentRoles || []).map((r: any) => r.user_id)).size);
+    }
+
     setLoading(false);
   };
 
   useEffect(() => {
     load();
-  }, [profile.id, profile.schoolId]);
+  }, [profile.id, profile.schoolId, canModerate]);
 
   const addSuggestion = async () => {
     if (!form.title || !form.youtube_url || !profile.schoolId) return;
@@ -124,6 +135,8 @@ const BellVotePage = () => {
 
   const sorted = [...suggestions].sort((a, b) => (counts[b.id] || 0) - (counts[a.id] || 0));
   const leaderId = sorted[0]?.id;
+  const totalVotesCast = Object.values(counts).reduce((sum, n) => sum + n, 0);
+  const participationPct = studentCount > 0 ? Math.round((totalVotesCast / studentCount) * 100) : 0;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
@@ -148,6 +161,49 @@ const BellVotePage = () => {
           </DialogContent>
         </Dialog>
       </div>
+
+      {canModerate && !loading && (
+        <Card>
+          <CardContent className="p-4">
+            <h2 className="font-heading font-bold text-sm flex items-center gap-1.5 mb-3">
+              <BarChart3 className="h-4 w-4" /> סטטיסטיקת הצבעות
+            </h2>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="text-center p-2 rounded-lg bg-muted/40">
+                <p className="text-lg font-heading font-bold">{suggestions.length}</p>
+                <p className="text-[11px] text-muted-foreground">שירים מוצעים</p>
+              </div>
+              <div className="text-center p-2 rounded-lg bg-muted/40">
+                <p className="text-lg font-heading font-bold">{totalVotesCast}</p>
+                <p className="text-[11px] text-muted-foreground">קולות שנספרו</p>
+              </div>
+              <div className="text-center p-2 rounded-lg bg-muted/40">
+                <p className="text-lg font-heading font-bold">{participationPct}%</p>
+                <p className="text-[11px] text-muted-foreground">השתתפות תלמידים ({totalVotesCast}/{studentCount})</p>
+              </div>
+            </div>
+            {sorted.length > 0 && (
+              <div className="space-y-1.5">
+                {sorted.map((s) => {
+                  const c = counts[s.id] || 0;
+                  const pct = totalVotesCast > 0 ? Math.round((c / totalVotesCast) * 100) : 0;
+                  return (
+                    <div key={s.id} className="text-xs">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="truncate">{s.title}</span>
+                        <span className="text-muted-foreground shrink-0">{c} קולות · {pct}%</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {loading ? (
         <div className="text-center py-12 text-muted-foreground animate-pulse">טוען...</div>

@@ -593,7 +593,8 @@ const CouncilPage = () => {
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             <Vote className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="font-heading font-medium">אין בחירות פעילות כרגע</p>
+            <p className="font-heading font-medium">אין בחירות פתוחות למועמדות כרגע</p>
+            {!canManageCouncil && <p className="text-xs mt-1">כשהאחראית על המועצה תפתח בחירות חדשות, אפשרות ההגשה תופיע כאן</p>}
           </CardContent>
         </Card>
       ) : (
