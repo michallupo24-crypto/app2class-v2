@@ -121,7 +121,7 @@ const CouncilPage = () => {
 
     const [membersRes, electionsRes] = await Promise.all([
       (supabase as any).from("council_members").select("id, student_id, position, role_type").eq("school_id", profile.schoolId).eq("is_active", true),
-      (supabase as any).from("council_elections").select("*").eq("school_id", profile.schoolId).order("created_at", { ascending: false }),
+      (supabase as any).from("council_elections").select("*").eq("school_id", profile.schoolId).is("campaign_id", null).order("created_at", { ascending: false }),
     ]);
 
     const electionsData: Election[] = electionsRes.data || [];
