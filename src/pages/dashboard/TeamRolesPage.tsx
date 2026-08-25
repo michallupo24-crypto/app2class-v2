@@ -25,7 +25,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { GRADES } from "@/lib/constants";
 
-const STAFF_ROLE_SET = ["educator", "professional_teacher", "subject_coordinator", "grade_coordinator", "counselor", "management"];
+const STAFF_ROLE_SET = ["educator", "professional_teacher", "subject_coordinator", "grade_coordinator", "counselor", "management", "exam_coordinator", "secretary"];
 
 const ROLE_LABELS: Record<string, string> = {
   educator: "מחנך/ת",
@@ -35,6 +35,9 @@ const ROLE_LABELS: Record<string, string> = {
   counselor: "יועץ/ת",
   management: "הנהלה",
   council_advisor: "אחראית מועצה",
+  exam_coordinator: "רכז/ת בגרויות ומבחנים",
+  secretary: "מזכירה/מזכיר",
+  parent_committee_rep: "נציג/ת ועד הורים",
 };
 
 // The roles management can grant/revoke from this screen. system_admin/super_admin
@@ -47,6 +50,8 @@ const GRANTABLE_ROLES: { value: string; label: string; needsMeta?: "subject" | "
   { value: "counselor", label: "יועץ/ת" },
   { value: "professional_teacher", label: "מורה מקצועי/ת" },
   { value: "management", label: "הנהלה" },
+  { value: "exam_coordinator", label: "רכז/ת בגרויות ומבחנים" },
+  { value: "secretary", label: "מזכירה/מזכיר" },
 ];
 
 interface StaffEntry {
@@ -69,6 +74,11 @@ const TeamRolesPage = () => {
   const [metaDialog, setMetaDialog] = useState<{ userId: string; role: string; needsMeta: "subject" | "grade" } | null>(null);
   const [metaValue, setMetaValue] = useState("");
   const [revokeManagementFor, setRevokeManagementFor] = useState<string | null>(null);
+
+  const [parentQuery, setParentQuery] = useState("");
+  const [parentResults, setParentResults] = useState<{ id: string; full_name: string; email: string; isRep: boolean }[]>([]);
+  const [searchingParents, setSearchingParents] = useState(false);
+  const [committeeReps, setCommitteeReps] = useState<{ id: string; full_name: string; email: string }[]>([]);
 
   const load = async () => {
     if (!profile.schoolId) {
@@ -94,6 +104,10 @@ const TeamRolesPage = () => {
       .map((p) => ({ ...p, roles: rolesByUser[p.id] || [] }));
 
     setStaff(staffEntries);
+
+    const repIds = (profs || []).filter((p) => (rolesByUser[p.id] || []).includes("parent_committee_rep")).map((p) => p.id);
+    setCommitteeReps((profs || []).filter((p) => repIds.includes(p.id)));
+
     setLoading(false);
   };
 
@@ -147,6 +161,40 @@ const TeamRolesPage = () => {
     grantRole(metaDialog.userId, metaDialog.role, meta);
     setMetaDialog(null);
     setMetaValue("");
+  };
+
+  const searchParents = async () => {
+    if (!parentQuery.trim() || !profile.schoolId) return;
+    setSearchingParents(true);
+    const { data: matchingProfiles } = await supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .eq("school_id", profile.schoolId)
+      .ilike("full_name", `%${parentQuery.trim()}%`)
+      .limit(20);
+    const ids = (matchingProfiles || []).map((p) => p.id);
+    const { data: parentRoleRows } = ids.length
+      ? await supabase.from("user_roles").select("user_id, role").eq("role", "parent").in("user_id", ids)
+      : { data: [] };
+    const parentIds = new Set((parentRoleRows || []).map((r) => r.user_id));
+    const repIds = new Set(committeeReps.map((r) => r.id));
+    setParentResults((matchingProfiles || []).filter((p) => parentIds.has(p.id)).map((p) => ({ ...p, isRep: repIds.has(p.id) })));
+    setSearchingParents(false);
+  };
+
+  const toggleCommitteeRep = async (userId: string, isRep: boolean) => {
+    setBusyId(userId);
+    const { error } = isRep
+      ? await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "parent_committee_rep")
+      : await supabase.from("user_roles").insert({ user_id: userId, role: "parent_committee_rep" as any });
+    if (error) toast({ title: "שגיאה", description: error.message, variant: "destructive" });
+    else {
+      toast({ title: isRep ? "התפקיד הוסר" : "✅ מונה/ית כנציג/ת ועד הורים" });
+      setParentResults([]);
+      setParentQuery("");
+      load();
+    }
+    setBusyId(null);
   };
 
   if (!isManagement) {
@@ -212,6 +260,51 @@ const TeamRolesPage = () => {
           {filtered.length === 0 && <p className="text-center py-8 text-muted-foreground text-sm">לא נמצאו אנשי צוות</p>}
         </div>
       )}
+
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <div>
+            <h2 className="font-heading font-bold">נציג/ת ועד הורים</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">תפקיד להורים, לא לאנשי צוות - מוקצה בנפרד</p>
+          </div>
+
+          {committeeReps.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {committeeReps.map((r) => (
+                <Badge key={r.id} className="text-[10px] gap-1.5 bg-primary/10 text-primary border-primary/30">
+                  {r.full_name}
+                  <button onClick={() => toggleCommitteeRep(r.id, true)} className="hover:text-destructive">✕</button>
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="חיפוש הורה לפי שם..."
+              value={parentQuery}
+              onChange={(e) => setParentQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && searchParents()}
+              className="max-w-sm"
+            />
+            <Button variant="outline" onClick={searchParents} disabled={searchingParents}>
+              חפש
+            </Button>
+          </div>
+          {parentResults.length > 0 && (
+            <div className="space-y-1.5">
+              {parentResults.map((p) => (
+                <div key={p.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/30">
+                  <span className="text-sm">{p.full_name}</span>
+                  <Button size="sm" variant={p.isRep ? "outline" : "secondary"} disabled={busyId === p.id} onClick={() => toggleCommitteeRep(p.id, p.isRep)}>
+                    {p.isRep ? "בטל מינוי" : "מנה כנציג/ת ועד הורים"}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Dialog open={!!metaDialog} onOpenChange={(o) => !o && setMetaDialog(null)}>
         <DialogContent>

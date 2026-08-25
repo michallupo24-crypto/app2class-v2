@@ -33,6 +33,7 @@ interface GradeEvent {
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   exam: "מבחן",
+  bagrut: "בגרות",
   trip: "טיול",
   ceremony: "טקס",
   activity: "פעילות",

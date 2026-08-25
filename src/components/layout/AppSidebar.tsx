@@ -64,6 +64,10 @@ const ROLE_LABELS: Record<string, string> = {
   counselor: "יועץ/ת",
   management: "הנהלה",
   system_admin: "מנהל/ת מערכת",
+  council_advisor: "אחראית מועצה",
+  exam_coordinator: "רכז/ת בגרויות ומבחנים",
+  secretary: "מזכירה/מזכיר",
+  parent_committee_rep: "נציג/ת ועד הורים",
 };
 
 interface AppSidebarProps {
@@ -86,7 +90,9 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
   const isManagement = roles.includes("management");
   const isEducator = roles.includes("educator");
   const isCouncilAdvisor = roles.includes("council_advisor");
-  const hasApprovalPower = isAdmin || isManagement || isEducator || roles.includes("grade_coordinator");
+  const isExamCoordinator = roles.includes("exam_coordinator");
+  const isSecretary = roles.includes("secretary");
+  const hasApprovalPower = isAdmin || isManagement || isEducator || isSecretary || roles.includes("grade_coordinator");
 
   // Student navigation
   const studentItems = [
@@ -128,6 +134,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
     { title: "שיחות", url: "/dashboard/chat", icon: MessageCircle },
   ];
   if (isCouncilAdvisor) teacherItems.push({ title: "מועצת תלמידים", url: "/dashboard/council", icon: Landmark });
+  if (isExamCoordinator) teacherItems.push({ title: "לוח מבחנים", url: "/dashboard/master-scheduler", icon: Calendar });
 
   // Subject coordinator
   const subjectCoordinatorItems: { title: string; url: string; icon: any }[] = [
@@ -140,6 +147,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
     { title: "שיחות", url: "/dashboard/chat", icon: MessageCircle },
   ];
   if (isCouncilAdvisor) subjectCoordinatorItems.push({ title: "מועצת תלמידים", url: "/dashboard/council", icon: Landmark });
+  if (isExamCoordinator) subjectCoordinatorItems.push({ title: "לוח מבחנים", url: "/dashboard/master-scheduler", icon: Calendar });
 
   // Grade coordinator
   const gradeCoordinatorItems: { title: string; url: string; icon: any }[] = [
@@ -153,6 +161,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
     { title: "שיחות", url: "/dashboard/chat", icon: MessageCircle },
   ];
   if (isCouncilAdvisor) gradeCoordinatorItems.push({ title: "מועצת תלמידים", url: "/dashboard/council", icon: Landmark });
+  if (isExamCoordinator) gradeCoordinatorItems.push({ title: "ארכיון מבחנים", url: "/dashboard/exam-archive", icon: Archive });
 
   // Counselor navigation
   const counselorItems: { title: string; url: string; icon: any }[] = [
@@ -164,6 +173,10 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
     { title: "שיחות", url: "/dashboard/chat", icon: MessageCircle },
   ];
   if (isCouncilAdvisor) counselorItems.push({ title: "מועצת תלמידים", url: "/dashboard/council", icon: Landmark });
+  if (isExamCoordinator) {
+    counselorItems.push({ title: "לוח מבחנים", url: "/dashboard/master-scheduler", icon: Calendar });
+    counselorItems.push({ title: "ארכיון מבחנים", url: "/dashboard/exam-archive", icon: Archive });
+  }
 
   // Parent Navigation (CLEAN & PREMIUM)
   const parentItems = [

@@ -3964,6 +3964,9 @@ export type Database = {
         | "system_admin"
         | "super_admin"
         | "council_advisor"
+        | "exam_coordinator"
+        | "secretary"
+        | "parent_committee_rep"
       approval_status: "pending" | "approved" | "rejected"
       assignment_type: "homework" | "exam" | "quiz" | "project" | "exercise"
       attendance_status: "present" | "absent" | "late" | "excused"
@@ -4131,6 +4134,9 @@ export const Constants = {
         "system_admin",
         "super_admin",
         "council_advisor",
+        "exam_coordinator",
+        "secretary",
+        "parent_committee_rep",
       ],
       approval_status: ["pending", "approved", "rejected"],
       assignment_type: ["homework", "exam", "quiz", "project", "exercise"],

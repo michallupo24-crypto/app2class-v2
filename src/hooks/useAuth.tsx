@@ -54,14 +54,19 @@ export const useAuth = () => {
 
     const validRoles = profileRes.data ? roles : [];
 
-    // Count pending approvals — single query with IN filter
+    // Count pending approvals — single query with IN filter.
+    // Secretary can also see/act on required_role='educator' rows (RLS grant
+    // added alongside the exam-coordinator/secretary/committee-rep roles),
+    // but doesn't hold 'educator' itself, so it has to be added to the
+    // filter explicitly or this badge silently undercounts.
     let pendingCount = 0;
-    if (roles.length > 0) {
+    const approvalRoles = roles.includes("secretary") ? Array.from(new Set([...roles, "educator"])) : roles;
+    if (approvalRoles.length > 0) {
       const { count } = await supabase
         .from("approvals")
         .select("*", { count: "exact", head: true })
         .eq("status", "pending")
-        .in("required_role", roles);
+        .in("required_role", approvalRoles);
       pendingCount = count || 0;
     }
 

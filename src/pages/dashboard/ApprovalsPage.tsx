@@ -5,21 +5,24 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { 
-  CheckCircle2, 
-  XCircle, 
-  Clock, 
-  UserCheck, 
-  Users, 
-  Search, 
-  Filter, 
-  ChevronDown, 
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  CheckCircle2,
+  XCircle,
+  Clock,
+  UserCheck,
+  Users,
+  Search,
+  Filter,
+  ChevronDown,
   MoreVertical,
   ThumbsUp,
   AlertCircle,
   Loader2,
   Trash2,
-  Info
+  Info,
+  Megaphone
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -64,6 +67,28 @@ const ApprovalsPage = () => {
   const [filter, setFilter] = useState<"pending" | "approved" | "rejected" | "all">("pending");
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+
+  const isSecretary = profile.roles.includes("secretary");
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [broadcastText, setBroadcastText] = useState("");
+  const [sendingBroadcast, setSendingBroadcast] = useState(false);
+
+  const sendBroadcast = async () => {
+    if (!broadcastText.trim() || !profile.schoolId) return;
+    setSendingBroadcast(true);
+    const { error } = await supabase.from("system_announcements").insert({
+      school_id: profile.schoolId,
+      title: "הודעה מהמזכירות",
+      content: broadcastText.trim(),
+      severity: "info",
+      created_by: profile.id,
+    } as any);
+    setSendingBroadcast(false);
+    if (error) return toast({ title: "שגיאה", description: error.message, variant: "destructive" });
+    toast({ title: "📢 ההודעה שודרה לכל בית הספר" });
+    setBroadcastOpen(false);
+    setBroadcastText("");
+  };
 
   useEffect(() => {
     loadApprovals();
@@ -231,6 +256,35 @@ const ApprovalsPage = () => {
           </motion.div>
         )}
       </div>
+
+      {isSecretary && (
+        <motion.div variants={item}>
+          <Card>
+            <CardContent className="py-4 flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <p className="font-heading font-bold text-sm">שידור הודעה לבית הספר</p>
+                <p className="text-xs text-muted-foreground">הודעות רגילות בלבד (לא חירום)</p>
+              </div>
+              <Dialog open={broadcastOpen} onOpenChange={setBroadcastOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="gap-2">
+                    <Megaphone className="h-4 w-4" /> שידור הודעה
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle className="font-heading">שידור הודעה מהמזכירות</DialogTitle>
+                  </DialogHeader>
+                  <Textarea placeholder="תוכן ההודעה..." value={broadcastText} onChange={(e) => setBroadcastText(e.target.value)} rows={4} />
+                  <Button onClick={sendBroadcast} disabled={sendingBroadcast || !broadcastText.trim()} className="w-full gap-2">
+                    <Megaphone className="h-4 w-4" /> שדר לכל בית הספר
+                  </Button>
+                </DialogContent>
+              </Dialog>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Control Bar */}
       <motion.div variants={item} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
