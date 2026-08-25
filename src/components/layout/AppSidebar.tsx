@@ -85,6 +85,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
   const isAdmin = roles.includes("system_admin");
   const isManagement = roles.includes("management");
   const isEducator = roles.includes("educator");
+  const isCouncilAdvisor = roles.includes("council_advisor");
   const hasApprovalPower = isAdmin || isManagement || isEducator || roles.includes("grade_coordinator");
 
   // Student navigation
@@ -126,6 +127,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
     { title: "ארכיון מבחנים", url: "/dashboard/exam-archive", icon: Archive },
     { title: "שיחות", url: "/dashboard/chat", icon: MessageCircle },
   ];
+  if (isCouncilAdvisor) teacherItems.push({ title: "מועצת תלמידים", url: "/dashboard/council", icon: Landmark });
 
   // Subject coordinator
   const subjectCoordinatorItems: { title: string; url: string; icon: any }[] = [
@@ -137,6 +139,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
     { title: "לוח זמנים", url: "/dashboard/schedule", icon: Calendar },
     { title: "שיחות", url: "/dashboard/chat", icon: MessageCircle },
   ];
+  if (isCouncilAdvisor) subjectCoordinatorItems.push({ title: "מועצת תלמידים", url: "/dashboard/council", icon: Landmark });
 
   // Grade coordinator
   const gradeCoordinatorItems: { title: string; url: string; icon: any }[] = [
@@ -149,6 +152,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
     { title: "לוח זמנים", url: "/dashboard/schedule", icon: Calendar },
     { title: "שיחות", url: "/dashboard/chat", icon: MessageCircle },
   ];
+  if (isCouncilAdvisor) gradeCoordinatorItems.push({ title: "מועצת תלמידים", url: "/dashboard/council", icon: Landmark });
 
   // Counselor navigation
   const counselorItems: { title: string; url: string; icon: any }[] = [
@@ -159,6 +163,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
     { title: "לוח זמנים", url: "/dashboard/schedule", icon: Calendar },
     { title: "שיחות", url: "/dashboard/chat", icon: MessageCircle },
   ];
+  if (isCouncilAdvisor) counselorItems.push({ title: "מועצת תלמידים", url: "/dashboard/council", icon: Landmark });
 
   // Parent Navigation (CLEAN & PREMIUM)
   const parentItems = [
