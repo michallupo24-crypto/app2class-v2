@@ -5,14 +5,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Newspaper, Plus, Heart, Check, X, Clock } from "lucide-react";
+import { Newspaper, Plus, Heart, Check, X, Clock, Pencil } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import ArticleRichEditor from "@/components/newspaper/ArticleRichEditor";
+import { sanitizeHtml, stripHtmlToText } from "@/lib/sanitizeHtml";
 
 interface Article {
   id: string;
@@ -45,6 +46,7 @@ const NewspaperPage = () => {
 
   const [composeOpen, setComposeOpen] = useState(false);
   const [form, setForm] = useState({ title: "", content: "", cover_image_url: "", category: "news" });
+  const [editingArticleId, setEditingArticleId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -79,19 +81,34 @@ const NewspaperPage = () => {
       toast({ title: "נא למלא כותרת ותוכן", variant: "destructive" });
       return;
     }
-    const { error } = await (supabase as any).from("newspaper_articles").insert({
-      school_id: profile.schoolId,
-      author_id: profile.id,
-      title: form.title,
-      content: form.content,
-      cover_image_url: form.cover_image_url || null,
-      category: form.category,
-    });
+    const cleanContent = sanitizeHtml(form.content);
+
+    const { error } = editingArticleId
+      ? await (supabase as any)
+          .from("newspaper_articles")
+          .update({ title: form.title, content: cleanContent, cover_image_url: form.cover_image_url || null, category: form.category })
+          .eq("id", editingArticleId)
+      : await (supabase as any).from("newspaper_articles").insert({
+          school_id: profile.schoolId,
+          author_id: profile.id,
+          title: form.title,
+          content: cleanContent,
+          cover_image_url: form.cover_image_url || null,
+          category: form.category,
+        });
     if (error) return toast({ title: "שגיאה", description: error.message, variant: "destructive" });
-    toast({ title: "הכתבה נשלחה לאישור המערכת" });
+    toast({ title: editingArticleId ? "✅ הכתבה עודכנה" : "הכתבה נשלחה לאישור המערכת" });
     setComposeOpen(false);
+    setEditingArticleId(null);
     setForm({ title: "", content: "", cover_image_url: "", category: "news" });
-    if (tab === "pending") load();
+    load();
+  };
+
+  const startEdit = (article: Article) => {
+    setForm({ title: article.title, content: article.content, cover_image_url: article.cover_image_url || "", category: article.category });
+    setEditingArticleId(article.id);
+    setSelected(null);
+    setComposeOpen(true);
   };
 
   const review = async (article: Article, approve: boolean) => {
@@ -141,12 +158,29 @@ const NewspaperPage = () => {
               <button onClick={() => setTab("pending")} className={`px-3 py-1.5 text-xs font-heading ${tab === "pending" ? "bg-primary text-primary-foreground" : ""}`}>ממתינות לאישור</button>
             </div>
           )}
-          <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
+          <Dialog
+            open={composeOpen}
+            onOpenChange={(o) => {
+              setComposeOpen(o);
+              if (!o) {
+                setEditingArticleId(null);
+                setForm({ title: "", content: "", cover_image_url: "", category: "news" });
+              }
+            }}
+          >
             <DialogTrigger asChild>
-              <Button className="gap-2"><Plus className="h-4 w-4" /> כתבה חדשה</Button>
+              <Button
+                className="gap-2"
+                onClick={() => {
+                  setEditingArticleId(null);
+                  setForm({ title: "", content: "", cover_image_url: "", category: "news" });
+                }}
+              >
+                <Plus className="h-4 w-4" /> כתבה חדשה
+              </Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg">
-              <DialogHeader><DialogTitle className="font-heading">כתיבת כתבה</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle className="font-heading">{editingArticleId ? "עריכת כתבה" : "כתיבת כתבה"}</DialogTitle></DialogHeader>
               <div className="space-y-3 mt-2">
                 <Input placeholder="כותרת" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
                 <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
@@ -156,8 +190,8 @@ const NewspaperPage = () => {
                   </SelectContent>
                 </Select>
                 <Input placeholder="קישור לתמונת נושא (אופציונלי)" value={form.cover_image_url} onChange={(e) => setForm({ ...form, cover_image_url: e.target.value })} />
-                <Textarea placeholder="תוכן הכתבה..." rows={8} value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} />
-                <Button onClick={submitArticle} className="w-full">שלח/י לאישור</Button>
+                <ArticleRichEditor value={form.content} onChange={(html) => setForm({ ...form, content: html })} />
+                <Button onClick={submitArticle} className="w-full">{editingArticleId ? "שמור שינויים" : "שלח/י לאישור"}</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -179,7 +213,7 @@ const NewspaperPage = () => {
               <CardContent className="p-4">
                 <Badge variant="outline" className="text-[10px] mb-2">{CATEGORY_LABELS[a.category]}</Badge>
                 <h3 className="font-heading font-bold text-sm line-clamp-2">{a.title}</h3>
-                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{a.content}</p>
+                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{stripHtmlToText(a.content)}</p>
                 <div className="flex items-center justify-between mt-3">
                   <span className="text-[11px] text-muted-foreground">{authors[a.author_id] || "תלמיד/ה"}</span>
                   {tab === "published" ? (
@@ -193,6 +227,7 @@ const NewspaperPage = () => {
                 {tab === "pending" && isStaff && (
                   <div className="flex gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
                     <Button size="sm" variant="default" className="flex-1 gap-1" onClick={() => review(a, true)}><Check className="h-3 w-3" /> אשר ופרסם</Button>
+                    <Button size="sm" variant="outline" className="gap-1" onClick={() => startEdit(a)}><Pencil className="h-3 w-3" /></Button>
                     <Button size="sm" variant="outline" className="flex-1 gap-1" onClick={() => review(a, false)}><X className="h-3 w-3" /> דחה</Button>
                   </div>
                 )}
@@ -212,12 +247,22 @@ const NewspaperPage = () => {
                 <DialogTitle className="font-heading text-xl">{selected.title}</DialogTitle>
                 <p className="text-xs text-muted-foreground">{authors[selected.author_id]} · {selected.published_at && format(new Date(selected.published_at), "dd/MM/yyyy")}</p>
               </DialogHeader>
-              <p className="whitespace-pre-line text-sm leading-relaxed">{selected.content}</p>
-              {tab === "published" && (
-                <Button variant="outline" size="sm" className="w-fit gap-1.5" onClick={() => toggleLike(selected)}>
-                  <Heart className={`h-4 w-4 ${myLikes.has(selected.id) ? "fill-destructive text-destructive" : ""}`} /> {selected.likes} אהבו
-                </Button>
-              )}
+              <div
+                className="text-sm leading-relaxed [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-2 [&_h3]:font-bold [&_ul]:list-disc [&_ul]:pr-5 [&_ol]:list-decimal [&_ol]:pr-5 [&_blockquote]:border-r-2 [&_blockquote]:pr-3 [&_blockquote]:text-muted-foreground [&_a]:text-primary [&_a]:underline"
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(selected.content) }}
+              />
+              <div className="flex items-center gap-2">
+                {tab === "published" && (
+                  <Button variant="outline" size="sm" className="w-fit gap-1.5" onClick={() => toggleLike(selected)}>
+                    <Heart className={`h-4 w-4 ${myLikes.has(selected.id) ? "fill-destructive text-destructive" : ""}`} /> {selected.likes} אהבו
+                  </Button>
+                )}
+                {isStaff && (
+                  <Button variant="outline" size="sm" className="w-fit gap-1.5" onClick={() => startEdit(selected)}>
+                    <Pencil className="h-4 w-4" /> ערוך
+                  </Button>
+                )}
+              </div>
             </>
           )}
         </DialogContent>
