@@ -3,6 +3,7 @@ import type { Slide, SlideObject } from '../types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../types';
 import { CanvasObject } from './CanvasObject';
 import { ObjectToolbar } from './ObjectToolbar';
+import type { GuideLine } from '../utils/snapping';
 
 interface Props {
   slide: Slide;
@@ -16,6 +17,7 @@ export const SlideCanvas = forwardRef<HTMLDivElement, Props>(function SlideCanva
   ref
 ) {
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const [guides, setGuides] = useState<GuideLine[]>([]);
   const selectedObject = !readOnly ? slide.objects.find((o) => o.id === selectedObjectId) || null : null;
 
   return (
@@ -41,10 +43,24 @@ export const SlideCanvas = forwardRef<HTMLDivElement, Props>(function SlideCanva
           <CanvasObject
             key={obj.id}
             object={obj}
+            siblings={slide.objects.filter((o) => o.id !== obj.id)}
             selected={obj.id === selectedObjectId}
             onSelect={() => setSelectedObjectId(obj.id)}
             onUpdate={(updates) => onUpdateObject(obj.id, updates)}
+            onGuidesChange={setGuides}
             readOnly={readOnly}
+          />
+        ))}
+
+        {!readOnly && guides.map((g, i) => (
+          <div
+            key={i}
+            className="absolute pointer-events-none"
+            style={
+              g.orientation === 'v'
+                ? { left: g.pos, top: 0, width: 0, height: '100%', borderRight: '1px dashed #ec4899' }
+                : { top: g.pos, left: 0, height: 0, width: '100%', borderBottom: '1px dashed #ec4899' }
+            }
           />
         ))}
       </div>

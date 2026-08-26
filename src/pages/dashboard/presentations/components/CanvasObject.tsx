@@ -1,23 +1,55 @@
 import { useRef } from 'react';
-import { motion, useMotionValue } from 'framer-motion';
-import type { SlideObject } from '../types';
+import type { SlideObject, TextFontFamily } from '../types';
+import { computeSnap, type GuideLine } from '../utils/snapping';
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../types';
 
 const MIN_SIZE = 20;
 
+export const FONT_FAMILY_CSS: Record<TextFontFamily, string> = {
+  heading: "'Rubik', sans-serif",
+  body: "'Assistant', sans-serif",
+  serif: "'Frank Ruhl Libre', serif",
+};
+
 interface Props {
   object: SlideObject;
+  siblings: SlideObject[];
   selected: boolean;
   onSelect: () => void;
   onUpdate: (updates: Partial<SlideObject>) => void;
+  onGuidesChange?: (guides: GuideLine[]) => void;
   readOnly?: boolean;
 }
 
 type ResizeCorner = 'nw' | 'ne' | 'sw' | 'se';
 
-export function CanvasObject({ object, selected, onSelect, onUpdate, readOnly = false }: Props) {
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
+export function CanvasObject({ object, siblings, selected, onSelect, onUpdate, onGuidesChange, readOnly = false }: Props) {
   const textRef = useRef<HTMLDivElement>(null);
+
+  const startDrag = (e: React.PointerEvent) => {
+    if (readOnly) return;
+    e.stopPropagation();
+    onSelect();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const start = { x: object.x, y: object.y, width: object.width, height: object.height };
+
+    const onMove = (moveEvent: PointerEvent) => {
+      const dx = moveEvent.clientX - startX;
+      const dy = moveEvent.clientY - startY;
+      const candidate = { x: start.x + dx, y: start.y + dy, width: start.width, height: start.height };
+      const { x, y, guides } = computeSnap(candidate, siblings, CANVAS_WIDTH, CANVAS_HEIGHT);
+      onUpdate({ x, y });
+      onGuidesChange?.(guides);
+    };
+    const onUp = () => {
+      onGuidesChange?.([]);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
 
   const startResize = (corner: ResizeCorner, e: React.PointerEvent) => {
     e.stopPropagation();
@@ -75,16 +107,26 @@ export function CanvasObject({ object, selected, onSelect, onUpdate, readOnly = 
             fontWeight: object.bold ? 700 : 400,
             color: object.color,
             textAlign: object.align,
+            fontFamily: FONT_FAMILY_CSS[object.fontFamily ?? 'body'],
             direction: 'rtl',
           }}
         >
-          {object.text || ' '}
+          {object.text || ' '}
         </div>
       );
     }
     if (object.type === 'image') {
       return object.url ? (
-        <img src={object.url} alt="" className="w-full h-full object-contain pointer-events-none select-none" draggable={false} />
+        <img
+          src={object.url}
+          alt=""
+          className="w-full h-full object-contain pointer-events-none select-none"
+          draggable={false}
+          style={{
+            borderRadius: object.cornerRadius ?? 0,
+            boxShadow: object.shadow ? '0 8px 24px -8px rgba(0,0,0,0.35)' : undefined,
+          }}
+        />
       ) : (
         <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground text-xs">תמונה</div>
       );
@@ -92,15 +134,18 @@ export function CanvasObject({ object, selected, onSelect, onUpdate, readOnly = 
     return (
       <div
         className="w-full h-full"
-        style={{ backgroundColor: object.fill, borderRadius: object.shape === 'circle' ? '50%' : 4 }}
+        style={{
+          backgroundColor: object.fill,
+          borderRadius: object.shape === 'circle' ? '50%' : (object.cornerRadius ?? 4),
+          boxShadow: object.shadow ? '0 8px 24px -8px rgba(0,0,0,0.35)' : undefined,
+          border: object.borderWidth ? `${object.borderWidth}px solid ${object.borderColor ?? '#000000'}` : undefined,
+        }}
       />
     );
   };
 
   return (
-    <motion.div
-      drag={!readOnly}
-      dragMomentum={false}
+    <div
       style={{
         position: 'absolute',
         left: object.x,
@@ -108,19 +153,13 @@ export function CanvasObject({ object, selected, onSelect, onUpdate, readOnly = 
         width: object.width,
         height: object.height,
         zIndex: object.zIndex,
-        x,
-        y,
+        opacity: object.opacity ?? 1,
         outline: selected && !readOnly ? '2px solid var(--primary, #2D5FF6)' : 'none',
         outlineOffset: 2,
         cursor: readOnly ? 'default' : object.type === 'text' ? 'text' : 'move',
+        touchAction: 'none',
       }}
-      onPointerDown={(e) => { if (readOnly) return; e.stopPropagation(); onSelect(); }}
-      onDragEnd={(_, info) => {
-        if (readOnly) return;
-        onUpdate({ x: object.x + info.offset.x, y: object.y + info.offset.y });
-        x.set(0);
-        y.set(0);
-      }}
+      onPointerDown={startDrag}
     >
       {renderContent()}
       {selected && !readOnly && (
@@ -141,6 +180,6 @@ export function CanvasObject({ object, selected, onSelect, onUpdate, readOnly = 
           ))}
         </>
       )}
-    </motion.div>
+    </div>
   );
 }

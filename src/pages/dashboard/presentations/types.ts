@@ -8,7 +8,10 @@ interface BaseSlideObject {
   width: number;
   height: number;
   zIndex: number;
+  opacity?: number;
 }
+
+export type TextFontFamily = 'heading' | 'body' | 'serif';
 
 export interface TextObject extends BaseSlideObject {
   type: 'text';
@@ -17,17 +20,24 @@ export interface TextObject extends BaseSlideObject {
   bold: boolean;
   color: string;
   align: 'right' | 'center' | 'left';
+  fontFamily?: TextFontFamily;
 }
 
 export interface ImageObject extends BaseSlideObject {
   type: 'image';
   url: string;
+  cornerRadius?: number;
+  shadow?: boolean;
 }
 
 export interface ShapeObject extends BaseSlideObject {
   type: 'shape';
   shape: 'rectangle' | 'circle';
   fill: string;
+  cornerRadius?: number;
+  shadow?: boolean;
+  borderWidth?: number;
+  borderColor?: string;
 }
 
 export type SlideObject = TextObject | ImageObject | ShapeObject;

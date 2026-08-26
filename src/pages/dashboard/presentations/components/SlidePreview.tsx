@@ -1,5 +1,6 @@
 import type { Slide } from '../types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../types';
+import { FONT_FAMILY_CSS } from './CanvasObject';
 
 interface Props {
   slide: Slide;
@@ -29,6 +30,7 @@ export function SlidePreview({ slide, className = '' }: Props) {
             top: `${(obj.y / CANVAS_HEIGHT) * 100}%`,
             width: `${(obj.width / CANVAS_WIDTH) * 100}%`,
             height: `${(obj.height / CANVAS_HEIGHT) * 100}%`,
+            opacity: obj.opacity ?? 1,
           }}
         >
           {obj.type === 'text' && (
@@ -38,14 +40,29 @@ export function SlidePreview({ slide, className = '' }: Props) {
                 fontWeight: obj.bold ? 700 : 400,
                 color: obj.color,
                 textAlign: obj.align,
+                fontFamily: FONT_FAMILY_CSS[obj.fontFamily ?? 'body'],
               }}
             >
               {obj.text}
             </div>
           )}
-          {obj.type === 'image' && obj.url && <img src={obj.url} alt="" className="w-full h-full object-contain" />}
+          {obj.type === 'image' && obj.url && (
+            <img
+              src={obj.url}
+              alt=""
+              className="w-full h-full object-contain"
+              style={{ borderRadius: obj.cornerRadius ?? 0 }}
+            />
+          )}
           {obj.type === 'shape' && (
-            <div className="w-full h-full" style={{ backgroundColor: obj.fill, borderRadius: obj.shape === 'circle' ? '50%' : 2 }} />
+            <div
+              className="w-full h-full"
+              style={{
+                backgroundColor: obj.fill,
+                borderRadius: obj.shape === 'circle' ? '50%' : (obj.cornerRadius ?? 4),
+                border: obj.borderWidth ? `${obj.borderWidth}px solid ${obj.borderColor ?? '#000000'}` : undefined,
+              }}
+            />
           )}
         </div>
       ))}
