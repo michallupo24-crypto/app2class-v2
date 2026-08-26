@@ -17,6 +17,7 @@ import { SlideWordCountBadge } from './presentations/components/SlideWordCountBa
 import { PresenterMode } from './presentations/components/PresenterMode';
 import { PresentationShareModal } from './presentations/components/PresentationShareModal';
 import { exportSlideToPng, exportPresentationToPdf } from './presentations/utils/exportUtils';
+import { useFitScale } from './presentations/utils/useFitScale';
 
 type PresentationRow = {
   id: string;
@@ -265,6 +266,11 @@ const PresentationsPage = () => {
   const liveCanvasRef = useRef<HTMLDivElement>(null);
   const offscreenCanvasRef = useRef<HTMLDivElement>(null);
 
+  // Keeps the full canvas visible regardless of window size, instead of
+  // it overflowing at native 960x540 and getting silently cropped by the
+  // surrounding scroll container.
+  const [canvasScale, canvasContainerRef] = useFitScale(CANVAS_WIDTH, CANVAS_HEIGHT, 24);
+
   const handleExportPng = async () => {
     if (!liveCanvasRef.current || !active) return;
     try {
@@ -393,11 +399,11 @@ const PresentationsPage = () => {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 overflow-auto flex items-center justify-center p-8">
+        <div ref={canvasContainerRef} className="flex-1 overflow-hidden flex items-center justify-center p-6">
           {activeSlide ? (
-            <SlideCanvas ref={liveCanvasRef} slide={activeSlide} onUpdateObject={handleUpdateObject} onDeleteObject={handleDeleteObject} />
+            <SlideCanvas ref={liveCanvasRef} slide={activeSlide} onUpdateObject={handleUpdateObject} onDeleteObject={handleDeleteObject} scale={canvasScale} />
           ) : (
-            <div style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }} className="bg-card border border-border rounded-sm" />
+            <div style={{ width: CANVAS_WIDTH * canvasScale, height: CANVAS_HEIGHT * canvasScale }} className="bg-card border border-border rounded-sm" />
           )}
         </div>
 

@@ -19,11 +19,14 @@ interface Props {
   onUpdate: (updates: Partial<SlideObject>) => void;
   onGuidesChange?: (guides: GuideLine[]) => void;
   readOnly?: boolean;
+  /** Current visual zoom of the canvas - pointer deltas arrive in real
+   * screen px, which only match canvas-space px 1:1 at scale 1. */
+  scale?: number;
 }
 
 type ResizeCorner = 'nw' | 'ne' | 'sw' | 'se';
 
-export function CanvasObject({ object, siblings, selected, onSelect, onUpdate, onGuidesChange, readOnly = false }: Props) {
+export function CanvasObject({ object, siblings, selected, onSelect, onUpdate, onGuidesChange, readOnly = false, scale = 1 }: Props) {
   const textRef = useRef<HTMLDivElement>(null);
 
   const startDrag = (e: React.PointerEvent) => {
@@ -35,8 +38,8 @@ export function CanvasObject({ object, siblings, selected, onSelect, onUpdate, o
     const start = { x: object.x, y: object.y, width: object.width, height: object.height };
 
     const onMove = (moveEvent: PointerEvent) => {
-      const dx = moveEvent.clientX - startX;
-      const dy = moveEvent.clientY - startY;
+      const dx = (moveEvent.clientX - startX) / scale;
+      const dy = (moveEvent.clientY - startY) / scale;
       const candidate = { x: start.x + dx, y: start.y + dy, width: start.width, height: start.height };
       const { x, y, guides } = computeSnap(candidate, siblings, CANVAS_WIDTH, CANVAS_HEIGHT);
       onUpdate({ x, y });
@@ -60,8 +63,8 @@ export function CanvasObject({ object, siblings, selected, onSelect, onUpdate, o
     const start = { x: object.x, y: object.y, width: object.width, height: object.height };
 
     const onMove = (moveEvent: PointerEvent) => {
-      const dx = moveEvent.clientX - startX;
-      const dy = moveEvent.clientY - startY;
+      const dx = (moveEvent.clientX - startX) / scale;
+      const dy = (moveEvent.clientY - startY) / scale;
       let { x: nx, y: ny, width: nw, height: nh } = start;
       if (corner === 'se') { nw = Math.max(MIN_SIZE, start.width + dx); nh = Math.max(MIN_SIZE, start.height + dy); }
       if (corner === 'sw') { nw = Math.max(MIN_SIZE, start.width - dx); nh = Math.max(MIN_SIZE, start.height + dy); nx = start.x + start.width - nw; }
