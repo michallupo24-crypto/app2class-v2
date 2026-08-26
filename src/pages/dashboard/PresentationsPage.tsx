@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useOutletContext } from 'react-router-dom';
-import { Loader2, ArrowRight, Pencil, Share2, Play, Download } from 'lucide-react';
+import { Loader2, ArrowRight, Share2, Play, Download, ChevronDown, Image as ImageIcon, FileText } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { UserProfile } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -325,51 +326,57 @@ const PresentationsPage = () => {
   }
 
   return (
-    <div className="h-full -m-4 md:-m-6 flex flex-col bg-[#F3F4F6] overflow-hidden dir-rtl">
+    <div className="h-full -m-4 md:-m-6 flex flex-col bg-muted/40 overflow-hidden">
       <header className="h-14 shrink-0 bg-card border-b border-border flex items-center justify-between px-4 gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <button onClick={() => setCurrentId(null)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground shrink-0" title="חזרה למצגות">
+        <div className="flex items-center gap-1 min-w-0">
+          <button onClick={() => setCurrentId(null)} className="p-2 rounded-lg hover:bg-muted text-muted-foreground shrink-0 transition-colors" title="חזרה למצגות">
             <ArrowRight className="w-4 h-4" />
           </button>
-          <div className="flex items-center gap-1.5 min-w-0">
-            <Pencil className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-            <input
-              value={active.title}
-              onChange={(e) => updateActive({ title: e.target.value })}
-              className="font-bold text-sm bg-transparent outline-none min-w-0 truncate focus:bg-muted rounded px-1"
-            />
-          </div>
+          <input
+            value={active.title}
+            onChange={(e) => updateActive({ title: e.target.value })}
+            className="font-heading font-bold text-sm bg-transparent outline-none min-w-0 truncate rounded-md px-2 py-1 hover:bg-muted focus:bg-muted transition-colors"
+          />
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {activeSlide && <SlideWordCountBadge slide={activeSlide} />}
-          <button
-            type="button"
-            onClick={handleExportPng}
-            className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors"
-            title="ייצוא השקף הנוכחי כתמונה"
-          >
-            <Download className="w-3.5 h-3.5" /> PNG
-          </button>
-          <button
-            type="button"
-            onClick={handleExportPdf}
-            disabled={exportingPdf}
-            className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors disabled:opacity-60"
-            title="ייצוא כל המצגת כ-PDF"
-          >
-            {exportingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} PDF
-          </button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                disabled={exportingPdf}
+                className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-60"
+              >
+                {exportingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                ייצוא
+                <ChevronDown className="w-3 h-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={handleExportPng} className="gap-2 text-xs">
+                <ImageIcon className="w-3.5 h-3.5" /> PNG — השקף הנוכחי
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportPdf} className="gap-2 text-xs">
+                <FileText className="w-3.5 h-3.5" /> PDF — כל המצגת
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <button
             type="button"
             onClick={() => setShowShareModal(true)}
-            className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors"
+            className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             <Share2 className="w-3.5 h-3.5" /> שתף
           </button>
+
+          <div className="w-px h-5 bg-border mx-1" />
+
           <button
             type="button"
             onClick={() => setPresenting(true)}
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            className="flex items-center gap-1.5 text-xs font-heading font-bold px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
           >
             <Play className="w-3.5 h-3.5" /> הצג
           </button>
@@ -390,7 +397,7 @@ const PresentationsPage = () => {
           {activeSlide ? (
             <SlideCanvas ref={liveCanvasRef} slide={activeSlide} onUpdateObject={handleUpdateObject} onDeleteObject={handleDeleteObject} />
           ) : (
-            <div style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }} className="bg-white border border-border" />
+            <div style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }} className="bg-card border border-border rounded-sm" />
           )}
         </div>
 

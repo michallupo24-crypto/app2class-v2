@@ -12,11 +12,12 @@ export function AddObjectMenu({ onAddText, onAddShape, onAddImageFile, uploading
   const fileRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1">
+      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider ml-2">הוספה</span>
       <button
         type="button"
         onClick={onAddText}
-        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-muted transition-colors"
+        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg text-foreground/80 hover:bg-muted hover:text-foreground transition-colors"
       >
         <Type className="w-4 h-4" /> טקסט
       </button>
@@ -24,7 +25,7 @@ export function AddObjectMenu({ onAddText, onAddShape, onAddImageFile, uploading
         type="button"
         onClick={() => fileRef.current?.click()}
         disabled={uploadingImage}
-        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-muted transition-colors disabled:opacity-60"
+        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg text-foreground/80 hover:bg-muted hover:text-foreground transition-colors disabled:opacity-60"
       >
         {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
         תמונה
@@ -43,7 +44,7 @@ export function AddObjectMenu({ onAddText, onAddShape, onAddImageFile, uploading
       <button
         type="button"
         onClick={onAddShape}
-        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-muted transition-colors"
+        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg text-foreground/80 hover:bg-muted hover:text-foreground transition-colors"
       >
         <Square className="w-4 h-4" /> צורה
       </button>

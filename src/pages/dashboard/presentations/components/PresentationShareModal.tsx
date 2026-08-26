@@ -55,24 +55,24 @@ export function PresentationShareModal({ presentationId, profile, onClose }: Pro
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4" dir="rtl">
-      <div className="bg-card rounded-lg w-full max-w-sm border border-border overflow-hidden">
-        <div className="p-4 border-b border-border flex items-center justify-between bg-muted">
-          <div className="flex items-center gap-2 font-bold text-sm text-foreground">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+      <div className="bg-card rounded-xl w-full max-w-sm border border-border overflow-hidden">
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2 font-heading font-bold text-sm text-foreground">
             <Share2 className="w-4 h-4 text-primary" />
-            <span>שיתוף מצגת עם כיתה</span>
+            <span>שיתוף עם כיתה</span>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg text-muted-foreground">
+          <button onClick={onClose} className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="p-4 space-y-2">
-          <p className="text-xs text-muted-foreground mb-2">תלמידי הכיתות המסומנות יוכלו לצפות במצגת (ללא עריכה).</p>
+          <p className="text-xs text-muted-foreground mb-3">תלמידי הכיתות המסומנות יוכלו לצפות במצגת, ללא אפשרות עריכה.</p>
           {loading ? (
-            <p className="text-xs text-muted-foreground text-center py-4">טוען...</p>
+            <p className="text-xs text-muted-foreground text-center py-6">טוען...</p>
           ) : classes.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">אין לך כיתות משויכות</p>
+            <p className="text-xs text-muted-foreground text-center py-6">אין לך כיתות משויכות</p>
           ) : (
             classes.map((c) => {
               const isShared = sharedClassIds.has(c.classId);

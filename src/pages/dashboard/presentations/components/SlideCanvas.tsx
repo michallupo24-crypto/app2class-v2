@@ -33,7 +33,7 @@ export const SlideCanvas = forwardRef<HTMLDivElement, Props>(function SlideCanva
 
       <div
         ref={ref}
-        className="relative bg-white shadow-lg border border-border overflow-hidden"
+        className="relative bg-white shadow-sm ring-1 ring-border/80 rounded-sm overflow-hidden"
         style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT, backgroundColor: slide.background }}
         onPointerDown={() => !readOnly && setSelectedObjectId(null)}
       >
