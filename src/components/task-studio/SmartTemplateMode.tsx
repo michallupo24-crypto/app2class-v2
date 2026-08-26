@@ -10,6 +10,9 @@ import StudioModeWrapper from "./StudioModeWrapper";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { extractDocumentText } from "@/lib/fileExtraction";
+
+const MAX_PROMPT_CHARS = 12000;
 
 interface Props {
   profile: UserProfile;
@@ -63,10 +66,18 @@ const SmartTemplateMode = ({ profile, assignmentId, onBack }: Props) => {
       const { error: uploadError } = await supabase.storage.from("lesson-files").upload(path, file, { upsert: true });
       if (uploadError) throw uploadError;
 
+      let prompt = `קובץ "${file.name}" הועלה. חלץ שאלות מהחומר לפי המבנה: question_text, question_type (multiple_choice/open/fill_blank), options (אם אמריקאי), correct_answer, points. החזר JSON array בלבד.`;
+      try {
+        const text = (await extractDocumentText(file)).slice(0, MAX_PROMPT_CHARS);
+        prompt = `חלץ שאלות על בסיס תוכן הקובץ הבא ("${file.name}") לפי המבנה: question_text, question_type (multiple_choice/open/fill_blank), options (אם אמריקאי), correct_answer, points. החזר JSON array בלבד.\n\n${text}`;
+      } catch (extractErr) {
+        console.error("Smart template file extraction failed, falling back to filename-only", extractErr);
+      }
+
       const { data, error } = await supabase.functions.invoke("task-studio-ai", {
         body: {
           action: "scan-file",
-          prompt: `קובץ "${file.name}" הועלה. חלץ שאלות מהחומר לפי המבנה: question_text, question_type (multiple_choice/open/fill_blank), options (אם אמריקאי), correct_answer, points. החזר JSON array בלבד.`,
+          prompt,
           numQuestions: sections.reduce((s, sec) => s + sec.questionCount, 0) || 15,
         },
       });

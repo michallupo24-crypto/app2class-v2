@@ -125,6 +125,12 @@ export const useAuth = () => {
       await supabase.rpc("process_due_scheduled_messages");
     } catch { /* best-effort */ }
 
+    // Same reasoning: no cron for scheduled assignment publishing either -
+    // flush whichever of this teacher's own scheduled assignments are due.
+    try {
+      await supabase.rpc("publish_due_scheduled_assignments");
+    } catch { /* best-effort */ }
+
     setLoading(false);
   };
 

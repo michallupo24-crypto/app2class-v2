@@ -1,7 +1,8 @@
-import React, { useRef } from 'react';
-import { Download, FileText, FileCode, Printer, Upload, X, Check, FileCheck } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Download, FileText, FileCode, Printer, Upload, X, Check, FileCheck, Loader2 } from 'lucide-react';
 import { DocumentModel } from '../types';
 import { exportAsWordDocx, exportAsMarkdown, exportAsTxt, downloadFile } from '../utils/editorUtils';
+import { extractDocumentText } from '@/lib/fileExtraction';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   onPrint
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -39,14 +41,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     downloadFile(`${document.title}.json`, jsonStr, 'application/json');
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      if (file.name.endsWith('.json')) {
+    if (file.name.endsWith('.json')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target?.result as string;
         try {
           const parsed = JSON.parse(text);
           onImportDocument(parsed);
@@ -54,16 +56,29 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         } catch (err) {
           alert('קובץ JSON לא תקין');
         }
-      } else {
-        // Plain text or markdown
-        onImportDocument({
-          title: file.name.replace(/\.[^/.]+$/, ''),
-          contentHtml: `<p>${text.replace(/\n/g, '<br/>')}</p>`
-        });
-        onClose();
-      }
-    };
-    reader.readAsText(file);
+      };
+      reader.readAsText(file);
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const text = await extractDocumentText(file);
+      const html = text
+        .split(/\n{2,}/)
+        .map((para) => `<p>${para.replace(/\n/g, '<br/>')}</p>`)
+        .join('');
+      onImportDocument({
+        title: file.name.replace(/\.[^/.]+$/, ''),
+        contentHtml: html || '<p></p>'
+      });
+      onClose();
+    } catch (err: any) {
+      alert(err?.message || 'לא ניתן היה לחלץ טקסט מהקובץ');
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   return (
@@ -148,20 +163,21 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           <div className="bg-muted p-4 rounded-xl border border-border flex items-center justify-between">
             <div>
               <div className="font-bold text-foreground">ייבוא מסמך ממחשבך</div>
-              <div className="text-[11px] text-muted-foreground">תומך בקבצי TXT, MD, וגיבוי JSON</div>
+              <div className="text-[11px] text-muted-foreground">תומך בקבצי PDF, Word, TXT, MD, וגיבוי JSON</div>
             </div>
 
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors"
+              disabled={importing}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors disabled:opacity-60"
             >
-              <Upload className="w-4 h-4" />
-              <span>בחר קובץ</span>
+              {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              <span>{importing ? 'מייבא...' : 'בחר קובץ'}</span>
             </button>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".txt,.md,.json"
+              accept=".txt,.md,.json,.pdf,.docx"
               onChange={handleFileUpload}
               className="hidden"
             />

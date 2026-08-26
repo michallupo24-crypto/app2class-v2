@@ -26,6 +26,8 @@ import { useToast } from "@/hooks/use-toast";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
 import type { UserProfile } from "@/hooks/useAuth";
 import type { AvatarConfig } from "@/components/avatar/AvatarStudio";
+import { extractDocumentText, isExtractableDocument, isImageFile } from "@/lib/fileExtraction";
+import { requestImageOcr } from "@/lib/fileOcr";
 
 /* ─── Types ───────────────────────────────────────────── */
 type ConversationType = 
@@ -71,6 +73,7 @@ interface Message {
   attachment_path: string | null;
   attachment_name: string | null;
   attachment_type: string | null;
+  attachment_extracted_text: string | null;
   mentioned_user_ids: string[];
 }
 
@@ -234,8 +237,10 @@ const ChatPage = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Attachments
-  const [pendingAttachment, setPendingAttachment] = useState<{ path: string; name: string; type: string } | null>(null);
+  const [pendingAttachment, setPendingAttachment] = useState<{ path: string; name: string; type: string; extractedText: string | null } | null>(null);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [extractingAttachment, setExtractingAttachment] = useState(false);
+  const [expandedExtractedText, setExpandedExtractedText] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
   // chat-attachments is a private bucket, so images can't be rendered by
   // path directly - each one needs a signed URL, resolved and cached here.
@@ -571,7 +576,7 @@ const ChatPage = () => {
   // freshly-opened conversation, empty) content even though the sidebar
   // preview - which re-queries independently via loadConversations - had
   // already moved on.
-  const msgColumns = "id, sender_id, content, created_at, is_flagged, flag_reason, is_deleted, edited_at, reply_to_id, attachment_path, attachment_name, attachment_type, mentioned_user_ids";
+  const msgColumns = "id, sender_id, content, created_at, is_flagged, flag_reason, is_deleted, edited_at, reply_to_id, attachment_path, attachment_name, attachment_type, attachment_extracted_text, mentioned_user_ids";
 
   const loadMessages = useCallback(async (conversationId: string) => {
     setLoadingMsgs(true);
@@ -624,6 +629,7 @@ const ChatPage = () => {
           attachment_path: m.attachment_path,
           attachment_name: m.attachment_name,
           attachment_type: m.attachment_type,
+          attachment_extracted_text: m.attachment_extracted_text ?? null,
           mentioned_user_ids: m.mentioned_user_ids || [],
         };
       }),
@@ -693,6 +699,7 @@ const ChatPage = () => {
           attachment_path: m.attachment_path,
           attachment_name: m.attachment_name,
           attachment_type: m.attachment_type,
+          attachment_extracted_text: m.attachment_extracted_text ?? null,
           mentioned_user_ids: m.mentioned_user_ids || [],
         };
         setMessages(prev => prev.some(msg => msg.id === newMsg.id) ? prev : [...prev, newMsg]);
@@ -1076,6 +1083,7 @@ const ChatPage = () => {
         attachment_path: attachment?.path ?? null,
         attachment_name: attachment?.name ?? null,
         attachment_type: attachment?.type ?? null,
+        attachment_extracted_text: attachment?.extractedText ?? null,
       }).select(msgColumns).single();
       if (insertError) throw insertError;
 
@@ -1100,6 +1108,7 @@ const ChatPage = () => {
           attachment_path: m.attachment_path,
           attachment_name: m.attachment_name,
           attachment_type: m.attachment_type,
+          attachment_extracted_text: m.attachment_extracted_text ?? null,
           mentioned_user_ids: m.mentioned_user_ids || [],
         }]);
         setConversations((prev) => prev.map((c) =>
@@ -1324,7 +1333,23 @@ const ChatPage = () => {
       const path = `${selectedId}/${uniqueId}-${file.name}`;
       const { error } = await supabase.storage.from("chat-attachments").upload(path, file);
       if (error) throw error;
-      setPendingAttachment({ path, name: file.name, type: file.type || "application/octet-stream" });
+      setPendingAttachment({ path, name: file.name, type: file.type || "application/octet-stream", extractedText: null });
+
+      // Best-effort: a document/image whose text can't be extracted still
+      // attaches fine, it just won't be searchable/previewable as text.
+      if (isExtractableDocument(file) || isImageFile(file)) {
+        setExtractingAttachment(true);
+        try {
+          const text = isImageFile(file)
+            ? await requestImageOcr(file, "text")
+            : await extractDocumentText(file);
+          setPendingAttachment((prev) => (prev && prev.path === path ? { ...prev, extractedText: text.slice(0, 8000) } : prev));
+        } catch (extractErr) {
+          console.error("Chat attachment text extraction failed", extractErr);
+        } finally {
+          setExtractingAttachment(false);
+        }
+      }
     } catch (err: any) {
       toast({ title: "שגיאה בהעלאת הקובץ", description: err?.message || "נסה/י שוב", variant: "destructive" });
     } finally {
@@ -2031,6 +2056,26 @@ const ChatPage = () => {
                                               <span className="truncate flex-1 text-right">{msg.attachment_name || "קובץ מצורף"}</span>
                                             </button>
                                           )}
+                                          {msg.attachment_extracted_text && (
+                                            <div className="mt-1">
+                                              <button
+                                                type="button"
+                                                onClick={() => setExpandedExtractedText((prev) => {
+                                                  const next = new Set(prev);
+                                                  next.has(msg.id) ? next.delete(msg.id) : next.add(msg.id);
+                                                  return next;
+                                                })}
+                                                className="text-[10px] underline opacity-70 hover:opacity-100"
+                                              >
+                                                {expandedExtractedText.has(msg.id) ? "הסתר טקסט שחולץ" : "הצג טקסט שחולץ"}
+                                              </button>
+                                              {expandedExtractedText.has(msg.id) && (
+                                                <div className={`mt-1 rounded-lg px-2 py-1.5 text-[11px] whitespace-pre-wrap max-h-40 overflow-y-auto ${isMe ? "bg-black/10" : "bg-background/60"}`}>
+                                                  {msg.attachment_extracted_text}
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
                                         </>
                                       )}
                                       {msg.is_flagged && (
@@ -2120,6 +2165,12 @@ const ChatPage = () => {
                       <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-2.5 py-1.5 text-xs">
                         {attachmentIcon(pendingAttachment.type)}
                         <span className="flex-1 min-w-0 truncate">{pendingAttachment.name}</span>
+                        {extractingAttachment && (
+                          <span className="shrink-0 text-muted-foreground flex items-center gap-1">
+                            <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                            מעבד...
+                          </span>
+                        )}
                         <button type="button" onClick={() => setPendingAttachment(null)} className="shrink-0 text-muted-foreground hover:text-destructive">
                           <X className="h-3.5 w-3.5" />
                         </button>

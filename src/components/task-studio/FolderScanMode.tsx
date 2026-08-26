@@ -7,6 +7,9 @@ import StudioModeWrapper from "./StudioModeWrapper";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { extractDocumentText } from "@/lib/fileExtraction";
+
+const MAX_PROMPT_CHARS = 12000;
 
 interface Props {
   profile: UserProfile;
@@ -27,7 +30,9 @@ const FolderScanMode = ({ profile, assignmentId, onBack }: Props) => {
 
   const loadFiles = async () => {
     setLoading(true);
-    const { data } = await supabase.storage.from("lesson-files").list("", { limit: 50 });
+    // handleUpload writes to uploads/{profile.id}/ - list that same prefix,
+    // not the bucket root, or freshly uploaded files never show up here.
+    const { data } = await supabase.storage.from("lesson-files").list(`uploads/${profile.id}`, { limit: 50 });
     setFiles((data || []).filter(f => f.name?.match(/\.(pdf|pptx?|docx?|txt)$/i)));
     setLoading(false);
   };
@@ -53,8 +58,20 @@ const FolderScanMode = ({ profile, assignmentId, onBack }: Props) => {
     if (!assignmentId) { toast({ title: "בחר משימה קודם", variant: "destructive" }); return; }
     setScanning(true);
     try {
+      let prompt = `חלץ שאלות מקובץ בשם "${fileName}". צור שאלות מגוונות על בסיס שם הקובץ והנושא.`;
+      try {
+        const path = `uploads/${profile.id}/${fileName}`;
+        const { data: blob, error: downloadError } = await supabase.storage.from("lesson-files").download(path);
+        if (downloadError) throw downloadError;
+        const file = new File([blob], fileName);
+        const text = (await extractDocumentText(file)).slice(0, MAX_PROMPT_CHARS);
+        prompt = `צור שאלות מגוונות על בסיס תוכן הקובץ הבא ("${fileName}"):\n\n${text}`;
+      } catch (extractErr) {
+        console.error("Task studio file extraction failed, falling back to filename-only", extractErr);
+      }
+
       const { data, error } = await supabase.functions.invoke("task-studio-ai", {
-        body: { action: "scan-file", prompt: `חלץ שאלות מקובץ בשם "${fileName}". צור שאלות מגוונות על בסיס שם הקובץ והנושא.`, numQuestions: 10 },
+        body: { action: "scan-file", prompt, numQuestions: 10 },
       });
       if (error) throw error;
 

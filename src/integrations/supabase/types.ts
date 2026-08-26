@@ -210,12 +210,21 @@ export type Database = {
           allow_revision: boolean | null
           class_id: string
           created_at: string
+          data_hook_auto_grade: boolean
+          data_hook_include_attempts: boolean
+          data_hook_include_time: boolean
           description: string | null
           due_date: string | null
           id: string
+          lock_device: boolean
+          lock_duration_minutes: number | null
           max_grade: number | null
+          one_attempt: boolean
           published: boolean | null
           school_id: string
+          scheduled_publish_at: string | null
+          shuffle_options: boolean
+          shuffle_questions: boolean
           subject: string
           teacher_id: string
           title: string
@@ -228,12 +237,21 @@ export type Database = {
           allow_revision?: boolean | null
           class_id: string
           created_at?: string
+          data_hook_auto_grade?: boolean
+          data_hook_include_attempts?: boolean
+          data_hook_include_time?: boolean
           description?: string | null
           due_date?: string | null
           id?: string
+          lock_device?: boolean
+          lock_duration_minutes?: number | null
           max_grade?: number | null
+          one_attempt?: boolean
           published?: boolean | null
           school_id: string
+          scheduled_publish_at?: string | null
+          shuffle_options?: boolean
+          shuffle_questions?: boolean
           subject: string
           teacher_id: string
           title: string
@@ -246,12 +264,21 @@ export type Database = {
           allow_revision?: boolean | null
           class_id?: string
           created_at?: string
+          data_hook_auto_grade?: boolean
+          data_hook_include_attempts?: boolean
+          data_hook_include_time?: boolean
           description?: string | null
           due_date?: string | null
           id?: string
+          lock_device?: boolean
+          lock_duration_minutes?: number | null
           max_grade?: number | null
+          one_attempt?: boolean
           published?: boolean | null
           school_id?: string
+          scheduled_publish_at?: string | null
+          shuffle_options?: boolean
+          shuffle_questions?: boolean
           subject?: string
           teacher_id?: string
           title?: string
@@ -1164,6 +1191,33 @@ export type Database = {
         }
         Relationships: []
       }
+      presentations: {
+        Row: {
+          created_at: string
+          id: string
+          owner_id: string
+          slides: Json
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_id: string
+          slides?: Json
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          slides?: Json
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       event_approvals: {
         Row: {
           approved: boolean | null
@@ -1205,6 +1259,7 @@ export type Database = {
       exam_archive: {
         Row: {
           created_at: string
+          extracted_text: string | null
           file_url: string
           grade: Database["public"]["Enums"]["grade_level"] | null
           id: string
@@ -1217,6 +1272,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          extracted_text?: string | null
           file_url: string
           grade?: Database["public"]["Enums"]["grade_level"] | null
           id?: string
@@ -1229,6 +1285,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          extracted_text?: string | null
           file_url?: string
           grade?: Database["public"]["Enums"]["grade_level"] | null
           id?: string
@@ -2232,6 +2289,7 @@ export type Database = {
       }
       messages: {
         Row: {
+          attachment_extracted_text: string | null
           attachment_name: string | null
           attachment_path: string | null
           attachment_type: string | null
@@ -2248,6 +2306,7 @@ export type Database = {
           sender_id: string
         }
         Insert: {
+          attachment_extracted_text?: string | null
           attachment_name?: string | null
           attachment_path?: string | null
           attachment_type?: string | null
@@ -2264,6 +2323,7 @@ export type Database = {
           sender_id: string
         }
         Update: {
+          attachment_extracted_text?: string | null
           attachment_name?: string | null
           attachment_path?: string | null
           attachment_type?: string | null
@@ -3124,10 +3184,13 @@ export type Database = {
       submissions: {
         Row: {
           assignment_id: string
+          attempt_number: number
           content: string | null
           created_at: string
+          extracted_text: string | null
           feedback: string | null
           file_url: string | null
+          focus_violations: number
           grade: number | null
           graded_at: string | null
           graded_by: string | null
@@ -3135,14 +3198,18 @@ export type Database = {
           status: Database["public"]["Enums"]["submission_status"]
           student_id: string
           submitted_at: string | null
+          time_spent_seconds: number | null
           updated_at: string
         }
         Insert: {
           assignment_id: string
+          attempt_number?: number
           content?: string | null
           created_at?: string
+          extracted_text?: string | null
           feedback?: string | null
           file_url?: string | null
+          focus_violations?: number
           grade?: number | null
           graded_at?: string | null
           graded_by?: string | null
@@ -3150,14 +3217,18 @@ export type Database = {
           status?: Database["public"]["Enums"]["submission_status"]
           student_id: string
           submitted_at?: string | null
+          time_spent_seconds?: number | null
           updated_at?: string
         }
         Update: {
           assignment_id?: string
+          attempt_number?: number
           content?: string | null
           created_at?: string
+          extracted_text?: string | null
           feedback?: string | null
           file_url?: string | null
+          focus_violations?: number
           grade?: number | null
           graded_at?: string | null
           graded_by?: string | null
@@ -3165,6 +3236,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["submission_status"]
           student_id?: string
           submitted_at?: string | null
+          time_spent_seconds?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -3944,6 +4016,7 @@ export type Database = {
       get_unread_chat_count: { Args: never; Returns: number }
       is_current_user_approved: { Args: never; Returns: boolean }
       process_due_scheduled_messages: { Args: never; Returns: number }
+      publish_due_scheduled_assignments: { Args: never; Returns: number }
       reveal_id_number: { Args: { p_profile_id: string }; Returns: string }
       send_submission_reminders: {
         Args: { p_assignment_id: string }

@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BarChart3, Users, TrendingUp, TrendingDown, AlertTriangle, Award,
   Loader2, FileText, Save, CheckCircle2, BookOpen, Zap, Trophy, MessageSquare, ScanText,
-  Gamepad2, Paperclip,
+  Gamepad2, Paperclip, Clock,
 } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,8 +25,8 @@ import {
 } from "recharts";
 
 interface ClassOption { id: string; grade: string; number: number; }
-interface AssignmentOption { id: string; title: string; subject: string; type: string; maxGrade: number; weight: number; dueDate?: string; description?: string; }
-interface StudentGrade { submissionId: string | null; studentId: string; studentName: string; grade: number | null; status: string; feedback: string | null; hasAppeal?: boolean; level?: number; badgeCount?: number; fileUrl?: string | null; gameResult?: { score: number; correctAnswers: number; totalAnswers: number; finalPosition: number; completedAt: string } | null; }
+interface AssignmentOption { id: string; title: string; subject: string; type: string; maxGrade: number; weight: number; dueDate?: string; description?: string; dataHookIncludeAttempts?: boolean; dataHookIncludeTime?: boolean; }
+interface StudentGrade { submissionId: string | null; studentId: string; studentName: string; grade: number | null; status: string; feedback: string | null; hasAppeal?: boolean; level?: number; badgeCount?: number; fileUrl?: string | null; extractedText?: string | null; gameResult?: { score: number; correctAnswers: number; totalAnswers: number; finalPosition: number; completedAt: string } | null; attemptNumber?: number | null; timeSpentSeconds?: number | null; }
 interface AssignmentMeta { isGame: boolean; gameType?: string; }
 interface SubjectAvg { subject: string; avg: number; count: number; gradeAvg?: number | null; }
 
@@ -88,13 +88,14 @@ const TeacherGradesPage = () => {
     if (!selectedClass) return;
     const load = async () => {
       const { data } = await supabase.from("assignments")
-        .select("id, title, subject, type, max_grade, weight_percent, due_date, description")
+        .select("id, title, subject, type, max_grade, weight_percent, due_date, description, data_hook_include_attempts, data_hook_include_time")
         .eq("teacher_id", profile.id).eq("class_id", selectedClass)
         .order("created_at", { ascending: false });
       if (data) {
         setAssignments(data.map((a: any) => ({
           id: a.id, title: a.title, subject: a.subject, type: a.type,
           maxGrade: a.max_grade || 100, weight: a.weight_percent || 0, dueDate: a.due_date,
+          dataHookIncludeAttempts: a.data_hook_include_attempts, dataHookIncludeTime: a.data_hook_include_time,
         })));
         const deepLinkAssignment = navState?.assignmentId && data.some((a: any) => a.id === navState.assignmentId) ? navState.assignmentId : null;
         if (deepLinkAssignment) {
@@ -116,7 +117,7 @@ const TeacherGradesPage = () => {
     const load = async () => {
       setLoading(true);
       const { data: students } = await supabase.from("profiles").select("id, full_name").eq("class_id", selectedClass).order("full_name");
-      const { data: submissions } = await supabase.from("submissions").select("id, student_id, grade, status, feedback, file_url, content").eq("assignment_id", selectedAssignment);
+      const { data: submissions } = await supabase.from("submissions").select("id, student_id, grade, status, feedback, file_url, content, extracted_text, attempt_number, time_spent_seconds").eq("assignment_id", selectedAssignment);
       // Detect if this is a game assignment
       const thisAssignment = assignments.find(a => a.id === selectedAssignment) as any;
       let isGame = false;
@@ -160,10 +161,20 @@ const TeacherGradesPage = () => {
           level: lvl,
           badgeCount: bCount,
           fileUrl: sub?.file_url ?? null,
+          extractedText: sub?.extracted_text ?? null,
+          attemptNumber: sub?.attempt_number ?? null,
+          timeSpentSeconds: sub?.time_spent_seconds ?? null,
           gameResult,
         };
       }));
       setGradeEdits({});
+      setTranscriptions(
+        Object.fromEntries(
+          (submissions || [])
+            .filter((s: any) => s.extracted_text)
+            .map((s: any) => [s.student_id, s.extracted_text as string])
+        )
+      );
       setLoading(false);
     };
     load();
@@ -268,7 +279,7 @@ const TeacherGradesPage = () => {
   };
 
   /* ── OCR-assisted grading: transcribe a scanned/photographed submission ── */
-  const handleTranscribe = async (studentId: string, fileUrl: string) => {
+  const handleTranscribe = async (studentId: string, submissionId: string | null, fileUrl: string) => {
     setTranscribing((prev) => ({ ...prev, [studentId]: true }));
     try {
       const file = await fetchFileFromUrl(fileUrl);
@@ -283,6 +294,16 @@ const TeacherGradesPage = () => {
         return;
       }
       setTranscriptions((prev) => ({ ...prev, [studentId]: text }));
+
+      // Persist so the transcription survives a reload/dialog close, not just
+      // this render - previously it only ever lived in local component state.
+      if (submissionId) {
+        const { error } = await supabase.from("submissions")
+          .update({ extracted_text: text }).eq("id", submissionId);
+        if (error) {
+          toast({ title: "התמלול הוצג אך לא נשמר", description: error.message, variant: "destructive" });
+        }
+      }
     } catch (err: any) {
       toast({ title: "שגיאה בתמלול הקובץ", description: err.message, variant: "destructive" });
     } finally {
@@ -503,6 +524,16 @@ const TeacherGradesPage = () => {
                                 <Gamepad2 className="h-2.5 w-2.5" />{sg.gameResult.score}% • {sg.gameResult.correctAnswers}/{sg.gameResult.totalAnswers}
                               </Badge>
                             )}
+                            {assignment?.dataHookIncludeAttempts && sg.attemptNumber != null && (
+                              <Badge variant="outline" className="text-[9px] gap-1 bg-muted/50 shrink-0">
+                                ניסיון {sg.attemptNumber}
+                              </Badge>
+                            )}
+                            {assignment?.dataHookIncludeTime && sg.timeSpentSeconds != null && (
+                              <Badge variant="outline" className="text-[9px] gap-1 bg-muted/50 shrink-0">
+                                <Clock className="h-2.5 w-2.5" />{Math.round(sg.timeSpentSeconds / 60)} דק'
+                              </Badge>
+                            )}
                             {sg.fileUrl && !sg.gameResult && (
                               <a href={sg.fileUrl} target="_blank" rel="noreferrer"
                                 className="text-[10px] text-primary hover:underline flex items-center gap-1 shrink-0">
@@ -683,7 +714,7 @@ const TeacherGradesPage = () => {
                       <Button
                         type="button" variant="outline" size="sm"
                         className="w-full gap-2 font-heading text-xs h-7"
-                        onClick={() => handleTranscribe(sg.studentId, sg.fileUrl!)}
+                        onClick={() => handleTranscribe(sg.studentId, sg.submissionId, sg.fileUrl!)}
                         disabled={transcribing[sg.studentId]}
                       >
                         {transcribing[sg.studentId]

@@ -7,11 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Archive, Plus, FileText, Download, Trash2, Loader2, Search } from "lucide-react";
+import { Archive, Plus, FileText, Download, Trash2, Loader2, Search, ScanText } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { SUBJECTS, GRADES } from "@/lib/constants";
+import { extractDocumentText, isExtractableDocument, isImageFile } from "@/lib/fileExtraction";
+import { requestImageOcr } from "@/lib/fileOcr";
 
 interface ExamEntry {
   id: string;
@@ -22,6 +24,7 @@ interface ExamEntry {
   topic: string | null;
   file_url: string;
   uploaded_by: string;
+  extracted_text: string | null;
 }
 
 const ExamArchivePage = () => {
@@ -69,6 +72,16 @@ const ExamArchivePage = () => {
       if (uploadErr) throw uploadErr;
       const { data: urlData } = supabase.storage.from("lesson-files").getPublicUrl(path);
 
+      // Best-effort: a document/scan that fails to extract still gets archived,
+      // just without searchable text.
+      let extractedText: string | null = null;
+      try {
+        if (isExtractableDocument(file)) extractedText = await extractDocumentText(file);
+        else if (isImageFile(file)) extractedText = await requestImageOcr(file, "text");
+      } catch (extractErr) {
+        console.error("Exam archive text extraction failed", extractErr);
+      }
+
       const { error } = await (supabase as any).from("exam_archive").insert({
         school_id: profile.schoolId,
         subject: form.subject,
@@ -78,6 +91,7 @@ const ExamArchivePage = () => {
         topic: form.topic || null,
         file_url: urlData.publicUrl,
         uploaded_by: profile.id,
+        extracted_text: extractedText,
       });
       if (error) throw error;
 
@@ -103,7 +117,9 @@ const ExamArchivePage = () => {
   };
 
   const filtered = entries.filter(
-    (e) => (subjectFilter === "all" || e.subject === subjectFilter) && (!search || e.title.includes(search) || (e.topic || "").includes(search))
+    (e) =>
+      (subjectFilter === "all" || e.subject === subjectFilter) &&
+      (!search || e.title.includes(search) || (e.topic || "").includes(search) || (e.extracted_text || "").includes(search))
   );
 
   return (
@@ -185,6 +201,11 @@ const ExamArchivePage = () => {
                       {e.year && <Badge variant="outline" className="text-[10px]">{e.year}</Badge>}
                     </div>
                     {e.topic && <p className="text-[11px] text-muted-foreground mt-1">{e.topic}</p>}
+                    {e.extracted_text && (
+                      <p className="text-[10px] text-success mt-1 flex items-center gap-1">
+                        <ScanText className="h-3 w-3" /> טקסט מלא זמין לחיפוש
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2 mt-3">

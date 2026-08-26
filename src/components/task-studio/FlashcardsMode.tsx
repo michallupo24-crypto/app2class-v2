@@ -8,6 +8,9 @@ import StudioModeWrapper from "./StudioModeWrapper";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { extractDocumentText } from "@/lib/fileExtraction";
+
+const MAX_PROMPT_CHARS = 12000;
 
 interface FlashCard {
   front: string;
@@ -63,10 +66,18 @@ const FlashcardsMode = ({ profile, assignmentId, onBack }: Props) => {
       const { error: uploadErr } = await supabase.storage.from("lesson-files").upload(path, file, { upsert: true });
       if (uploadErr) throw uploadErr;
 
+      let prompt = `הקובץ "${file.name}" הועלה. צור כרטיסיות שינון (flashcards) מהחומר. לכל כרטיסייה: front (שאלה/מושג), back (תשובה/הסבר קצר). החזר JSON array של {front, back}.`;
+      try {
+        const text = (await extractDocumentText(file)).slice(0, MAX_PROMPT_CHARS);
+        prompt = `צור כרטיסיות שינון (flashcards) על בסיס תוכן הקובץ הבא ("${file.name}"). לכל כרטיסייה: front (שאלה/מושג), back (תשובה/הסבר קצר). החזר JSON array של {front, back}.\n\n${text}`;
+      } catch (extractErr) {
+        console.error("Flashcards file extraction failed, falling back to filename-only", extractErr);
+      }
+
       const { data, error } = await supabase.functions.invoke("task-studio-ai", {
         body: {
           action: "scan-file",
-          prompt: `הקובץ "${file.name}" הועלה. צור כרטיסיות שינון (flashcards) מהחומר. לכל כרטיסייה: front (שאלה/מושג), back (תשובה/הסבר קצר). החזר JSON array של {front, back}.`,
+          prompt,
           numQuestions: 20,
         },
       });

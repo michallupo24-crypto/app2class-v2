@@ -35,6 +35,7 @@ import {
   Wand2,
   FileEdit,
   UserCog,
+  Presentation,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
@@ -107,6 +108,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
     { title: "מגן זכויות", url: "/dashboard/rights", icon: Shield },
     { title: "עוזר AI", url: "/dashboard/ai-tutor", icon: Brain },
     { title: "מסמכים", url: "/dashboard/documents", icon: FileEdit },
+    { title: "מצגות", url: "/dashboard/presentations", icon: Presentation },
     { title: "ארכיון מבחנים", url: "/dashboard/exam-archive", icon: Archive },
     { title: "שיחות", url: "/dashboard/chat", icon: MessageCircle },
     { title: "קהילה", url: "/dashboard/community", icon: Users },
@@ -127,6 +129,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
     { title: "דוחות", url: "/dashboard/teacher-grades", icon: BarChart3 },
     { title: "מפת הושבה", url: "/dashboard/seating", icon: LayoutGrid },
     { title: "מסמכים", url: "/dashboard/documents", icon: FileEdit },
+    { title: "מצגות", url: "/dashboard/presentations", icon: Presentation },
     { title: "לוח זמנים", url: "/dashboard/schedule", icon: Calendar },
     { title: "הכיתות שלי", url: "/dashboard/my-classes", icon: Users },
     { title: "אישורי טיולים", url: "/dashboard/event-approvals", icon: FileSignature },

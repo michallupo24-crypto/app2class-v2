@@ -19,6 +19,15 @@ import { useToast } from "@/hooks/use-toast";
 import { extractDocumentText, isExtractableDocument, isImageFile } from "@/lib/fileExtraction";
 import { requestImageOcr } from "@/lib/fileOcr";
 import { ScanText } from "lucide-react";
+import {
+  fetchAssignmentRules, shuffleArray, hasExistingAttempt, getNextAttemptNumber,
+  startFocusGuard, type AssignmentRules, type FocusGuardHandle,
+} from "@/lib/assignmentRules";
+
+const DEFAULT_QUIZ_RULES: AssignmentRules = {
+  lockDevice: false, lockDurationMinutes: null, shuffleQuestions: false,
+  shuffleOptions: false, oneAttempt: false, dataHookAutoGrade: true,
+};
 
 interface Task {
   id: string | null;           // submission id (null if not submitted yet)
@@ -74,6 +83,7 @@ const TasksPage = () => {
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [extractingText, setExtractingText] = useState(false);
+  const [extractedFile, setExtractedFile] = useState<File | null>(null);
 
   // Quiz dialog state
   const [quizTask, setQuizTask] = useState<Task | null>(null);
@@ -84,6 +94,11 @@ const TasksPage = () => {
   const [quizScore, setQuizScore] = useState(0);
   const [quizSaveError, setQuizSaveError] = useState(false);
   const [loadingQuiz, setLoadingQuiz] = useState(false);
+  const [quizLocked, setQuizLocked] = useState(false);
+  const [quizRules, setQuizRules] = useState<AssignmentRules>(DEFAULT_QUIZ_RULES);
+  const [quizStartedAt, setQuizStartedAt] = useState<number | null>(null);
+  const [focusViolations, setFocusViolations] = useState(0);
+  const focusGuardRef = useRef<FocusGuardHandle | null>(null);
   const [flipped, setFlipped] = useState(false);
   const [quizMode, setQuizMode] = useState<"quiz" | "flashcard">("quiz");
 
@@ -185,31 +200,39 @@ const TasksPage = () => {
     }
     setSelectedFile(file);
     if (fileRef.current) fileRef.current.value = "";
+    // Extraction now runs automatically the moment a file is attached - a
+    // student shouldn't have to know a separate "extract text" step exists.
+    if (isImageFile(file) || isExtractableDocument(file)) {
+      handleExtractText(file, { silent: true });
+    }
   };
 
   /* ── Extract text from an attached photo/scan/document (OCR) ── */
-  const handleExtractText = async () => {
-    if (!selectedFile) return;
+  const handleExtractText = async (file?: File, opts?: { silent?: boolean }) => {
+    const target = file || selectedFile;
+    if (!target) return;
     setExtractingText(true);
     try {
-      const text = isImageFile(selectedFile)
-        ? await requestImageOcr(selectedFile, "handwriting")
-        : isExtractableDocument(selectedFile)
-          ? await extractDocumentText(selectedFile)
+      const text = isImageFile(target)
+        ? await requestImageOcr(target, "handwriting")
+        : isExtractableDocument(target)
+          ? await extractDocumentText(target)
           : null;
 
       if (!text) {
-        toast({ title: "לא ניתן לחלץ טקסט מסוג קובץ זה", variant: "destructive" });
+        if (!opts?.silent) toast({ title: "לא ניתן לחלץ טקסט מסוג קובץ זה", variant: "destructive" });
         return;
       }
       if (!text.trim()) {
-        toast({ title: "לא נמצא טקסט בקובץ", variant: "destructive" });
+        if (!opts?.silent) toast({ title: "לא נמצא טקסט בקובץ", variant: "destructive" });
         return;
       }
       setSubmitText((prev) => (prev.trim() ? `${prev}\n\n${text}` : text));
+      setExtractedFile(target);
       toast({ title: "הטקסט חולץ בהצלחה", description: "אפשר לערוך אותו לפני ההגשה." });
     } catch (err: any) {
-      toast({ title: "שגיאה בחילוץ הטקסט", description: err.message, variant: "destructive" });
+      if (!opts?.silent) toast({ title: "שגיאה בחילוץ הטקסט", description: err.message, variant: "destructive" });
+      else console.error("Task submission text extraction failed", err);
     } finally {
       setExtractingText(false);
     }
@@ -287,13 +310,44 @@ const TasksPage = () => {
     setQuizSubmitted(false);
     setQuizScore(0);
     setFlipped(false);
+    setQuizLocked(false);
+    setFocusViolations(0);
+
+    let rules = DEFAULT_QUIZ_RULES;
+    if (mode === "quiz") {
+      rules = await fetchAssignmentRules(task.assignmentId);
+      setQuizRules(rules);
+      if (rules.oneAttempt && await hasExistingAttempt(task.assignmentId, profile.id)) {
+        setQuizLocked(true);
+        setLoadingQuiz(false);
+        return;
+      }
+    }
+
     const { data } = await supabase
       .from("task_questions")
       .select("*")
       .eq("assignment_id", task.assignmentId)
       .order("order_num");
-    setQuizQuestions(data || []);
+    let questions = data || [];
+    if (mode === "quiz" && rules.shuffleQuestions) questions = shuffleArray(questions);
+    if (mode === "quiz" && rules.shuffleOptions) {
+      questions = questions.map((q: any) => Array.isArray(q.options) ? { ...q, options: shuffleArray(q.options) } : q);
+    }
+    setQuizQuestions(questions);
     setLoadingQuiz(false);
+
+    if (mode === "quiz") {
+      setQuizStartedAt(Date.now());
+      if (rules.lockDevice) {
+        focusGuardRef.current = startFocusGuard(setFocusViolations);
+      }
+    }
+  };
+
+  const stopQuizFocusGuard = () => {
+    focusGuardRef.current?.stop();
+    focusGuardRef.current = null;
   };
 
   /* ── Submit quiz ─────────────────────────────────────────── */
@@ -308,29 +362,41 @@ const TasksPage = () => {
     setQuizSubmitted(true);
     setQuizSaveError(false);
 
+    const violations = focusGuardRef.current?.getViolationCount() ?? focusViolations;
+    stopQuizFocusGuard();
+    const timeSpentSeconds = quizStartedAt ? Math.round((Date.now() - quizStartedAt) / 1000) : null;
+    const attemptNumber = await getNextAttemptNumber(quizTask.assignmentId, profile.id);
+    const autoGrade = quizRules.dataHookAutoGrade;
+
+    const gradedFields = autoGrade
+      ? { grade: pct, status: "graded" as const, graded_at: new Date().toISOString() }
+      : { grade: null, status: "submitted" as const, graded_at: null };
+
     try {
       if (quizTask.id) {
         const { error } = await supabase.from("submissions").update({
-          grade: pct,
-          status: "graded",
+          ...gradedFields,
           submitted_at: new Date().toISOString(),
-          graded_at: new Date().toISOString(),
           content: JSON.stringify(quizAnswers),
+          attempt_number: attemptNumber,
+          time_spent_seconds: timeSpentSeconds,
+          focus_violations: violations,
         }).eq("id", quizTask.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("submissions").insert({
           assignment_id: quizTask.assignmentId,
           student_id: profile.id,
-          grade: pct,
-          status: "graded",
+          ...gradedFields,
           submitted_at: new Date().toISOString(),
-          graded_at: new Date().toISOString(),
           content: JSON.stringify(quizAnswers),
+          attempt_number: attemptNumber,
+          time_spent_seconds: timeSpentSeconds,
+          focus_violations: violations,
         });
         if (error) throw error;
       }
-      toast({ title: `סיימת! ציון: ${pct}%` });
+      toast({ title: autoGrade ? `סיימת! ציון: ${pct}%` : "הבוחן הוגש וממתין לבדיקת המורה" });
       loadTasks();
     } catch {
       setQuizSaveError(true);
@@ -578,16 +644,16 @@ const TasksPage = () => {
                     <span className="text-[10px] text-muted-foreground shrink-0">
                       {(selectedFile.size / 1024 / 1024).toFixed(1)} MB
                     </span>
-                    <button onClick={() => setSelectedFile(null)} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                    <button onClick={() => { setSelectedFile(null); setExtractedFile(null); }} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
                       <X className="h-4 w-4" />
                     </button>
                   </div>
                 ) : null}
-                {selectedFile && (isImageFile(selectedFile) || isExtractableDocument(selectedFile)) && (
+                {selectedFile && selectedFile !== extractedFile && (isImageFile(selectedFile) || isExtractableDocument(selectedFile)) && (
                   <Button
                     type="button" variant="outline" size="sm"
                     className="w-full gap-2 font-heading text-xs mt-2"
-                    onClick={handleExtractText}
+                    onClick={() => handleExtractText()}
                     disabled={extractingText}
                   >
                     {extractingText
@@ -627,7 +693,7 @@ const TasksPage = () => {
       </Dialog>
 
       {/* ── Quiz / Flashcard Dialog ───────────────────────────── */}
-      <Dialog open={!!quizTask} onOpenChange={o => { if (!o) { setQuizTask(null); setQuizSubmitted(false); } }}>
+      <Dialog open={!!quizTask} onOpenChange={o => { if (!o) { stopQuizFocusGuard(); setQuizTask(null); setQuizSubmitted(false); setQuizLocked(false); } }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-heading flex items-center gap-2">
@@ -639,6 +705,12 @@ const TasksPage = () => {
           {loadingQuiz ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : quizLocked ? (
+            <div className="py-10 text-center space-y-2">
+              <CheckCircle2 className="h-8 w-8 mx-auto text-muted-foreground/50" />
+              <p className="text-sm font-heading font-medium">כבר הגשת את הבוחן הזה</p>
+              <p className="text-xs text-muted-foreground">המשימה מוגדרת לניסיון אחד בלבד — אי אפשר לנסות שוב.</p>
             </div>
           ) : quizQuestions.length === 0 ? (
             <div className="py-8 text-center text-sm text-muted-foreground">אין שאלות למשימה זו</div>
@@ -659,6 +731,9 @@ const TasksPage = () => {
                     </Button>
                   </div>
                 )}
+                {quizMode === "quiz" && focusViolations > 0 && (
+                  <p className="text-[11px] text-warning mt-2">שימו לב: נרשמו {focusViolations} יציאות מהמסך בזמן הבוחן</p>
+                )}
               </div>
               <div className="space-y-2">
                 {quizQuestions.map((q, i) => {
@@ -673,9 +748,11 @@ const TasksPage = () => {
                   );
                 })}
               </div>
-              <Button className="w-full font-heading" onClick={() => { setQuizIdx(0); setQuizAnswers({}); setQuizSubmitted(false); setFlipped(false); }}>
-                נסה שוב
-              </Button>
+              {!(quizMode === "quiz" && quizRules.oneAttempt) && (
+                <Button className="w-full font-heading" onClick={() => { setQuizIdx(0); setQuizAnswers({}); setQuizSubmitted(false); setFlipped(false); }}>
+                  נסה שוב
+                </Button>
+              )}
             </div>
           ) : quizMode === "flashcard" ? (
             /* Flashcards */

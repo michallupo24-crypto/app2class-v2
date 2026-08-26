@@ -72,6 +72,7 @@ const ExamArchivePage = lazy(() => import("./pages/dashboard/ExamArchivePage"));
 const MyClassesPage = lazy(() => import("./pages/dashboard/MyClassesPage"));
 const TimetableBuilderPage = lazy(() => import("./pages/dashboard/TimetableBuilderPage"));
 const DocumentsPage = lazy(() => import("./pages/dashboard/DocumentsPage"));
+const PresentationsPage = lazy(() => import("./pages/dashboard/PresentationsPage"));
 const TeamRolesPage = lazy(() => import("./pages/dashboard/TeamRolesPage"));
 
 const queryClient = new QueryClient();
@@ -112,6 +113,7 @@ const App = () => (
               <Route path="calendar" element={<SchedulePage />} />
               <Route path="community" element={<CommunityPage />} />
               <Route path="documents" element={<DocumentsPage />} />
+              <Route path="presentations" element={<PresentationsPage />} />
               {/* Student routes */}
               <Route path="student-home" element={<StudentDashboard />} />
               <Route path="subjects" element={<SubjectHubsPage />} />
