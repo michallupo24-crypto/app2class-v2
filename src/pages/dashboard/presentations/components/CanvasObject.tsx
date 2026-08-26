@@ -9,11 +9,12 @@ interface Props {
   selected: boolean;
   onSelect: () => void;
   onUpdate: (updates: Partial<SlideObject>) => void;
+  readOnly?: boolean;
 }
 
 type ResizeCorner = 'nw' | 'ne' | 'sw' | 'se';
 
-export function CanvasObject({ object, selected, onSelect, onUpdate }: Props) {
+export function CanvasObject({ object, selected, onSelect, onUpdate, readOnly = false }: Props) {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const textRef = useRef<HTMLDivElement>(null);
@@ -49,9 +50,18 @@ export function CanvasObject({ object, selected, onSelect, onUpdate }: Props) {
       return (
         <div
           ref={textRef}
-          contentEditable
+          contentEditable={!readOnly}
           suppressContentEditableWarning
-          onPointerDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => {
+            // Still stop propagation (so the parent's drag gesture doesn't
+            // hijack a click meant to place the text cursor), but select
+            // explicitly here too - otherwise text objects could never be
+            // selected at all, and the font/bold/color toolbar (which only
+            // renders for a selected object) was permanently unreachable
+            // for text, the one object type it matters most for.
+            e.stopPropagation();
+            if (!readOnly) onSelect();
+          }}
           onBlur={(e) => {
             // An emptied contentEditable div collapses to a lone <br>, whose
             // innerText reads as "\n" rather than "" - normalize that so a
@@ -89,7 +99,7 @@ export function CanvasObject({ object, selected, onSelect, onUpdate }: Props) {
 
   return (
     <motion.div
-      drag
+      drag={!readOnly}
       dragMomentum={false}
       style={{
         position: 'absolute',
@@ -100,19 +110,20 @@ export function CanvasObject({ object, selected, onSelect, onUpdate }: Props) {
         zIndex: object.zIndex,
         x,
         y,
-        outline: selected ? '2px solid var(--primary, #2D5FF6)' : 'none',
+        outline: selected && !readOnly ? '2px solid var(--primary, #2D5FF6)' : 'none',
         outlineOffset: 2,
-        cursor: object.type === 'text' ? 'text' : 'move',
+        cursor: readOnly ? 'default' : object.type === 'text' ? 'text' : 'move',
       }}
-      onPointerDown={(e) => { e.stopPropagation(); onSelect(); }}
+      onPointerDown={(e) => { if (readOnly) return; e.stopPropagation(); onSelect(); }}
       onDragEnd={(_, info) => {
+        if (readOnly) return;
         onUpdate({ x: object.x + info.offset.x, y: object.y + info.offset.y });
         x.set(0);
         y.set(0);
       }}
     >
       {renderContent()}
-      {selected && (
+      {selected && !readOnly && (
         <>
           {(['nw', 'ne', 'sw', 'se'] as ResizeCorner[]).map((corner) => (
             <div

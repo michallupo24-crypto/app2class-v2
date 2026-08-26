@@ -40,6 +40,7 @@ export interface Slide {
 
 export interface PresentationModel {
   id: string;
+  ownerId: string;
   title: string;
   slides: Slide[];
   createdAt: string;

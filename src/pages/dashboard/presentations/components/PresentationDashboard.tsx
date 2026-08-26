@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Presentation as PresentationIcon, Plus, Search, Trash2, Copy, Clock } from 'lucide-react';
+import { Presentation as PresentationIcon, Plus, Search, Trash2, Copy, Clock, Users } from 'lucide-react';
 import type { PresentationModel, PresentationTemplate } from '../types';
 import { PRESENTATION_TEMPLATES } from '../data/templates';
 
 interface Props {
   presentations: PresentationModel[];
+  sharedWithMe?: { presentation: PresentationModel; sharedByName: string | null }[];
   onSelectPresentation: (p: PresentationModel) => void;
   onCreateFromTemplate: (template: PresentationTemplate) => void;
   onDeletePresentation: (id: string) => void;
@@ -13,6 +14,7 @@ interface Props {
 
 export function PresentationDashboard({
   presentations,
+  sharedWithMe = [],
   onSelectPresentation,
   onCreateFromTemplate,
   onDeletePresentation,
@@ -71,6 +73,36 @@ export function PresentationDashboard({
             ))}
           </div>
         </section>
+
+        {sharedWithMe.length > 0 && (
+          <section className="space-y-3">
+            <h2 className="font-bold text-sm text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5" /> משותף איתי
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {sharedWithMe.map(({ presentation: p, sharedByName }) => (
+                <div
+                  key={p.id}
+                  onClick={() => onSelectPresentation(p)}
+                  className="bg-card hover:bg-muted/50 p-5 rounded-lg border border-border hover:border-primary cursor-pointer transition-colors space-y-3 group"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-primary/10 text-primary rounded-lg">
+                      <PresentationIcon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm text-foreground group-hover:text-primary transition-colors line-clamp-1">{p.title}</h3>
+                      {sharedByName && <div className="text-[11px] text-muted-foreground mt-0.5">שותף על ידי {sharedByName}</div>}
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-border">
+                    <span className="bg-muted px-2 py-0.5 rounded-full text-[10px] font-semibold text-muted-foreground">{p.slides.length} שקפים</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="space-y-4">
           <div className="flex items-center justify-between border-b border-border pb-3">

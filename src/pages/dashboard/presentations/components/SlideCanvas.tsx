@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { forwardRef, useState } from 'react';
 import type { Slide, SlideObject } from '../types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../types';
 import { CanvasObject } from './CanvasObject';
@@ -6,13 +6,17 @@ import { ObjectToolbar } from './ObjectToolbar';
 
 interface Props {
   slide: Slide;
-  onUpdateObject: (objectId: string, updates: Partial<SlideObject>) => void;
-  onDeleteObject: (objectId: string) => void;
+  onUpdateObject?: (objectId: string, updates: Partial<SlideObject>) => void;
+  onDeleteObject?: (objectId: string) => void;
+  readOnly?: boolean;
 }
 
-export function SlideCanvas({ slide, onUpdateObject, onDeleteObject }: Props) {
+export const SlideCanvas = forwardRef<HTMLDivElement, Props>(function SlideCanvas(
+  { slide, onUpdateObject = () => {}, onDeleteObject = () => {}, readOnly = false },
+  ref
+) {
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
-  const selectedObject = slide.objects.find((o) => o.id === selectedObjectId) || null;
+  const selectedObject = !readOnly ? slide.objects.find((o) => o.id === selectedObjectId) || null : null;
 
   return (
     <div className="flex flex-col items-center gap-3">
@@ -28,9 +32,10 @@ export function SlideCanvas({ slide, onUpdateObject, onDeleteObject }: Props) {
       )}
 
       <div
+        ref={ref}
         className="relative bg-white shadow-lg border border-border overflow-hidden"
         style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT, backgroundColor: slide.background }}
-        onPointerDown={() => setSelectedObjectId(null)}
+        onPointerDown={() => !readOnly && setSelectedObjectId(null)}
       >
         {slide.objects.map((obj) => (
           <CanvasObject
@@ -39,9 +44,10 @@ export function SlideCanvas({ slide, onUpdateObject, onDeleteObject }: Props) {
             selected={obj.id === selectedObjectId}
             onSelect={() => setSelectedObjectId(obj.id)}
             onUpdate={(updates) => onUpdateObject(obj.id, updates)}
+            readOnly={readOnly}
           />
         ))}
       </div>
     </div>
   );
-}
+});

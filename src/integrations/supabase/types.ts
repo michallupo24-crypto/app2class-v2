@@ -1218,6 +1218,52 @@ export type Database = {
         }
         Relationships: []
       }
+      presentation_shares: {
+        Row: {
+          class_id: string
+          created_at: string
+          id: string
+          presentation_id: string
+          shared_by: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          id?: string
+          presentation_id: string
+          shared_by: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          id?: string
+          presentation_id?: string
+          shared_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "presentation_shares_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "presentation_shares_presentation_id_fkey"
+            columns: ["presentation_id"]
+            isOneToOne: false
+            referencedRelation: "presentations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "presentation_shares_shared_by_fkey"
+            columns: ["shared_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_approvals: {
         Row: {
           approved: boolean | null
