@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   PenLine, Folders, MessageSquare, Layers,
   FileSpreadsheet, Mountain, Dice5, Flame, Sparkles, Code2,
-  Gamepad2, Plus, Wand2, ChevronRight, Target, Sprout, GraduationCap
+  Gamepad2, Plus, Wand2, ChevronRight, Target, Sprout, GraduationCap, Search, Cpu
 } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +29,8 @@ import AIPromptBuilderMode from "@/components/task-studio/AIPromptBuilderMode";
 import BagrutCoverageBar from "@/components/task-studio/BagrutCoverageBar";
 import AdaptiveTierMode from "@/components/task-studio/AdaptiveTierMode";
 import MisconceptionCoachMode from "@/components/task-studio/MisconceptionCoachMode";
+import BagrutHunterMode from "@/components/task-studio/BagrutHunterMode";
+import AiOptimizationMode from "@/components/task-studio/AiOptimizationMode";
 
 interface StudioMode {
   id: string;
@@ -56,6 +58,8 @@ const STUDIO_MODES: StudioMode[] = [
   { id: "ai-prompt-builder", title: "בונה פרומפט ל-AI חיצוני", description: "תארו את המשימה וקבלו פרומפט מדויק להעתקה ל-ChatGPT/Claude, כולל חוזה השילוב עם המערכת", icon: <Wand2 className="h-6 w-6" />, category: "ai", color: "bg-accent/10 text-accent", badge: "AI" },
   { id: "data-hook", title: "Data Hook (ציונים)", description: "משיכת נתונים ממשחק והזנה אוטומטית כציונים", icon: <Gamepad2 className="h-6 w-6" />, category: "tools", color: "bg-success/10 text-success" },
   { id: "bagrut-coverage", title: "בר הספק לבגרות", description: "אחוז החיפוי של חומר הבגרות שהמשימות מכסות", icon: <Target className="h-6 w-6" />, category: "tools", color: "bg-warning/10 text-warning" },
+  { id: "bagrut-hunter", title: "ציד שאלות בגרות (AI)", description: "חיפוש שאלות בסגנון בגרות לפי מקצוע ונושא, עם ייבוא ישיר למשימה", icon: <Search className="h-6 w-6" />, category: "ai", color: "bg-accent/10 text-accent", badge: "AI" },
+  { id: "ai-optimization", title: "אופטימיזציית קוד (AI)", description: "שיפור קוד HTML/JS קיים: רספונסיביות, RTL ואנימציות UX", icon: <Cpu className="h-6 w-6" />, category: "tools", color: "bg-muted text-muted-foreground", badge: "AI" },
 ];
 
 const TaskStudioPage = () => {
@@ -113,6 +117,8 @@ const TaskStudioPage = () => {
       );
       case "data-hook": return <DataHookMode {...commonProps} />;
       case "bagrut-coverage": return <BagrutCoverageBar {...commonProps} />;
+      case "bagrut-hunter": return <BagrutHunterMode {...commonProps} />;
+      case "ai-optimization": return <AiOptimizationMode {...commonProps} />;
       default: return null;
     }
   };

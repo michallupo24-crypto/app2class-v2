@@ -18,6 +18,15 @@ import { buildSandboxHtml } from "@/components/task-studio/ide/sandboxBuilder";
 import { StudentSolveEditor } from "@/components/task-studio/ide/StudentSolveEditor";
 import type { TaskLanguage } from "@/components/task-studio/ide/types";
 import { tierForAverage } from "@/lib/adaptiveTier";
+import {
+  fetchAssignmentRules, shuffleArray, hasExistingAttempt, getNextAttemptNumber,
+  startFocusGuard, type AssignmentRules, type FocusGuardHandle,
+} from "@/lib/assignmentRules";
+
+const DEFAULT_PRACTICE_RULES: AssignmentRules = {
+  lockDevice: false, lockDurationMinutes: null, shuffleQuestions: false,
+  shuffleOptions: false, oneAttempt: false, dataHookAutoGrade: true,
+};
 
 interface Question {
   id: string;
@@ -100,6 +109,12 @@ const StudentPracticePage = () => {
   const [solveTask, setSolveTask] = useState<{ starterCode: string; savedCode: string | null; instructions: string; submitted: boolean } | null>(null);
   const [solveSaving, setSolveSaving] = useState(false);
 
+  const [rules, setRules] = useState<AssignmentRules>(DEFAULT_PRACTICE_RULES);
+  const [alreadyAttempted, setAlreadyAttempted] = useState(false);
+  const [practiceStartedAt, setPracticeStartedAt] = useState<number | null>(null);
+  const [focusViolations, setFocusViolations] = useState(0);
+  const focusGuardRef = useRef<FocusGuardHandle | null>(null);
+
   useEffect(() => {
     const load = async () => {
       if (!assignmentId) return;
@@ -127,6 +142,13 @@ const StudentPracticePage = () => {
         loadedQuestions = loadedQuestions.filter((q) => q.tier == null || q.tier === myTier);
       }
       setQuestions(loadedQuestions);
+
+      const [assignmentRules, attempted] = await Promise.all([
+        fetchAssignmentRules(assignmentId),
+        hasExistingAttempt(assignmentId, profile.id),
+      ]);
+      setRules(assignmentRules);
+      setAlreadyAttempted(attempted);
 
       // 1. Real interactive_tasks row (Task IDE builder)
       const { data: task } = await supabase
@@ -328,7 +350,8 @@ const StudentPracticePage = () => {
   };
 
   const startPractice = () => {
-    const q = [...questions].sort(() => Math.random() - 0.5);
+    let q = rules.shuffleQuestions ? shuffleArray(questions) : [...questions];
+    if (rules.shuffleOptions) q = q.map((question) => ({ ...question, options: shuffleArray(question.options) }));
     setShuffled(q);
     setCurrentIdx(0);
     setScore(0);
@@ -345,7 +368,17 @@ const StudentPracticePage = () => {
     setCoachAnswered(null);
     setCoachRowId(null);
     setStarted(true);
+    setPracticeStartedAt(Date.now());
+    setFocusViolations(0);
+    if (rules.lockDevice) focusGuardRef.current = startFocusGuard(setFocusViolations);
   };
+
+  const stopPracticeFocusGuard = () => {
+    focusGuardRef.current?.stop();
+    focusGuardRef.current = null;
+  };
+
+  useEffect(() => () => stopPracticeFocusGuard(), []);
 
   const currentQ = shuffled[currentIdx];
   const progress = shuffled.length > 0 ? ((currentIdx) / shuffled.length) * 100 : 0;
@@ -425,20 +458,30 @@ const StudentPracticePage = () => {
     if (!assignmentId) return;
     setSaveStatus("saving");
     const pct = Math.round((score / shuffled.length) * 100);
+    const violations = focusGuardRef.current?.getViolationCount() ?? focusViolations;
+    stopPracticeFocusGuard();
+    const timeSpentSeconds = practiceStartedAt ? Math.round((Date.now() - practiceStartedAt) / 1000) : null;
+    const attemptNumber = await getNextAttemptNumber(assignmentId, profile.id);
+    const grade = rules.dataHookAutoGrade ? pct : null;
     try {
       const { data: existing } = await supabase.from("submissions")
         .select("id").eq("assignment_id", assignmentId).eq("student_id", profile.id).maybeSingle();
       if (existing) {
-        const { error } = await supabase.from("submissions").update({ grade: pct, status: "submitted" as any, submitted_at: new Date().toISOString() }).eq("id", existing.id);
+        const { error } = await supabase.from("submissions").update({
+          grade, status: "submitted" as any, submitted_at: new Date().toISOString(),
+          attempt_number: attemptNumber, time_spent_seconds: timeSpentSeconds, focus_violations: violations,
+        }).eq("id", existing.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("submissions").insert({
           assignment_id: assignmentId, student_id: profile.id,
-          grade: pct, status: "submitted" as any, submitted_at: new Date().toISOString(),
+          grade, status: "submitted" as any, submitted_at: new Date().toISOString(),
+          attempt_number: attemptNumber, time_spent_seconds: timeSpentSeconds, focus_violations: violations,
         });
         if (error) throw error;
       }
       setSaveStatus("saved");
+      setAlreadyAttempted(true);
     } catch {
       setSaveStatus("error");
       toast({ variant: "destructive", title: "שגיאה בשמירת הציון", description: "הציון לא נשמר. בדוק/י את החיבור ונסה/י שוב." });
@@ -593,11 +636,16 @@ const StudentPracticePage = () => {
             </div>
           )}
         </div>
+        {focusViolations > 0 && (
+          <p className="text-center text-[11px] text-warning">שימו לב: נרשמו {focusViolations} יציאות מהמסך בזמן התרגול</p>
+        )}
         <div className="flex gap-3 justify-center flex-wrap">
-          <Button className="gap-2 font-heading" onClick={startPractice}>
-            <RotateCcw className="h-4 w-4" />תרגל שוב
-          </Button>
-          {wrongIds.length > 0 && (
+          {!rules.oneAttempt && (
+            <Button className="gap-2 font-heading" onClick={startPractice}>
+              <RotateCcw className="h-4 w-4" />תרגל שוב
+            </Button>
+          )}
+          {!rules.oneAttempt && wrongIds.length > 0 && (
             <Button variant="outline" className="gap-2 font-heading" onClick={() => {
               const wrong = questions.filter(q => wrongIds.includes(q.id));
               setShuffled(wrong);
@@ -611,6 +659,9 @@ const StudentPracticePage = () => {
               <Brain className="h-4 w-4" />תרגל רק שגיאות ({wrongIds.length})
             </Button>
           )}
+          {rules.oneAttempt && (
+            <p className="text-xs text-muted-foreground">המשימה מוגדרת לניסיון אחד בלבד — אי אפשר לתרגל שוב.</p>
+          )}
           <Button variant="ghost" className="gap-2 font-heading" onClick={() => navigate("/dashboard/tasks")}>
             <ChevronLeft className="h-4 w-4" />חזור
           </Button>
@@ -621,6 +672,26 @@ const StudentPracticePage = () => {
 
   // Mode selector (before start)
   if (!started) {
+    if (rules.oneAttempt && alreadyAttempted) {
+      return (
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard/tasks")}>
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl font-heading font-bold">{assignment.title}</h1>
+              <p className="text-sm text-muted-foreground">{assignment.subject}</p>
+            </div>
+          </div>
+          <div className="text-center py-16 space-y-2">
+            <CheckCircle2 className="h-10 w-10 mx-auto text-muted-foreground/50" />
+            <p className="font-heading font-medium">כבר הגשת את המשימה הזו</p>
+            <p className="text-sm text-muted-foreground">המשימה מוגדרת לניסיון אחד בלבד — אי אפשר לנסות שוב.</p>
+          </div>
+        </motion.div>
+      );
+    }
     return (
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
         <div className="flex items-center gap-3">

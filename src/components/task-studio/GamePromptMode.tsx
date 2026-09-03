@@ -67,7 +67,8 @@ const GamePromptMode = ({ profile, assignmentId, onBack }: Props) => {
           points: 1,
           order_num: i,
         }));
-        await supabase.from("task_questions").insert(rows);
+        const { error: insertError } = await supabase.from("task_questions").insert(rows);
+        if (insertError) throw insertError;
         setQuestionsGenerated(rows.length);
         toast({ title: `המשחק עוצב ו-${rows.length} שאלות נוצרו!` });
       } else {

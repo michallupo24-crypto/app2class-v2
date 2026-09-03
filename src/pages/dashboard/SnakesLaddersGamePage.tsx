@@ -14,6 +14,15 @@ import {
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import {
+  fetchAssignmentRules, shuffleArray, hasExistingAttempt, getNextAttemptNumber,
+  startFocusGuard, type AssignmentRules, type FocusGuardHandle,
+} from "@/lib/assignmentRules";
+
+const DEFAULT_GAME_RULES: AssignmentRules = {
+  lockDevice: false, lockDurationMinutes: null, shuffleQuestions: false,
+  shuffleOptions: false, oneAttempt: false, dataHookAutoGrade: true,
+};
 
 /* ─── BOARD LAYOUT (10×10 = 100 cells) ─── */
 const SNAKES: Record<number, number> = {
@@ -85,20 +94,42 @@ const SnakesLaddersGamePage = () => {
   const [correctCount, setCorrectCount] = useState(0);
   const [totalAnswered, setTotalAnswered] = useState(0);
 
+  const [rules, setRules] = useState<AssignmentRules>(DEFAULT_GAME_RULES);
+  const [alreadyAttempted, setAlreadyAttempted] = useState(false);
+  const [gameStartedAt, setGameStartedAt] = useState<number | null>(null);
+  const [focusViolations, setFocusViolations] = useState(0);
+  const focusGuardRef = useRef<FocusGuardHandle | null>(null);
+
+  const stopGameFocusGuard = () => {
+    focusGuardRef.current?.stop();
+    focusGuardRef.current = null;
+  };
+
+  useEffect(() => () => stopGameFocusGuard(), []);
+
   useEffect(() => {
     const load = async () => {
       if (!assignmentId) return;
       setLoading(true);
-      const [aRes, qRes] = await Promise.all([
+      const [aRes, qRes, assignmentRules, attempted] = await Promise.all([
         supabase.from("assignments").select("id,title,subject").eq("id", assignmentId).single(),
         supabase.from("task_questions").select("*").eq("assignment_id", assignmentId).order("order_num"),
+        fetchAssignmentRules(assignmentId),
+        hasExistingAttempt(assignmentId, profile.id),
       ]);
       setAssignment(aRes.data);
-      setQuestions((qRes.data || []).map((q: any) => ({ ...q, options: Array.isArray(q.options) ? q.options : [] })));
+      let loadedQuestions = (qRes.data || []).map((q: any) => ({ ...q, options: Array.isArray(q.options) ? q.options : [] }));
+      // No fixed question order in this board game (questions are picked
+      // randomly per turn), so "shuffle questions" doesn't apply here - only
+      // the options within each question can meaningfully be shuffled.
+      if (assignmentRules.shuffleOptions) loadedQuestions = loadedQuestions.map(q => ({ ...q, options: shuffleArray(q.options) }));
+      setQuestions(loadedQuestions);
+      setRules(assignmentRules);
+      setAlreadyAttempted(attempted);
       setLoading(false);
     };
     load();
-  }, [assignmentId]);
+  }, [assignmentId, profile.id]);
 
   /* ─── Start game ─── */
   const startGame = () => {
@@ -119,6 +150,9 @@ const SnakesLaddersGamePage = () => {
     setCorrectCount(0);
     setTotalAnswered(0);
     setGameStarted(true);
+    setGameStartedAt(Date.now());
+    setFocusViolations(0);
+    if (rules.lockDevice) focusGuardRef.current = startFocusGuard(setFocusViolations);
   };
 
   /* ─── Get next question (avoid repeats) ─── */
@@ -267,6 +301,11 @@ const SnakesLaddersGamePage = () => {
   const saveScore = async (finalPos: number) => {
     if (!assignmentId) return;
     const pct = totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0;
+    const violations = focusGuardRef.current?.getViolationCount() ?? focusViolations;
+    stopGameFocusGuard();
+    const timeSpentSeconds = gameStartedAt ? Math.round((Date.now() - gameStartedAt) / 1000) : null;
+    const attemptNumber = await getNextAttemptNumber(assignmentId, profile.id);
+    const grade = rules.dataHookAutoGrade ? pct : null;
     // Save detailed game result in content field for teacher to see
     const gameResult = JSON.stringify({
       type: "snakes-ladders",
@@ -282,21 +321,28 @@ const SnakesLaddersGamePage = () => {
         .eq("assignment_id", assignmentId).eq("student_id", profile.id).maybeSingle();
       if (ex) {
         const { error } = await supabase.from("submissions").update({
-          grade: pct,
+          grade,
           status: "submitted" as any,
           submitted_at: new Date().toISOString(),
           content: gameResult,
+          attempt_number: attemptNumber,
+          time_spent_seconds: timeSpentSeconds,
+          focus_violations: violations,
         }).eq("id", ex.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("submissions").insert({
           assignment_id: assignmentId, student_id: profile.id,
-          grade: pct, status: "submitted" as any,
+          grade, status: "submitted" as any,
           submitted_at: new Date().toISOString(),
           content: gameResult,
+          attempt_number: attemptNumber,
+          time_spent_seconds: timeSpentSeconds,
+          focus_violations: violations,
         });
         if (error) throw error;
       }
+      setAlreadyAttempted(true);
     } catch (e: any) {
       // The winner screen tells the student their score was saved
       // automatically, so a silent failure here would be misleading —
@@ -421,10 +467,15 @@ const SnakesLaddersGamePage = () => {
             </div>
           ))}
         </div>
+        {focusViolations > 0 && (
+          <p className="text-[11px] text-warning">שימו לב: נרשמו {focusViolations} יציאות מהמסך במהלך המשחק</p>
+        )}
         <div className="flex gap-3">
-          <Button className="gap-2 font-heading" onClick={startGame}>
-            <RotateCcw className="h-4 w-4" />שחק שוב
-          </Button>
+          {!rules.oneAttempt && (
+            <Button className="gap-2 font-heading" onClick={startGame}>
+              <RotateCcw className="h-4 w-4" />שחק שוב
+            </Button>
+          )}
           <Button variant="outline" className="gap-2 font-heading" onClick={() => navigate("/dashboard/tasks")}>
             <ChevronLeft className="h-4 w-4" />חזור למשימות
           </Button>
@@ -437,6 +488,27 @@ const SnakesLaddersGamePage = () => {
   /* ════════════════════════════════════════════════
      SETUP SCREEN
   ════════════════════════════════════════════════ */
+  if (!gameStarted && rules.oneAttempt && alreadyAttempted) return (
+    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 max-w-md mx-auto">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <ChevronLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          <h1 className="text-xl font-heading font-bold flex items-center gap-2">
+            <Dice5 className="h-6 w-6 text-primary" />נחשים וסולמות
+          </h1>
+          <p className="text-sm text-muted-foreground">{assignment?.title}</p>
+        </div>
+      </div>
+      <div className="text-center py-16 space-y-2">
+        <CheckCircle2 className="h-10 w-10 mx-auto text-muted-foreground/50" />
+        <p className="font-heading font-medium">כבר שיחקת את המשימה הזו</p>
+        <p className="text-sm text-muted-foreground">המשימה מוגדרת לניסיון אחד בלבד — אי אפשר לשחק שוב.</p>
+      </div>
+    </motion.div>
+  );
+
   if (!gameStarted) return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 max-w-md mx-auto">
       <div className="flex items-center gap-3">

@@ -32,7 +32,11 @@ const CoopGameMode = ({ profile, assignmentId, onBack }: Props) => {
   useEffect(() => {
     if (assignmentId) {
       supabase.from("task_questions").select("*").eq("assignment_id", assignmentId)
-        .then(({ data }) => {
+        .then(({ data, error }) => {
+          if (error) {
+            toast({ title: "שגיאה בטעינת השאלות", description: error.message, variant: "destructive" });
+            return;
+          }
           setQuestions(data || []);
           setQuestionCount(data?.length || 0);
         });
@@ -71,7 +75,7 @@ const CoopGameMode = ({ profile, assignmentId, onBack }: Props) => {
         description: JSON.stringify({ game: "coop-firewater", players: 2 }),
       }).eq("id", assignmentId);
       if (error) throw error;
-      toast({ title: "חדרי המשחק נוצרו!" });
+      toast({ title: "המשחק פורסם לכיתה!" });
     } catch (err: any) {
       toast({ title: "שגיאה", description: err.message, variant: "destructive" });
     } finally {
@@ -81,6 +85,14 @@ const CoopGameMode = ({ profile, assignmentId, onBack }: Props) => {
 
   return (
     <StudioModeWrapper title="בן האש ובת המים" description="משימת Co-op זוגית הדורשת שיתוף פעולה" icon={<Flame className="h-6 w-6 text-warning" />} onBack={onBack}>
+      {!assignmentId && (
+        <Card className="border-warning/30 bg-warning/5">
+          <CardContent className="py-4 text-center">
+            <p className="text-sm font-heading text-warning">בחר משימה פעילה וצור שאלות קודם</p>
+          </CardContent>
+        </Card>
+      )}
+
       {questionCount === 0 && assignmentId && (
         <Card className="border-destructive/30 bg-destructive/5">
           <CardContent className="py-3 flex items-center gap-2">
@@ -118,7 +130,7 @@ const CoopGameMode = ({ profile, assignmentId, onBack }: Props) => {
                 )}
                 <Button className="flex-1 gap-2 font-heading" onClick={publishGame} disabled={publishing || !assignmentId || questionCount === 0}>
                   {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  {publishing ? "יוצר חדרים..." : "צור חדרי משחק"}
+                  {publishing ? "מפרסם..." : "פרסם לכיתה"}
                 </Button>
               </div>
             </div>

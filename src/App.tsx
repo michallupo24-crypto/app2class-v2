@@ -40,6 +40,8 @@ const StudentPracticePage = lazy(() => import("./pages/dashboard/StudentPractice
 const StudentLiveLessonPage = lazy(() => import("./pages/dashboard/StudentLiveLessonPage"));
 const StudentRightsPage = lazy(() => import("./pages/dashboard/StudentRightsPage"));
 const SnakesLaddersGamePage = lazy(() => import("./pages/dashboard/SnakesLaddersGamePage"));
+const MountainClimbGamePage = lazy(() => import("./pages/dashboard/MountainClimbGamePage"));
+const CoopGamePage = lazy(() => import("./pages/dashboard/CoopGamePage"));
 const TeacherLiveLessonPage = lazy(() => import("./pages/dashboard/TeacherLiveLessonPage"));
 const TeacherAssignmentPage = lazy(() => import("./pages/dashboard/TeacherAssignmentPage"));
 const GradeCoordinatorDashboard = lazy(() => import("./pages/dashboard/GradeCoordinatorDashboard"));
@@ -128,6 +130,8 @@ const App = () => (
               <Route path="live-student" element={<StudentLiveLessonPage />} />
               <Route path="rights" element={<StudentRightsPage />} />
               <Route path="game/snakes/:assignmentId" element={<SnakesLaddersGamePage />} />
+              <Route path="game/mountain/:assignmentId" element={<MountainClimbGamePage />} />
+              <Route path="game/coop/:assignmentId" element={<CoopGamePage />} />
               <Route path="attendance" element={<StudentAttendancePage />} />
               <Route path="attendance/:studentId" element={<StudentAttendancePage />} />
               <Route path="student-seating" element={<StudentSeatingPage />} />

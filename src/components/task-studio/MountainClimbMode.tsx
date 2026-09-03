@@ -38,7 +38,11 @@ const MountainClimbMode = ({ profile, assignmentId, onBack }: Props) => {
   useEffect(() => {
     if (assignmentId) {
       supabase.from("task_questions").select("*").eq("assignment_id", assignmentId)
-        .then(({ data, count }) => {
+        .then(({ data, error }) => {
+          if (error) {
+            toast({ title: "שגיאה בטעינת השאלות", description: error.message, variant: "destructive" });
+            return;
+          }
           setQuestions(data || []);
           setQuestionCount(data?.length || 0);
         });

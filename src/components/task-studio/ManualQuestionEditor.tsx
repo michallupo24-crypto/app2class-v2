@@ -50,22 +50,52 @@ const ManualQuestionEditor = ({ profile, assignmentId, onBack }: Props) => {
   const [scheduledTime, setScheduledTime] = useState("08:00");
   const [lockDevice, setLockDevice] = useState(false);
   const [lockDuration, setLockDuration] = useState("45");
-  const [shuffleQuestions, setShuffleQuestions] = useState(true);
-  const [shuffleOptions, setShuffleOptions] = useState(true);
-  const [oneAttempt, setOneAttempt] = useState(true);
+  const [shuffleQuestions, setShuffleQuestions] = useState(false);
+  const [shuffleOptions, setShuffleOptions] = useState(false);
+  const [oneAttempt, setOneAttempt] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
-    if (assignmentId) loadQuestions();
+    if (assignmentId) {
+      loadQuestions();
+      loadSendSettings();
+    }
   }, [assignmentId]);
+
+  const loadSendSettings = async () => {
+    if (!assignmentId) return;
+    const { data, error } = await supabase
+      .from("assignments")
+      .select("scheduled_publish_at, lock_device, lock_duration_minutes, shuffle_questions, shuffle_options, one_attempt")
+      .eq("id", assignmentId)
+      .maybeSingle();
+    if (error || !data) return;
+    if (data.scheduled_publish_at) {
+      const d = new Date(data.scheduled_publish_at);
+      setScheduledDate(d.toISOString().slice(0, 10));
+      setScheduledTime(d.toTimeString().slice(0, 5));
+    } else {
+      setScheduledDate("");
+      setScheduledTime("08:00");
+    }
+    setLockDevice(data.lock_device);
+    setLockDuration(data.lock_duration_minutes != null ? String(data.lock_duration_minutes) : "45");
+    setShuffleQuestions(data.shuffle_questions);
+    setShuffleOptions(data.shuffle_options);
+    setOneAttempt(data.one_attempt);
+  };
 
   const loadQuestions = async () => {
     if (!assignmentId) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("task_questions")
       .select("*")
       .eq("assignment_id", assignmentId)
       .order("order_num");
+    if (error) {
+      toast({ title: "שגיאה בטעינת השאלות", description: error.message, variant: "destructive" });
+      return;
+    }
     if (data?.length) {
       setQuestions(data.map((q: any) => ({
         id: q.id, question_type: q.question_type, question_text: q.question_text,
@@ -113,11 +143,12 @@ const ManualQuestionEditor = ({ profile, assignmentId, onBack }: Props) => {
     setExpandedIdx(null);
   };
 
-  const saveAll = async () => {
-    if (!assignmentId || !questions.length) return;
+  const saveAll = async (): Promise<boolean> => {
+    if (!assignmentId || !questions.length) return false;
     setSaving(true);
     try {
-      await supabase.from("task_questions").delete().eq("assignment_id", assignmentId);
+      const { error: deleteError } = await supabase.from("task_questions").delete().eq("assignment_id", assignmentId);
+      if (deleteError) throw deleteError;
       const rows = questions.map((q, i) => ({
         assignment_id: assignmentId,
         question_type: q.question_type as any,
@@ -132,8 +163,10 @@ const ManualQuestionEditor = ({ profile, assignmentId, onBack }: Props) => {
       const { error } = await supabase.from("task_questions").insert(rows);
       if (error) throw error;
       toast({ title: `${questions.length} שאלות נשמרו בהצלחה! ✅` });
+      return true;
     } catch (err: any) {
       toast({ title: "שגיאה", description: err.message, variant: "destructive" });
+      return false;
     } finally {
       setSaving(false);
     }
@@ -143,20 +176,21 @@ const ManualQuestionEditor = ({ profile, assignmentId, onBack }: Props) => {
     if (!assignmentId) return;
     setPublishing(true);
     try {
-      await saveAll();
+      const saved = await saveAll();
+      if (!saved) return;
       // Build scheduled_at if set
       let scheduledAt: string | null = null;
       if (scheduledDate) {
         scheduledAt = new Date(`${scheduledDate}T${scheduledTime}:00`).toISOString();
       }
-      const lockSettings = {
-        lockDevice, lockDuration: +lockDuration,
-        shuffleQuestions, shuffleOptions, oneAttempt,
-        scheduledAt,
-      };
       const { error } = await supabase.from("assignments").update({
-        published: !scheduledAt, // if scheduled, don't publish yet
-        description: JSON.stringify(lockSettings),
+        published: !scheduledAt, // if scheduled, don't publish yet - publish_due_scheduled_assignments() flips it later
+        scheduled_publish_at: scheduledAt,
+        lock_device: lockDevice,
+        lock_duration_minutes: lockDevice ? +lockDuration : null,
+        shuffle_questions: shuffleQuestions,
+        shuffle_options: shuffleOptions,
+        one_attempt: oneAttempt,
       }).eq("id", assignmentId);
       if (error) throw error;
       toast({ title: scheduledAt ? `המשימה תשוגר ב-${scheduledDate} 🕐` : "המשימה פורסמה לכיתה! 🚀" });
@@ -307,7 +341,7 @@ const ManualQuestionEditor = ({ profile, assignmentId, onBack }: Props) => {
             </div>
             <div className="space-y-2">
               {[
-                { label: "חסום יציאה מהאפליקציה", desc: "מצב מבחן — התלמיד לא יוכל לעבור לאפליקציות אחרות", val: lockDevice, set: setLockDevice },
+                { label: "מצב מבחן (מסך מלא + מעקב יציאה)", desc: "המסך עובר למסך מלא, וכל יציאה מהחלון/הכרטיסייה נרשמת ומוצגת לך בציונים. לא חוסם פיזית מעבר לאפליקציה אחרת — זו מגבלה של דפדפן, לא של האפליקציה.", val: lockDevice, set: setLockDevice },
                 { label: "ערבוב סדר שאלות", desc: "כל תלמיד מקבל סדר שונה", val: shuffleQuestions, set: setShuffleQuestions },
                 { label: "ערבוב אפשרויות", desc: "סדר התשובות משתנה בין תלמידים", val: shuffleOptions, set: setShuffleOptions },
                 { label: "ניסיון אחד בלבד", desc: "אין אפשרות לחזור אחורה", val: oneAttempt, set: setOneAttempt },

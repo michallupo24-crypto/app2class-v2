@@ -26,24 +26,34 @@ const LiveFeedbackMode = ({ profile, assignmentId, onBack }: Props) => {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const { data: sessions } = await supabase
+      const { data: sessions, error: sessionsError } = await supabase
         .from("live_sessions")
         .select("id, subject, session_date, class_id, classes:class_id(grade, class_number)")
         .eq("teacher_id", profile.id)
         .order("session_date", { ascending: false })
         .limit(5);
 
+      if (sessionsError) {
+        toast({ title: "שגיאה בטעינת השיעורים החיים", description: sessionsError.message, variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+
       if (sessions?.length) {
         const sessionIds = sessions.map((s: any) => s.id);
-        const { data: liveQs } = await supabase
+        const { data: liveQs, error: liveQsError } = await supabase
           .from("live_questions")
           .select("id, content, upvotes, is_answered, session_id")
           .in("session_id", sessionIds)
           .order("upvotes", { ascending: false });
 
-        setQuestions((liveQs || []).map((q: any) => ({
-          ...q, session: sessions.find((s: any) => s.id === q.session_id),
-        })));
+        if (liveQsError) {
+          toast({ title: "שגיאה בטעינת השאלות מהשיעור", description: liveQsError.message, variant: "destructive" });
+        } else {
+          setQuestions((liveQs || []).map((q: any) => ({
+            ...q, session: sessions.find((s: any) => s.id === q.session_id),
+          })));
+        }
       }
       setLoading(false);
     };

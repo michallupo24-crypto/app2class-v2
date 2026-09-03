@@ -40,7 +40,11 @@ const SnakesAndLaddersMode = ({ profile, assignmentId, onBack }: Props) => {
   useEffect(() => {
     if (assignmentId) {
       supabase.from("task_questions").select("*", { count: "exact" }).eq("assignment_id", assignmentId)
-        .then(({ count, data }) => {
+        .then(({ count, data, error }) => {
+          if (error) {
+            toast({ title: "שגיאה בטעינת השאלות", description: error.message, variant: "destructive" });
+            return;
+          }
           setQuestionCount(count || 0);
           setQuestions(data || []);
         });

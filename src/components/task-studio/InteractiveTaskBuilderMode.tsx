@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Code2, Sparkles, BookOpen, Save, Loader2, Layers, BarChart3, ShieldAlert } from "lucide-react";
+import { Code2, Sparkles, BookOpen, Save, Loader2, Layers, BarChart3, ShieldAlert, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import StudioModeWrapper from "./StudioModeWrapper";
@@ -72,6 +72,7 @@ const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGene
   const [pythonCode, setPythonCode] = useState("");
   const [libraries, setLibraries] = useState<string[]>(["tailwindcss"]);
   const [forkedFrom, setForkedFrom] = useState<string | null>(null);
+  const [isPublicTemplate, setIsPublicTemplate] = useState(false);
   const [classId, setClassId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
@@ -86,16 +87,31 @@ const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGene
   const [panelView, setPanelView] = useState<PanelView>("editor");
   const [galleryTasks, setGalleryTasks] = useState<InteractiveTask[]>([]);
   const [galleryLoading, setGalleryLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadRetryCount, setLoadRetryCount] = useState(0);
 
   // Load existing interactive task for this assignment, if any, + the assignment's class
   useEffect(() => {
     if (!assignmentId) { setLoading(false); return; }
     const load = async () => {
       setLoading(true);
-      const [{ data }, { data: assignment }] = await Promise.all([
+      setLoadError(null);
+      const [{ data, error: taskError }, { data: assignment, error: assignmentError }] = await Promise.all([
         supabase.from("interactive_tasks").select("*").eq("assignment_id", assignmentId).maybeSingle(),
         supabase.from("assignments").select("class_id").eq("id", assignmentId).maybeSingle(),
       ]);
+
+      // A failed fetch here must NOT fall through as "no task yet" - that would make
+      // the next save do an insert instead of an update, leaving a duplicate row for
+      // this assignment (no unique constraint on assignment_id).
+      if (taskError) {
+        setLoadError(taskError.message);
+        setLoading(false);
+        return;
+      }
+      if (assignmentError) {
+        toast({ variant: "destructive", title: "שגיאה בטעינת פרטי המשימה", description: assignmentError.message });
+      }
 
       setClassId(assignment?.class_id || null);
 
@@ -112,11 +128,12 @@ const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGene
         setPythonCode(data.python_code || "");
         setLibraries(data.libraries || []);
         setForkedFrom(data.forked_from);
+        setIsPublicTemplate(data.is_public_template || false);
       }
       setLoading(false);
     };
     load();
-  }, [assignmentId]);
+  }, [assignmentId, loadRetryCount]);
 
   // Debounced compile -> live preview iframe
   useEffect(() => {
@@ -197,6 +214,7 @@ const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGene
         python_code: pythonCode,
         libraries,
         forked_from: forkedFrom,
+        is_public_template: isPublicTemplate,
       };
 
       if (taskId) {
@@ -208,7 +226,8 @@ const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGene
         setTaskId(data.id);
       }
 
-      await supabase.from("assignments").update({ published: true }).eq("id", assignmentId);
+      const { error: publishError } = await supabase.from("assignments").update({ published: true }).eq("id", assignmentId);
+      if (publishError) throw publishError;
       setAutosavedAt(new Date().toLocaleTimeString("he-IL"));
       toast({ title: "המשימה נשמרה ושוגרה לכיתה!" });
     } catch (err: any) {
@@ -221,18 +240,26 @@ const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGene
   const openGallery = async () => {
     setPanelView("gallery");
     setGalleryLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("interactive_tasks")
       .select("id, title, description, subject, language, mode, libraries, author_id, html_code, css_code, js_code, python_code, forked_from")
       .eq("is_public_template", true)
       .order("created_at", { ascending: false })
       .limit(60);
+    if (error) {
+      toast({ variant: "destructive", title: "שגיאה בטעינת הגלריה", description: error.message });
+      setGalleryLoading(false);
+      return;
+    }
 
     const rows = data || [];
     const authorIds = Array.from(new Set(rows.map((r: any) => r.author_id)));
-    const { data: authors } = authorIds.length
+    const { data: authors, error: authorsError } = authorIds.length
       ? await supabase.from("profiles").select("id, full_name").in("id", authorIds)
-      : { data: [] as any[] };
+      : { data: [] as any[], error: null };
+    if (authorsError) {
+      toast({ variant: "destructive", title: "שגיאה בטעינת פרטי המחברים", description: authorsError.message });
+    }
     const nameMap = new Map((authors || []).map((a: any) => [a.id, a.full_name]));
 
     setGalleryTasks(
@@ -273,6 +300,7 @@ const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGene
     setPythonCode(task.pythonCode);
     setLibraries(task.libraries);
     setForkedFrom(task.id);
+    setIsPublicTemplate(false);
     setPanelView("editor");
     toast({ title: "הטמפלט נטען לעורך", description: "ערוך ולחץ 'שמור' כדי לשגר לכיתה שלך." });
   };
@@ -283,6 +311,20 @@ const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGene
     return (
       <StudioModeWrapper title="בונה משימות אינטראקטיביות" description="עורך קוד, Live Preview, ו-AI" icon={<Code2 className="h-6 w-6 text-primary" />} onBack={onBack}>
         <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+      </StudioModeWrapper>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <StudioModeWrapper title="בונה משימות אינטראקטיביות" description="עורך קוד, Live Preview, ו-AI" icon={<Code2 className="h-6 w-6 text-primary" />} onBack={onBack}>
+        <div className="flex flex-col items-center gap-3 p-12 text-center">
+          <ShieldAlert className="h-8 w-8 text-destructive" />
+          <p className="text-sm font-heading text-destructive">שגיאה בטעינת המשימה הקיימת</p>
+          <p className="text-xs text-muted-foreground max-w-sm">{loadError}</p>
+          <p className="text-xs text-muted-foreground max-w-sm">כדי למנוע יצירת שכפול של המשימה, השמירה חסומה עד שהטעינה תצליח.</p>
+          <Button size="sm" variant="outline" onClick={() => setLoadRetryCount((c) => c + 1)}>נסה שוב</Button>
+        </div>
       </StudioModeWrapper>
     );
   }
@@ -346,6 +388,15 @@ const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGene
                 </Button>
                 <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setIsAIModalOpen(true)}>
                   <Sparkles className="h-3.5 w-3.5" /> AI Tutor
+                </Button>
+                <Button
+                  variant={isPublicTemplate ? "default" : "outline"}
+                  size="sm"
+                  className="gap-1.5 text-xs"
+                  onClick={() => setIsPublicTemplate((v) => !v)}
+                  title="שתף את המשימה הזו בגלריית הקהילה, כדי שמורים אחרים יוכלו למצוא ולשכפל אותה"
+                >
+                  <Globe className="h-3.5 w-3.5" /> {isPublicTemplate ? "משותף בגלריה" : "שתף בגלריה"}
                 </Button>
                 <Button
                   size="sm"

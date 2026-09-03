@@ -44,6 +44,7 @@ interface Task {
   feedback?: string | null;
   hasQuestions: boolean;
   isBlankHtml: boolean;
+  gameType: "mountain-climb" | "coop-firewater" | null;
   // Adaptive-tier / AI-coach questions need the full practice page (tier
   // filtering + live per-answer coaching) - the lightweight dialog below
   // fetches all questions unfiltered and can't do either.
@@ -155,12 +156,12 @@ const TasksPage = () => {
       }
       // Real interactive_tasks row (current Task Studio IDE) OR the legacy
       // JSON-in-description "blank-html" payload from before that table existed.
-      let isBlankHtml = interactiveSet.has(a.id);
-      if (!isBlankHtml) {
-        try {
-          isBlankHtml = JSON.parse(a.description || "")?.type === "blank-html";
-        } catch { /* description isn't a blank-html payload */ }
-      }
+      let descObj: any = null;
+      try { descObj = JSON.parse(a.description || ""); } catch { /* description isn't JSON */ }
+      const isBlankHtml = interactiveSet.has(a.id) || descObj?.type === "blank-html";
+      const gameType: Task["gameType"] = descObj?.game === "mountain-climb" || descObj?.game === "coop-firewater"
+        ? descObj.game
+        : null;
 
       return {
         id: sub?.id ?? null,
@@ -178,6 +179,7 @@ const TasksPage = () => {
         hasQuestions: qSet.has(a.id),
         needsFullPractice: fullPracticeSet.has(a.id),
         isBlankHtml,
+        gameType,
         fileUrl: sub?.file_url ?? null,
         content: sub?.content ?? null,
       };
@@ -570,7 +572,10 @@ const TasksPage = () => {
                           </Button>
                           {/* FIX: use assignmentId not submission id */}
                           <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1 font-heading text-success border-success/30 hover:bg-success/10"
-                            onClick={() => navigate(`/dashboard/game/snakes/${task.assignmentId}`)}>
+                            onClick={() => {
+                              const gamePath = task.gameType === "mountain-climb" ? "mountain" : task.gameType === "coop-firewater" ? "coop" : "snakes";
+                              navigate(`/dashboard/game/${gamePath}/${task.assignmentId}`);
+                            }}>
                             <Gamepad2 className="h-3 w-3" />משחק
                           </Button>
                         </div>

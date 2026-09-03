@@ -47,7 +47,13 @@ const AdaptiveTierMode = ({ profile, assignmentId, onBack }: Props) => {
   useEffect(() => {
     if (!assignmentId) { setAssignmentInfo(null); return; }
     supabase.from("assignments").select("subject, class_id, title").eq("id", assignmentId).single()
-      .then(({ data }) => setAssignmentInfo(data));
+      .then(({ data, error }) => {
+        if (error) {
+          toast({ title: "שגיאה בטעינת פרטי המשימה", description: error.message, variant: "destructive" });
+          return;
+        }
+        setAssignmentInfo(data);
+      });
   }, [assignmentId]);
 
   useEffect(() => {
@@ -55,16 +61,18 @@ const AdaptiveTierMode = ({ profile, assignmentId, onBack }: Props) => {
       if (!assignmentInfo) { setDistribution(null); return; }
       setLoadingDistribution(true);
       try {
-        const { data: roster } = await supabase.from("profiles").select("id").eq("class_id", assignmentInfo.class_id);
+        const { data: roster, error: rosterError } = await supabase.from("profiles").select("id").eq("class_id", assignmentInfo.class_id);
+        if (rosterError) throw rosterError;
         const studentIds = (roster || []).map((r) => r.id);
         if (studentIds.length === 0) { setDistribution({ support: 0, standard: 0, challenge: 0 }); return; }
 
-        const { data: subs } = await supabase
+        const { data: subs, error: subsError } = await supabase
           .from("submissions")
           .select("student_id, grade, assignments!inner(subject)")
           .eq("assignments.subject", assignmentInfo.subject)
           .in("student_id", studentIds)
           .not("grade", "is", null);
+        if (subsError) throw subsError;
 
         const byStudent = new Map<string, number[]>();
         (subs || []).forEach((s: any) => {
@@ -79,6 +87,8 @@ const AdaptiveTierMode = ({ profile, assignmentId, onBack }: Props) => {
           counts[tierForAverage(avg)]++;
         });
         setDistribution(counts);
+      } catch (err: any) {
+        toast({ title: "שגיאה בחישוב התפלגות הרמות", description: err.message, variant: "destructive" });
       } finally {
         setLoadingDistribution(false);
       }
