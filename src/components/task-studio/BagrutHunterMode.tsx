@@ -70,6 +70,13 @@ const BagrutHunterMode = ({ profile, assignmentId, onBack }: Props) => {
       badge="AI"
       onBack={onBack}
     >
+      {!assignmentId && (
+        <Card className="border-warning/30 bg-warning/5 mb-4">
+          <CardContent className="py-4 text-center">
+            <p className="text-sm font-heading text-warning">בחר משימה פעילה מהתפריט העליון כדי לייבא שאלות אליה</p>
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardContent className="p-6 space-y-4">
           <div className="grid grid-cols-3 gap-3">

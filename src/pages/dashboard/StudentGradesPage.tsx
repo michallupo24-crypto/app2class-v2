@@ -15,6 +15,7 @@ import {
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { computeWeightedAverage } from "@/lib/gradeMath";
 import {
   AreaChart, Area, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts";
@@ -133,7 +134,7 @@ const StudentGradesPage = () => {
     grades.forEach(g => { const l = map.get(g.subject) || []; l.push(g); map.set(g.subject, l); });
 
     return Array.from(map.entries()).map(([subject, entries]) => {
-      const avg = Math.round(entries.reduce((s, g) => s + g.normalizedGrade, 0) / entries.length);
+      const avg = computeWeightedAverage(entries.map(g => ({ grade: g.grade, maxGrade: g.maxGrade, weightPercent: g.weight }))) ?? 0;
       const cAvg = entries.some(g => g.classAvg !== null) 
                    ? Math.round(entries.reduce((s, g) => s + (g.classAvg || 0), 0) / entries.filter(g => g.classAvg !== null).length) 
                    : null;

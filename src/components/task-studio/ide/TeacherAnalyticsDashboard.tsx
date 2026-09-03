@@ -23,16 +23,20 @@ export const TeacherAnalyticsDashboard: React.FC<TeacherAnalyticsDashboardProps>
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'submitted' | 'in_progress' | 'not_started'>('all');
   const [selectedStudent, setSelectedStudent] = useState<TaskProgress | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchProgressData = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       if (!classId) { setProgressList([]); return; }
 
-      const [{ data: roster }, { data: progress }] = await Promise.all([
+      const [{ data: roster, error: rosterError }, { data: progress, error: progressError }] = await Promise.all([
         supabase.from('profiles').select('id, full_name').eq('class_id', classId).eq('is_approved', true),
         supabase.from('interactive_task_progress').select('*').eq('task_id', taskId),
       ]);
+      if (rosterError) throw rosterError;
+      if (progressError) throw progressError;
 
       const progressByStudent = new Map((progress || []).map((p: any) => [p.student_id, p]));
 
@@ -53,8 +57,9 @@ export const TeacherAnalyticsDashboard: React.FC<TeacherAnalyticsDashboardProps>
       });
 
       setProgressList(merged);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Error loading task progress:', e);
+      setError(e?.message || 'שגיאה בטעינת נתוני התלמידים');
       setProgressList([]);
     } finally {
       setIsLoading(false);
@@ -145,6 +150,11 @@ export const TeacherAnalyticsDashboard: React.FC<TeacherAnalyticsDashboardProps>
         </div>
       ) : isLoading ? (
         <div className="flex-1 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+      ) : error ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center text-sm">
+          <span className="text-red-400 font-semibold">שגיאה בטעינת נתוני התלמידים</span>
+          <span className="text-gray-500">{error}</span>
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">

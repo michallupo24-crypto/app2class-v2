@@ -22,14 +22,17 @@ interface ClassLoad {
 const ClassLoadMeter = ({ profile, classId }: Props) => {
   const [loadData, setLoadData] = useState<ClassLoad[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const { data: tc } = await supabase
+      setError(null);
+      const { data: tc, error: tcError } = await supabase
         .from("teacher_classes")
         .select("class_id, classes(id, grade, class_number)")
         .eq("user_id", profile.id);
+      if (tcError) { setError(tcError.message); setLoading(false); return; }
 
       if (!tc?.length) { setLoading(false); return; }
       const classIds = classId
@@ -42,24 +45,26 @@ const ClassLoadMeter = ({ profile, classId }: Props) => {
       nextWeek.setDate(nextWeek.getDate() + 7);
 
       // Get all assignments (homework)
-      const { data: assignments } = await supabase
+      const { data: assignments, error: assignmentsError } = await supabase
         .from("assignments")
         .select("class_id, due_date, type")
         .in("class_id", classIds)
         .eq("published", true)
         .gte("due_date", weekAgo.toISOString())
         .lte("due_date", nextWeek.toISOString());
+      if (assignmentsError) { setError(assignmentsError.message); setLoading(false); return; }
 
       // grade_events is scoped by grade level (not class_id), so pull exams for
       // the grades these classes belong to and fan them back out below.
       const grades = Array.from(new Set(tc.map((t: any) => t.classes?.grade).filter(Boolean)));
-      const { data: exams } = await supabase
+      const { data: exams, error: examsError } = await supabase
         .from("grade_events")
         .select("grade, event_date, event_type")
         .in("grade", grades as any)
         .eq("event_type", "exam")
         .gte("event_date", weekAgo.toISOString())
         .lte("event_date", nextWeek.toISOString());
+      if (examsError) { setError(examsError.message); setLoading(false); return; }
 
       const map: Record<string, ClassLoad> = {};
       classIds.forEach((id: string) => {
@@ -108,7 +113,9 @@ const ClassLoadMeter = ({ profile, classId }: Props) => {
       <h3 className="font-heading font-bold text-sm flex items-center gap-2">
         <BarChart3 className="h-4 w-4 text-info" /> מדד עומס כיתתי (7 ימים)
       </h3>
-      {loadData.length === 0 ? (
+      {error ? (
+        <p className="text-xs text-destructive">שגיאה בטעינת נתוני העומס: {error}</p>
+      ) : loadData.length === 0 ? (
         <p className="text-xs text-muted-foreground">לא נמצאו כיתות</p>
       ) : (
         loadData.map((cls) => {

@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Gamepad2, CheckCircle2, ArrowDown } from "lucide-react";
 import StudioModeWrapper from "./StudioModeWrapper";
 import type { UserProfile } from "@/hooks/useAuth";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -22,17 +22,30 @@ const DataHookMode = ({ profile, assignmentId, onBack }: Props) => {
   const [includeTime, setIncludeTime] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (!assignmentId) return;
+    supabase
+      .from("assignments")
+      .select("data_hook_auto_grade, data_hook_include_attempts, data_hook_include_time")
+      .eq("id", assignmentId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error || !data) return;
+        setAutoGrade(data.data_hook_auto_grade);
+        setIncludeAttempts(data.data_hook_include_attempts);
+        setIncludeTime(data.data_hook_include_time);
+      });
+  }, [assignmentId]);
+
   const saveSettings = async () => {
     if (!assignmentId) { toast({ title: "בחר משימה קודם", variant: "destructive" }); return; }
     setSaving(true);
     try {
-      // Store data hook settings in the assignment description as metadata
-      const { data: assignment } = await supabase.from("assignments").select("description").eq("id", assignmentId).single();
-      let desc: any = {};
-      try { desc = JSON.parse(assignment?.description || "{}"); } catch { desc = { text: assignment?.description || "" }; }
-      desc.dataHook = { autoGrade, includeAttempts, includeTime };
-
-      const { error } = await supabase.from("assignments").update({ description: JSON.stringify(desc) }).eq("id", assignmentId);
+      const { error } = await supabase.from("assignments").update({
+        data_hook_auto_grade: autoGrade,
+        data_hook_include_attempts: includeAttempts,
+        data_hook_include_time: includeTime,
+      }).eq("id", assignmentId);
       if (error) throw error;
       toast({ title: "הגדרות Data Hook נשמרו! ✅" });
     } catch (err: any) {

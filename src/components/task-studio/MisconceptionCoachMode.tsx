@@ -36,7 +36,13 @@ const MisconceptionCoachMode = ({ profile, assignmentId, onBack }: Props) => {
   useEffect(() => {
     if (!assignmentId) { setAssignmentInfo(null); return; }
     supabase.from("assignments").select("subject, title").eq("id", assignmentId).single()
-      .then(({ data }) => setAssignmentInfo(data));
+      .then(({ data, error }) => {
+        if (error) {
+          toast({ title: "שגיאה בטעינת פרטי המשימה", description: error.message, variant: "destructive" });
+          return;
+        }
+        setAssignmentInfo(data);
+      });
   }, [assignmentId]);
 
   const generateQuestions = async () => {

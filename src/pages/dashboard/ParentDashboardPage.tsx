@@ -11,6 +11,7 @@ import {
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { computeWeightedAverage } from "@/lib/gradeMath";
 
 /* ─── Types ───────────────────────────────────────────── */
 interface ChildInfo {
@@ -81,19 +82,12 @@ const ParentDashboardPage = () => {
       .eq("student_id", child.id)
       .not("grade", "is", null);
       
-    let cAvg = null;
-    if (subs?.length) {
-       let wSum = 0, wTotal = 0;
-       subs.forEach((s: any) => {
-         const assign = Array.isArray(s.assignments) ? s.assignments[0] : s.assignments;
-         if (assign) {
-           const w = assign.weight_percent || 10;
-           wSum += (s.grade / (assign.max_grade || 100)) * 100 * w;
-           wTotal += w;
-         }
-       });
-       if (wTotal > 0) cAvg = Math.round(wSum / wTotal);
-    }
+    const gradedEntries = (subs || []).flatMap((s: any) => {
+      const assign = Array.isArray(s.assignments) ? s.assignments[0] : s.assignments;
+      if (!assign) return [];
+      return [{ grade: s.grade, maxGrade: assign.max_grade, weightPercent: assign.weight_percent }];
+    });
+    const cAvg = computeWeightedAverage(gradedEntries);
 
     // 2. STAFF: Unified Educator & Counselor Lookup
     let staff = { teacherId: "", educatorName: "", counselorId: "", counselorName: "" };

@@ -6,6 +6,7 @@ import { Target, Loader2 } from "lucide-react";
 import StudioModeWrapper from "./StudioModeWrapper";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface Props {
   profile: UserProfile;
@@ -19,6 +20,7 @@ interface TopicCoverage {
 }
 
 const BagrutCoverageBar = ({ profile, assignmentId, onBack }: Props) => {
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [topics, setTopics] = useState<TopicCoverage[]>([]);
 
@@ -28,46 +30,55 @@ const BagrutCoverageBar = ({ profile, assignmentId, onBack }: Props) => {
       setTopics([]);
       if (!assignmentId) { setLoading(false); return; }
 
-      const { data: assignment } = await supabase
-        .from("assignments")
-        .select("subject, class_id, classes(grade)")
-        .eq("id", assignmentId)
-        .maybeSingle();
+      try {
+        const { data: assignment, error: assignmentError } = await supabase
+          .from("assignments")
+          .select("subject, class_id, classes(grade)")
+          .eq("id", assignmentId)
+          .maybeSingle();
+        if (assignmentError) throw assignmentError;
 
-      if (!assignment) { setLoading(false); return; }
-      const cls = Array.isArray(assignment.classes) ? assignment.classes[0] : assignment.classes;
-      const grade = cls?.grade;
-      if (!grade) { setLoading(false); return; }
+        if (!assignment) { setLoading(false); return; }
+        const cls = Array.isArray(assignment.classes) ? assignment.classes[0] : assignment.classes;
+        const grade = cls?.grade;
+        if (!grade) { setLoading(false); return; }
 
-      const [{ data: syllabusTopics }, { data: classAssignments }] = await Promise.all([
-        supabase.from("syllabi").select("topic")
-          .eq("school_id", profile.schoolId || "")
-          .eq("subject", assignment.subject)
-          .eq("grade", grade as any),
-        supabase.from("assignments").select("id")
-          .eq("class_id", assignment.class_id)
-          .eq("subject", assignment.subject),
-      ]);
+        const [{ data: syllabusTopics, error: syllabiError }, { data: classAssignments, error: classAssignmentsError }] = await Promise.all([
+          supabase.from("syllabi").select("topic")
+            .eq("school_id", profile.schoolId || "")
+            .eq("subject", assignment.subject)
+            .eq("grade", grade as any),
+          supabase.from("assignments").select("id")
+            .eq("class_id", assignment.class_id)
+            .eq("subject", assignment.subject),
+        ]);
+        if (syllabiError) throw syllabiError;
+        if (classAssignmentsError) throw classAssignmentsError;
 
-      const assignmentIds = (classAssignments || []).map((a: any) => a.id);
-      let tags: string[] = [];
-      if (assignmentIds.length > 0) {
-        const { data: questions } = await supabase
-          .from("task_questions")
-          .select("tags")
-          .in("assignment_id", assignmentIds);
-        tags = (questions || []).flatMap((q: any) => q.tags || []);
+        const assignmentIds = (classAssignments || []).map((a: any) => a.id);
+        let tags: string[] = [];
+        if (assignmentIds.length > 0) {
+          const { data: questions, error: questionsError } = await supabase
+            .from("task_questions")
+            .select("tags")
+            .in("assignment_id", assignmentIds);
+          if (questionsError) throw questionsError;
+          tags = (questions || []).flatMap((q: any) => q.tags || []);
+        }
+        const normalizedTags = tags.map((t: string) => t.trim().toLowerCase()).filter(Boolean);
+
+        const computed = (syllabusTopics || []).map((t: any) => {
+          const topicKey = t.topic.trim().toLowerCase();
+          const matches = normalizedTags.filter((tag) => tag.includes(topicKey) || topicKey.includes(tag));
+          return { topic: t.topic, coverage: Math.min(100, matches.length * 25) };
+        });
+
+        setTopics(computed);
+      } catch (err: any) {
+        toast({ title: "שגיאה בחישוב חיפוי הבגרות", description: err.message, variant: "destructive" });
+      } finally {
+        setLoading(false);
       }
-      const normalizedTags = tags.map((t: string) => t.trim().toLowerCase()).filter(Boolean);
-
-      const computed = (syllabusTopics || []).map((t: any) => {
-        const topicKey = t.topic.trim().toLowerCase();
-        const matches = normalizedTags.filter((tag) => tag.includes(topicKey) || topicKey.includes(tag));
-        return { topic: t.topic, coverage: Math.min(100, matches.length * 25) };
-      });
-
-      setTopics(computed);
-      setLoading(false);
     };
     load();
   }, [assignmentId, profile.schoolId]);

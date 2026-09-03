@@ -20,12 +20,14 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
+import { computeWeightedAverage } from "@/lib/gradeMath";
 
 interface GradeEntry {
   subject: string;
   assignment: string;
   grade: number;
   maxGrade: number;
+  weight: number | null;
   feedback: string | null;
   date: string;
   type: string;
@@ -59,7 +61,7 @@ const StudentReportPage = () => {
       // 2. Fetch all graded submissions
       const { data: submissions } = await supabase
         .from("submissions")
-        .select("grade, feedback, submitted_at, assignments(title, subject, type, max_grade)")
+        .select("grade, feedback, submitted_at, assignments(title, subject, type, max_grade, weight_percent)")
         .eq("student_id", studentId)
         .eq("status", "graded")
         .order("submitted_at", { ascending: false });
@@ -70,6 +72,7 @@ const StudentReportPage = () => {
           assignment: s.assignments?.title || "משימה",
           grade: s.grade,
           maxGrade: s.assignments?.max_grade || 100,
+          weight: s.assignments?.weight_percent ?? null,
           feedback: s.feedback,
           date: s.submitted_at,
           type: s.assignments?.type || "assignment"
@@ -115,7 +118,9 @@ const StudentReportPage = () => {
 
       // 6. Real, data-driven AI insight (no fabricated praise applied blindly)
       const subjectsText = Array.from(new Set(submissions?.map(s => s.assignments?.subject).filter(Boolean))).join(", ");
-      const avg = submissions?.length ? Math.round(submissions.reduce((acc, s) => acc + (s.grade / (s.assignments?.max_grade || 100) * 100), 0) / submissions.length) : 0;
+      const avg = computeWeightedAverage((submissions || []).map((s: any) => ({
+        grade: s.grade, maxGrade: s.assignments?.max_grade, weightPercent: s.assignments?.weight_percent,
+      }))) ?? 0;
 
       const performanceLine = !submissions?.length
         ? `טרם נאספו ציונים מספיקים עבור ${profile.full_name} כדי להציג ניתוח ביצועים.`
@@ -143,22 +148,17 @@ const StudentReportPage = () => {
   }, [studentId]);
 
   const subjectAverages = useMemo(() => {
-    const map = new Map<string, { total: number; count: number }>();
-    grades.forEach(g => {
-      const norm = (g.grade / g.maxGrade) * 100;
-      const cur = map.get(g.subject) || { total: 0, count: 0 };
-      map.set(g.subject, { total: cur.total + norm, count: cur.count + 1 });
-    });
-    return Array.from(map.entries()).map(([subj, val]) => ({
+    const map = new Map<string, GradeEntry[]>();
+    grades.forEach(g => { const l = map.get(g.subject) || []; l.push(g); map.set(g.subject, l); });
+    return Array.from(map.entries()).map(([subj, entries]) => ({
       subject: subj,
-      avg: Math.round(val.total / val.count)
+      avg: computeWeightedAverage(entries.map(e => ({ grade: e.grade, maxGrade: e.maxGrade, weightPercent: e.weight }))) ?? 0,
     }));
   }, [grades]);
 
-  const overallAvg = useMemo(() => {
-    if (subjectAverages.length === 0) return 0;
-    return Math.round(subjectAverages.reduce((acc, s) => acc + s.avg, 0) / subjectAverages.length);
-  }, [subjectAverages]);
+  const overallAvg = useMemo(() => (
+    computeWeightedAverage(grades.map(g => ({ grade: g.grade, maxGrade: g.maxGrade, weightPercent: g.weight }))) ?? 0
+  ), [grades]);
 
   // Deterministic per-student pattern/key derived from the real record id,
   // instead of Math.random() (which reflowed on every render) or a single

@@ -18,14 +18,17 @@ interface Row {
 const MisconceptionInsights = ({ assignmentId }: Props) => {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Row[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     supabase
       .from("question_misconceptions")
       .select("misconception_label, resolved, question_id, task_questions(question_text)")
       .eq("assignment_id", assignmentId)
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) setError(error.message);
         setRows((data || []) as any);
         setLoading(false);
       });
@@ -34,6 +37,12 @@ const MisconceptionInsights = ({ assignmentId }: Props) => {
   if (loading) {
     return (
       <Card><CardContent className="py-10 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></CardContent></Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card><CardContent className="py-10 text-center text-sm text-destructive">שגיאה בטעינת נתוני מאמן ה-AI: {error}</CardContent></Card>
     );
   }
 
