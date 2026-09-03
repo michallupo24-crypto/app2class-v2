@@ -37,6 +37,12 @@ const MOCK_ASSIGNMENT = {
   subject: "מתמטיקה",
   type: "quiz",
   description: "",
+  lock_device: false,
+  lock_duration_minutes: null,
+  shuffle_questions: false,
+  shuffle_options: false,
+  one_attempt: false,
+  data_hook_auto_grade: true,
 };
 
 const MOCK_QUESTIONS = [
@@ -57,6 +63,8 @@ function chain(result: { data: any; error: any }) {
     select: () => c,
     eq: () => c,
     order: () => c,
+    in: () => c,
+    not: () => c,
     single: () => Promise.resolve(result),
     maybeSingle: () => Promise.resolve(result),
     then: (onFulfilled: any, onRejected: any) => Promise.resolve(result).then(onFulfilled, onRejected),
