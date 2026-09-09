@@ -2913,6 +2913,7 @@ export type Database = {
       }
       school_timetable_settings: {
         Row: {
+          continuity_setup_completed: boolean
           days_of_week: number[]
           hours_template_approved: boolean
           hours_template_approved_at: string | null
@@ -2921,6 +2922,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          continuity_setup_completed?: boolean
           days_of_week?: number[]
           hours_template_approved?: boolean
           hours_template_approved_at?: string | null
@@ -2929,6 +2931,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          continuity_setup_completed?: boolean
           days_of_week?: number[]
           hours_template_approved?: boolean
           hours_template_approved_at?: string | null
@@ -3131,6 +3134,7 @@ export type Database = {
           created_at: string
           grade: Database["public"]["Enums"]["grade_level"]
           group_count: number
+          group_label: string | null
           id: string
           is_grade_wide: boolean
           preferred_room_type: string | null
@@ -3148,6 +3152,7 @@ export type Database = {
           created_at?: string
           grade: Database["public"]["Enums"]["grade_level"]
           group_count?: number
+          group_label?: string | null
           id?: string
           is_grade_wide?: boolean
           preferred_room_type?: string | null
@@ -3165,6 +3170,7 @@ export type Database = {
           created_at?: string
           grade?: Database["public"]["Enums"]["grade_level"]
           group_count?: number
+          group_label?: string | null
           id?: string
           is_grade_wide?: boolean
           preferred_room_type?: string | null
@@ -3638,6 +3644,132 @@ export type Database = {
           },
         ]
       }
+      teacher_class_history: {
+        Row: {
+          class_id: string
+          created_at: string
+          entered_by: string
+          id: string
+          school_id: string
+          school_year_label: string
+          subject: string
+          teacher_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          entered_by: string
+          id?: string
+          school_id: string
+          school_year_label: string
+          subject: string
+          teacher_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          entered_by?: string
+          id?: string
+          school_id?: string
+          school_year_label?: string
+          subject?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_class_history_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_class_history_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_constraints: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          class_id: string | null
+          constraint_type: string
+          created_at: string
+          created_by: string
+          day_of_week: number | null
+          end_date: string | null
+          id: string
+          is_hard: boolean
+          lesson_number: number | null
+          max_value: number | null
+          note: string | null
+          school_id: string
+          start_date: string | null
+          status: string
+          subject: string | null
+          teacher_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          class_id?: string | null
+          constraint_type: string
+          created_at?: string
+          created_by: string
+          day_of_week?: number | null
+          end_date?: string | null
+          id?: string
+          is_hard?: boolean
+          lesson_number?: number | null
+          max_value?: number | null
+          note?: string | null
+          school_id: string
+          start_date?: string | null
+          status?: string
+          subject?: string | null
+          teacher_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          class_id?: string | null
+          constraint_type?: string
+          created_at?: string
+          created_by?: string
+          day_of_week?: number | null
+          end_date?: string | null
+          id?: string
+          is_hard?: boolean
+          lesson_number?: number | null
+          max_value?: number | null
+          note?: string | null
+          school_id?: string
+          start_date?: string | null
+          status?: string
+          subject?: string | null
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_constraints_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_constraints_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       timetable_slots: {
         Row: {
           class_id: string | null
@@ -3694,6 +3826,150 @@ export type Database = {
           },
           {
             foreignKeyName: "timetable_slots_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timetable_versions: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_published: boolean
+          name: string
+          school_id: string
+          slots: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          name: string
+          school_id: string
+          slots: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          name?: string
+          school_id?: string
+          slots?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timetable_versions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timetable_version_shares: {
+        Row: {
+          class_id: string
+          created_at: string
+          id: string
+          shared_by: string
+          version_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          id?: string
+          shared_by: string
+          version_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          id?: string
+          shared_by?: string
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timetable_version_shares_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timetable_version_shares_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "timetable_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tutoring_requests: {
+        Row: {
+          class_id: string
+          created_at: string
+          id: string
+          linked_session_id: string | null
+          reason: string | null
+          requested_by: string
+          resolved_at: string | null
+          resolved_by: string | null
+          school_id: string
+          status: string
+          subject: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          id?: string
+          linked_session_id?: string | null
+          reason?: string | null
+          requested_by: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          school_id: string
+          status?: string
+          subject: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          id?: string
+          linked_session_id?: string | null
+          reason?: string | null
+          requested_by?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          school_id?: string
+          status?: string
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutoring_requests_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutoring_requests_linked_session_id_fkey"
+            columns: ["linked_session_id"]
+            isOneToOne: false
+            referencedRelation: "tutoring_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutoring_requests_school_id_fkey"
             columns: ["school_id"]
             isOneToOne: false
             referencedRelation: "schools"
@@ -3955,7 +4231,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_lesson_pace_alerts: { Args: never; Returns: number }
       check_missing_exam_material: { Args: never; Returns: number }
+      count_scheduled_lessons: {
+        Args: { p_class_id: string; p_end: string; p_start: string; p_subject: string }
+        Returns: number
+      }
       create_notification: {
         Args: {
           p_body?: string
@@ -3987,6 +4268,15 @@ export type Database = {
         }[]
       }
       get_class_average: { Args: { p_class_id: string }; Returns: number }
+      get_class_lesson_pace: {
+        Args: { p_class_id: string; p_subject: string }
+        Returns: {
+          actual_lessons: number
+          deficit: number
+          expected_lessons: number
+          weekly_hours: number
+        }[]
+      }
       get_counselor_note: { Args: { p_note_id: string }; Returns: string }
       get_grade_coordinator_class_stats: {
         Args: { p_grade: Database["public"]["Enums"]["grade_level"] }
@@ -4003,6 +4293,18 @@ export type Database = {
           bucket_label: string
           bucket_min: number
           student_count: number
+        }[]
+      }
+      get_grade_lesson_pace: {
+        Args: { p_grade: Database["public"]["Enums"]["grade_level"]; p_subject?: string }
+        Returns: {
+          actual_lessons: number
+          class_id: string
+          class_number: number
+          deficit: number
+          expected_lessons: number
+          subject: string
+          weekly_hours: number
         }[]
       }
       get_school_grade_averages: {
@@ -4032,6 +4334,10 @@ export type Database = {
           grade: Database["public"]["Enums"]["grade_level"]
           grade_count: number
         }[]
+      }
+      get_subject_weekly_hours: {
+        Args: { p_class_id: string; p_subject: string }
+        Returns: number
       }
       has_role: {
         Args: {

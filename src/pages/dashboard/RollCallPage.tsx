@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ClipboardList, Check, X, Clock, Send, Undo2, Cake, MoreHorizontal, LayoutGrid, List, Save, Loader2 } from "lucide-react";
+import { SUBJECTS } from "@/lib/constants";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -177,7 +179,11 @@ const RollCallPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [selectedClass, setSelectedClass] = useState("");
   const [classes, setClasses] = useState<{ id: string; grade: string; number: number }[]>([]);
-  const [topic, setTopic] = useState("");
+  const [subject, setSubject] = useState("");
+  const [syllabusTopics, setSyllabusTopics] = useState<{ id: string; topic: string }[]>([]);
+  const [topicChoice, setTopicChoice] = useState<string>(""); // syllabus topic id, "other", or ""
+  const [otherTopicText, setOtherTopicText] = useState("");
+  const [markTopicCompleted, setMarkTopicCompleted] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [noteStudentId, setNoteStudentId] = useState<string | null>(null);
   const [lastAction, setLastAction] = useState<{ id: string; name: string; prevStatus: StudentCard["status"]; label: string } | null>(null);
@@ -222,6 +228,48 @@ const RollCallPage = () => {
     };
     loadStudents();
   }, [selectedClass]);
+
+  // Best-effort auto-detect which subject this teacher is currently
+  // scheduled to teach this class, from the timetable + bell schedule (same
+  // idea as CurrentLessonBanner's "current lesson" detection, but for the
+  // teacher's own slots rather than a student's). Falls back to leaving the
+  // subject picker empty for manual selection if nothing matches.
+  useEffect(() => {
+    if (!selectedClass || !profile.schoolId) { setSubject(""); return; }
+    setSubject("");
+    setTopicChoice("");
+    setOtherTopicText("");
+    setMarkTopicCompleted(false);
+    const detect = async () => {
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      const [{ data: bell }, { data: slots }] = await Promise.all([
+        supabase.from("bell_schedule").select("lesson_number, start_time, end_time, is_break")
+          .eq("school_id", profile.schoolId).order("lesson_number"),
+        supabase.from("timetable_slots").select("subject, lesson_number, day_of_week")
+          .eq("class_id", selectedClass).eq("teacher_id", profile.id),
+      ]);
+      const currentBell = (bell || []).find((b: any) => !b.is_break && currentTime >= b.start_time?.slice(0, 5) && currentTime <= b.end_time?.slice(0, 5));
+      if (!currentBell) return;
+      const match = (slots || []).find((s: any) => s.day_of_week === dayOfWeek && s.lesson_number === currentBell.lesson_number);
+      if (match) setSubject(match.subject);
+    };
+    detect();
+  }, [selectedClass, profile.schoolId, profile.id]);
+
+  // Load syllabus topics for this class's grade + the selected subject, so
+  // the teacher can tie today's lesson to real curriculum progress instead of
+  // always typing a free-text topic.
+  useEffect(() => {
+    if (!selectedClass || !subject || !profile.schoolId) { setSyllabusTopics([]); return; }
+    const cls = classes.find(c => c.id === selectedClass);
+    if (!cls) { setSyllabusTopics([]); return; }
+    supabase.from("syllabi").select("id, topic")
+      .eq("school_id", profile.schoolId).eq("subject", subject).eq("grade", cls.grade as any)
+      .order("order_index")
+      .then(({ data }) => setSyllabusTopics(data || []));
+  }, [selectedClass, subject, profile.schoolId, classes]);
 
   const ss = useSmartSeat(selectedClass);
 
@@ -293,10 +341,14 @@ const RollCallPage = () => {
   };
 
   const performSave = async () => {
-    if (!selectedClass) return;
+    if (!selectedClass || !subject) return;
     setIsSaving(true);
     try {
-        // Create or find a lesson for today
+        const isOtherTopic = topicChoice === "other";
+        const chosenSyllabusTopic = !isOtherTopic ? syllabusTopics.find(t => t.id === topicChoice) : undefined;
+        const topicText = isOtherTopic ? otherTopicText.trim() : (chosenSyllabusTopic?.topic || "");
+
+        // Create or find a lesson for today, for this class + real subject
         const today = new Date().toISOString().split('T')[0];
         let lessonId;
 
@@ -304,7 +356,7 @@ const RollCallPage = () => {
             .from('lessons')
             .select('id')
             .eq('class_id', selectedClass)
-            .eq('subject', topic || 'שיעור ללא נושא')
+            .eq('subject', subject)
             .gte('created_at', today)
             .limit(1)
             .maybeSingle();
@@ -316,7 +368,8 @@ const RollCallPage = () => {
                 .from('lessons')
                 .insert({
                     class_id: selectedClass,
-                    subject: topic || 'שיעור ללא נושא',
+                    subject,
+                    topic: topicText || null,
                     teacher_id: profile.id,
                     school_id: profile.schoolId
                 })
@@ -324,6 +377,18 @@ const RollCallPage = () => {
                 .single();
             if (lessonError) throw lessonError;
             lessonId = newLesson.id;
+        }
+
+        // A syllabus topic (not free-text "other") was picked - reflect it as
+        // real curriculum progress for this class, not just a lesson label.
+        if (chosenSyllabusTopic) {
+            const { error: progressError } = await supabase.from('class_syllabus_progress').upsert({
+                class_id: selectedClass,
+                syllabus_id: chosenSyllabusTopic.id,
+                status: markTopicCompleted ? 'completed' : 'in_progress',
+                completed_at: markTopicCompleted ? new Date().toISOString() : null,
+            }, { onConflict: 'class_id,syllabus_id' });
+            if (progressError) throw progressError;
         }
 
         // Upsert attendance
@@ -359,6 +424,9 @@ const RollCallPage = () => {
 
         toast({ title: "הנוכחות נשמרה בהצלחה!", description: `נשמרו ${attendanceData.length} רשומות נוכחות ו-${notesData.length} הערות.` });
         setStudents(prev => prev.map(s => ({ ...s, notes: [] })));
+        setTopicChoice("");
+        setOtherTopicText("");
+        setMarkTopicCompleted(false);
     } catch (err: any) {
         console.error("Save error:", err);
         toast({ variant: "destructive", title: "שגיאה בשמירה", description: err.message });
@@ -515,22 +583,47 @@ const RollCallPage = () => {
       )}
 
       <Card className="sticky bottom-4 z-40">
-        <CardContent className="py-3 flex items-center gap-3">
-          <input placeholder="נושא השיעור..." value={topic} onChange={e => setTopic(e.target.value)} className="flex-1 bg-muted rounded-lg px-3 py-2 text-sm outline-none" />
-          <Button
-            onClick={() => {
-              const hasAny = students.some(s => s.status || s.notes.length > 0);
-              if (!hasAny) {
-                toast({ variant: "destructive", title: "לא סומנה נוכחות", description: "סמן/י לפחות תלמיד/ה אחד/ת לפני השמירה." });
-                return;
-              }
-              setShowConfirm(true);
-            }}
-            disabled={isSaving}
-          >
-            {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-            שמור
-          </Button>
+        <CardContent className="py-3 space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select value={subject} onValueChange={v => { setSubject(v); setTopicChoice(""); setOtherTopicText(""); setMarkTopicCompleted(false); }}>
+              <SelectTrigger className="w-36 h-9 text-sm bg-muted border-0"><SelectValue placeholder="מקצוע..." /></SelectTrigger>
+              <SelectContent>{SUBJECTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+            </Select>
+            <Select value={topicChoice} onValueChange={setTopicChoice} disabled={!subject}>
+              <SelectTrigger className="flex-1 min-w-[160px] h-9 text-sm bg-muted border-0"><SelectValue placeholder="נושא השיעור..." /></SelectTrigger>
+              <SelectContent>
+                {syllabusTopics.map(t => <SelectItem key={t.id} value={t.id}>{t.topic}</SelectItem>)}
+                <SelectItem value="other">אחר...</SelectItem>
+              </SelectContent>
+            </Select>
+            {topicChoice === "other" && (
+              <input placeholder="נושא חופשי..." value={otherTopicText} onChange={e => setOtherTopicText(e.target.value)} className="flex-1 min-w-[140px] bg-muted rounded-lg px-3 py-2 text-sm outline-none" />
+            )}
+            <Button
+              onClick={() => {
+                const hasAny = students.some(s => s.status || s.notes.length > 0);
+                if (!hasAny) {
+                  toast({ variant: "destructive", title: "לא סומנה נוכחות", description: "סמן/י לפחות תלמיד/ה אחד/ת לפני השמירה." });
+                  return;
+                }
+                if (!subject) {
+                  toast({ variant: "destructive", title: "בחר/י מקצוע", description: "יש לבחור את המקצוע שנלמד בשיעור זה." });
+                  return;
+                }
+                setShowConfirm(true);
+              }}
+              disabled={isSaving}
+            >
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+              שמור
+            </Button>
+          </div>
+          {topicChoice && topicChoice !== "other" && (
+            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer w-fit">
+              <Checkbox checked={markTopicCompleted} onCheckedChange={v => setMarkTopicCompleted(!!v)} />
+              סמן נושא זה כהושלם בסילבוס
+            </label>
+          )}
         </CardContent>
       </Card>
 

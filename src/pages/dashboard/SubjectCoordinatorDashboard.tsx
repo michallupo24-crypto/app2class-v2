@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
   BookOpen, Users, GraduationCap, TrendingUp, Plus, Calendar,
-  ClipboardList, BarChart3, Bell,
+  ClipboardList, BarChart3, Bell, Gauge, HandHelping, Pencil, Check,
 } from "lucide-react";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
 import type { UserProfile } from "@/hooks/useAuth";
@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { GRADES } from "@/lib/constants";
 import { format } from "date-fns";
+import { fetchGradeLessonPace, type GradeLessonPaceRow } from "@/lib/lessonPace";
 
 interface Stats {
   teacherCount: number;
@@ -47,6 +48,10 @@ const SubjectCoordinatorDashboard = () => {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ title: "", grade: "", event_date: "", notes: "" });
+  const [subjectPace, setSubjectPace] = useState<(GradeLessonPaceRow & { grade: string })[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<{ id: string; className: string; reason: string | null }[]>([]);
+  const [editingHoursFor, setEditingHoursFor] = useState<string | null>(null);
+  const [hoursInput, setHoursInput] = useState("");
 
   const container = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
   const item = { hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } };
@@ -92,6 +97,26 @@ const SubjectCoordinatorDashboard = () => {
     const examsList: ExamProposal[] = examsRes.data || [];
     setExams(examsList);
 
+    // Lesson pace, per class this subject is taught in (may span several
+    // grades, so fetch grade-by-grade and tag each row with its grade).
+    const { data: subjectSlots } = await supabase.from("timetable_slots")
+      .select("class_id, classes(grade)")
+      .eq("subject", mySubject).eq("school_id", profile.schoolId);
+    const gradesForSubject = Array.from(new Set((subjectSlots || []).map((r: any) => r.classes?.grade).filter(Boolean)));
+    const paceResults = await Promise.all(gradesForSubject.map(async (g: any) => {
+      const rows = await fetchGradeLessonPace(g, mySubject);
+      return rows.map((r) => ({ ...r, grade: g as string }));
+    }));
+    setSubjectPace(paceResults.flat());
+
+    const { data: reqData } = await supabase.from("tutoring_requests")
+      .select("id, reason, classes(grade, class_number)")
+      .eq("subject", mySubject).eq("status", "pending");
+    setPendingRequests((reqData || []).map((r: any) => ({
+      id: r.id, reason: r.reason,
+      className: r.classes ? `${r.classes.grade}'${r.classes.class_number}` : "",
+    })));
+
     const gradeStats = gradeStatsRes.data || [];
     const gradeAvgs = gradeStats.map((row: any) => ({ grade: row.grade, avg: row.avg_grade }));
     setGradeAverages(gradeAvgs);
@@ -135,6 +160,18 @@ const SubjectCoordinatorDashboard = () => {
     toast({ title: "✅ הבחינה הוצעה - ממתינה לאישור הנהלה" });
     setDialogOpen(false);
     setForm({ title: "", grade: "", event_date: "", notes: "" });
+    load();
+  };
+
+  const saveWeeklyHours = async (classId: string, grade: string) => {
+    const hours = parseInt(hoursInput, 10);
+    if (!hours || hours <= 0 || !subject || !profile.schoolId) return;
+    const { error } = await supabase.from("subject_requirements").upsert({
+      school_id: profile.schoolId, grade: grade as any, class_id: classId, subject, weekly_hours: hours,
+    }, { onConflict: "school_id,grade,class_id,subject" });
+    if (error) { toast({ variant: "destructive", title: "שגיאה", description: error.message }); return; }
+    toast({ title: "שעות שבועיות עודכנו" });
+    setEditingHoursFor(null);
     load();
   };
 
@@ -257,6 +294,48 @@ const SubjectCoordinatorDashboard = () => {
           </Card>
         </motion.div>
       </div>
+
+      {(subjectPace.length > 0 || pendingRequests.length > 0) && (
+        <motion.div variants={item}>
+          <Card>
+            <CardHeader><CardTitle className="font-heading text-lg flex items-center gap-2"><Gauge className="h-5 w-5 text-warning" /> קצב שיעורים לפי כיתה</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              {pendingRequests.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-primary">בקשות תגבור ממחנכות</p>
+                  {pendingRequests.map(r => (
+                    <div key={r.id} className="flex items-center gap-2 text-xs p-2 rounded-lg bg-primary/5">
+                      <HandHelping className="h-3 w-3 shrink-0" /><span>{r.className}{r.reason ? `: ${r.reason}` : ""}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {subjectPace.map(row => (
+                <div key={row.classId} className="flex items-center justify-between gap-3 text-xs py-1.5 border-b border-border/50 last:border-0">
+                  <span className="font-heading font-bold">{row.grade}'{row.classNumber}</span>
+                  {editingHoursFor === row.classId ? (
+                    <div className="flex items-center gap-1.5">
+                      <Input type="number" value={hoursInput} onChange={e => setHoursInput(e.target.value)} className="h-7 w-16 text-xs" dir="ltr" min={1} />
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => saveWeeklyHours(row.classId, row.grade)}><Check className="h-3.5 w-3.5" /></Button>
+                    </div>
+                  ) : (
+                    <button
+                      className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                      onClick={() => { setEditingHoursFor(row.classId); setHoursInput(String(row.weeklyHours)); }}
+                    >
+                      {row.weeklyHours} שש<Pencil className="h-2.5 w-2.5" />
+                    </button>
+                  )}
+                  <span className="text-muted-foreground">{row.actualLessons}/{row.expectedLessons} שיעורים</span>
+                  <Badge variant="outline" className={row.deficit >= 4 ? "text-destructive border-destructive/30" : row.deficit > 0 ? "text-warning border-warning/30" : "text-success border-success/30"}>
+                    פער {row.deficit}
+                  </Badge>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       <motion.div variants={item}>
         <Card>

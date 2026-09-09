@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Users, Plus, Calendar, Clock, BookOpen, MapPin, CheckCircle2 } from "lucide-react";
+import { Users, Plus, Calendar, Clock, BookOpen, MapPin, CheckCircle2, HandHelping, X } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,12 +35,24 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   cancelled: { label: "בוטל", color: "bg-destructive/10 text-destructive border-destructive/30" },
 };
 
+interface TutoringRequest {
+  id: string;
+  classId: string;
+  subject: string;
+  reason: string | null;
+  requestedByName: string;
+  className: string;
+  grade: string;
+}
+
 const TutoringManagementPage = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
   const { toast } = useToast();
   const [sessions, setSessions] = useState<TutoringSession[]>([]);
+  const [requests, setRequests] = useState<TutoringRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [approvingRequest, setApprovingRequest] = useState<TutoringRequest | null>(null);
 
   const [form, setForm] = useState({
     title: "", subject: "", description: "",
@@ -59,7 +71,48 @@ const TutoringManagementPage = () => {
     setLoading(false);
   };
 
-  useEffect(() => { if (profile.schoolId) loadSessions(); }, [profile.schoolId]);
+  const loadRequests = async () => {
+    const { data } = await supabase
+      .from("tutoring_requests")
+      .select("id, class_id, subject, reason, requested_by, classes(grade, class_number)")
+      .eq("status", "pending");
+    const rows = data || [];
+    const requesterIds = Array.from(new Set(rows.map((r: any) => r.requested_by)));
+    const { data: requesterProfiles } = requesterIds.length
+      ? await supabase.from("profiles").select("id, full_name").in("id", requesterIds)
+      : { data: [] as any[] };
+    const nameMap = new Map((requesterProfiles || []).map((p: any) => [p.id, p.full_name]));
+    setRequests(rows.map((r: any) => ({
+      id: r.id,
+      classId: r.class_id,
+      subject: r.subject,
+      reason: r.reason,
+      requestedByName: nameMap.get(r.requested_by) || "מחנך/ת",
+      className: r.classes ? `${r.classes.grade}'${r.classes.class_number}` : "",
+      grade: r.classes?.grade || "",
+    })));
+  };
+
+  useEffect(() => { if (profile.schoolId) { loadSessions(); loadRequests(); } }, [profile.schoolId]);
+
+  const dismissRequest = async (id: string) => {
+    const { error } = await supabase.from("tutoring_requests")
+      .update({ status: "dismissed", resolved_by: profile.id, resolved_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) { toast({ variant: "destructive", title: "שגיאה", description: error.message }); return; }
+    toast({ title: "הבקשה נדחתה" });
+    loadRequests();
+  };
+
+  const startApproving = (request: TutoringRequest) => {
+    setApprovingRequest(request);
+    setForm({
+      title: `תגבור ${request.subject} — כיתה ${request.className}`,
+      subject: request.subject, description: request.reason || "",
+      session_date: "", start_time: "", end_time: "", room: "", max_students: "",
+    });
+    setDialogOpen(true);
+  };
 
   const handleCreate = async () => {
     if (!form.title || !form.subject || !form.session_date) {
@@ -67,18 +120,22 @@ const TutoringManagementPage = () => {
       return;
     }
 
-    const { data: roleData } = await supabase
-      .from("user_roles").select("grade")
-      .eq("user_id", profile.id).eq("role", "grade_coordinator").maybeSingle();
+    let grade = approvingRequest?.grade;
+    if (!grade) {
+      const { data: roleData } = await supabase
+        .from("user_roles").select("grade")
+        .eq("user_id", profile.id).eq("role", "grade_coordinator").maybeSingle();
+      grade = roleData?.grade;
+    }
 
-    if (!roleData?.grade) {
+    if (!grade) {
       toast({ title: "שגיאה", description: "לא נמצאה שכבה", variant: "destructive" });
       return;
     }
 
-    const { error } = await supabase.from("tutoring_sessions").insert({
+    const { data: newSession, error } = await supabase.from("tutoring_sessions").insert({
       school_id: profile.schoolId!,
-      grade: roleData.grade,
+      grade: grade as any,
       title: form.title,
       subject: form.subject,
       description: form.description || null,
@@ -88,15 +145,23 @@ const TutoringManagementPage = () => {
       room: form.room || null,
       max_students: form.max_students ? parseInt(form.max_students) : null,
       created_by: profile.id,
-    });
+    }).select().single();
 
     if (error) {
       toast({ title: "שגיאה", description: error.message, variant: "destructive" });
       return;
     }
 
+    if (approvingRequest) {
+      await supabase.from("tutoring_requests").update({
+        status: "approved", resolved_by: profile.id, resolved_at: new Date().toISOString(), linked_session_id: newSession.id,
+      }).eq("id", approvingRequest.id);
+      loadRequests();
+    }
+
     toast({ title: "✅ תגבור נוצר בהצלחה" });
     setForm({ title: "", subject: "", description: "", session_date: "", start_time: "", end_time: "", room: "", max_students: "" });
+    setApprovingRequest(null);
     setDialogOpen(false);
     loadSessions();
   };
@@ -111,13 +176,13 @@ const TutoringManagementPage = () => {
           </h1>
           <p className="text-sm text-muted-foreground font-body mt-1">ארגון שעות תגבור, שיבוץ מורים וקבוצות תלמידים</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setApprovingRequest(null); }}>
           <DialogTrigger asChild>
-            <Button className="gap-2"><Plus className="h-4 w-4" /> תגבור חדש</Button>
+            <Button className="gap-2" onClick={() => setApprovingRequest(null)}><Plus className="h-4 w-4" /> תגבור חדש</Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle className="font-heading">יצירת תגבור חדש</DialogTitle>
+              <DialogTitle className="font-heading">{approvingRequest ? "אישור בקשת תגבור" : "יצירת תגבור חדש"}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-2">
               <div className="grid grid-cols-2 gap-3">
@@ -163,6 +228,28 @@ const TutoringManagementPage = () => {
           </DialogContent>
         </Dialog>
       </div>
+
+      {requests.length > 0 && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="font-heading text-base flex items-center gap-2"><HandHelping className="h-4.5 w-4.5 text-primary" /> בקשות תגבור ממחנכות ({requests.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {requests.map((r) => (
+              <div key={r.id} className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-background">
+                <div>
+                  <p className="text-sm font-heading font-medium">{r.className} — {r.subject}</p>
+                  <p className="text-xs text-muted-foreground">{r.requestedByName}{r.reason ? `: ${r.reason}` : ""}</p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button size="sm" variant="outline" className="gap-1" onClick={() => startApproving(r)}><CheckCircle2 className="h-3.5 w-3.5" />אשר</Button>
+                  <Button size="sm" variant="ghost" className="gap-1 text-muted-foreground" onClick={() => dismissRequest(r.id)}><X className="h-3.5 w-3.5" />דחה</Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {loading ? (
         <div className="text-center py-12 text-muted-foreground animate-pulse">טוען...</div>

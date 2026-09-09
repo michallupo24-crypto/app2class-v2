@@ -28,6 +28,10 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { fetchGradeLessonPace, type GradeLessonPaceRow } from "@/lib/lessonPace";
+import { Gauge, HandHelping } from "lucide-react";
 
 interface TeacherStats {
   totalStudents: number;
@@ -58,6 +62,12 @@ const TeacherDashboard = () => {
   const [attendanceWatchList, setAttendanceWatchList] = useState<{ name: string; absences: number }[]>([]);
   const [missingSubmissions, setMissingSubmissions] = useState<MissingSubmissionsInfo | null>(null);
   const [sendingReminder, setSendingReminder] = useState(false);
+  const [homeroomClassId, setHomeroomClassId] = useState<string | null>(null);
+  const [lessonPaceRows, setLessonPaceRows] = useState<GradeLessonPaceRow[]>([]);
+  const [showTutoringDialog, setShowTutoringDialog] = useState(false);
+  const [tutoringSubject, setTutoringSubject] = useState("");
+  const [tutoringReason, setTutoringReason] = useState("");
+  const [submittingTutoringRequest, setSubmittingTutoringRequest] = useState(false);
   const [reminderSent, setReminderSent] = useState(false);
   const [disciplinePatterns, setDisciplinePatterns] = useState<{ studentName: string; subject: string; count: number; total: number }[]>([]);
 
@@ -276,6 +286,63 @@ const TeacherDashboard = () => {
     load();
   }, [profile.id, coordinatorSubject]);
 
+  // Lesson pace: how this homeroom class's actual lesson count compares to
+  // the calendar-projected expectation, per subject, plus the grade average
+  // for context - so a homeroom teacher can see it without having to ask a
+  // coordinator.
+  useEffect(() => {
+    const loadPace = async () => {
+      const { data: myRoles } = await supabase.from("user_roles")
+        .select("homeroom_class_id").eq("user_id", profile.id).eq("role", "educator" as any)
+        .not("homeroom_class_id", "is", null).limit(1);
+      const classId = myRoles?.[0]?.homeroom_class_id;
+      if (!classId) return;
+      setHomeroomClassId(classId);
+      const { data: cls } = await supabase.from("classes").select("grade").eq("id", classId).single();
+      if (!cls?.grade) return;
+      const rows = await fetchGradeLessonPace(cls.grade as any);
+      setLessonPaceRows(rows);
+    };
+    loadPace();
+  }, [profile.id]);
+
+  const myClassPace = lessonPaceRows
+    .filter(r => r.classId === homeroomClassId)
+    .sort((a, b) => b.deficit - a.deficit);
+
+  const gradeAvgDeficitBySubject = (() => {
+    const totals = new Map<string, { sum: number; count: number }>();
+    lessonPaceRows.forEach(r => {
+      const entry = totals.get(r.subject) || { sum: 0, count: 0 };
+      entry.sum += r.deficit;
+      entry.count += 1;
+      totals.set(r.subject, entry);
+    });
+    return new Map(Array.from(totals.entries()).map(([subject, { sum, count }]) => [subject, Math.round(sum / count)]));
+  })();
+
+  const submitTutoringRequest = async () => {
+    if (!homeroomClassId || !tutoringSubject) return;
+    setSubmittingTutoringRequest(true);
+    try {
+      const { error } = await supabase.from("tutoring_requests").insert({
+        school_id: profile.schoolId!,
+        class_id: homeroomClassId,
+        subject: tutoringSubject,
+        requested_by: profile.id,
+        reason: tutoringReason.trim() || null,
+      });
+      if (error) throw error;
+      toast({ title: "בקשת התגבור נשלחה לרכזים" });
+      setShowTutoringDialog(false);
+      setTutoringReason("");
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "שגיאה בשליחת הבקשה", description: e.message });
+    } finally {
+      setSubmittingTutoringRequest(false);
+    }
+  };
+
   const handleSendReminder = async () => {
     if (!missingSubmissions || missingSubmissions.students.length === 0) return;
     setSendingReminder(true);
@@ -319,7 +386,30 @@ const TeacherDashboard = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
+      <Dialog open={showTutoringDialog} onOpenChange={setShowTutoringDialog}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-heading">בקשת תגבור לכיתה</DialogTitle>
+            <DialogDescription>הבקשה תישלח לרכז/ת השכבה ורכז/ת המקצוע לאישור.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Select value={tutoringSubject} onValueChange={setTutoringSubject}>
+              <SelectTrigger><SelectValue placeholder="מקצוע" /></SelectTrigger>
+              <SelectContent>
+                {myClassPace.map(r => <SelectItem key={r.subject} value={r.subject}>{r.subject} (פער {r.deficit})</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Textarea placeholder="סיבה / הקשר (אופציונלי)" value={tutoringReason} onChange={e => setTutoringReason(e.target.value)} rows={3} />
+          </div>
+          <DialogFooter>
+            <Button onClick={submitTutoringRequest} disabled={submittingTutoringRequest || !tutoringSubject} className="w-full">
+              {submittingTutoringRequest ? "שולח..." : "שלח בקשה"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ─── WELCOME & FAST ACTIONS ─── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <motion.div variants={item} className="flex items-center gap-5">
@@ -549,6 +639,40 @@ const TeacherDashboard = () => {
                         ))}
                       </div>
                     )}
+                  </CardContent>
+                </Card>
+             </motion.div>
+           )}
+
+           {myClassPace.length > 0 && (
+             <motion.div variants={item}>
+                <Card className="bg-card border border-border">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-heading font-bold text-muted-foreground flex items-center gap-2">
+                      <Gauge className="h-4 w-4 text-primary" />קצב שיעורים מול השכבה
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 pt-2">
+                    {myClassPace.map((row) => {
+                      const gradeAvg = gradeAvgDeficitBySubject.get(row.subject) ?? 0;
+                      return (
+                        <div key={row.subject} className="flex items-center justify-between text-xs py-1">
+                          <span className="font-bold text-foreground">{row.subject}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={row.deficit >= 4 ? "text-destructive font-bold" : row.deficit > 0 ? "text-warning font-bold" : "text-success font-bold"}>
+                              פער {row.deficit}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">(ממוצע שכבה: {gradeAvg})</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <Button
+                      variant="outline" size="sm" className="w-full gap-2 mt-2"
+                      onClick={() => { setTutoringSubject(myClassPace[0]?.subject || ""); setShowTutoringDialog(true); }}
+                    >
+                      <HandHelping className="h-3.5 w-3.5" />בקש תגבור מהרכזים
+                    </Button>
                   </CardContent>
                 </Card>
              </motion.div>

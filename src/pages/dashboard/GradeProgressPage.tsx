@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import {
   BarChart3, TrendingUp, TrendingDown, AlertTriangle, BookOpen,
-  Users, Brain, Activity, Loader2,
+  Users, Brain, Activity, Loader2, Gauge, HandHelping,
 } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
@@ -15,6 +15,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   Cell, LineChart, Line, ReferenceLine,
 } from "recharts";
+import { fetchGradeLessonPace, type GradeLessonPaceRow } from "@/lib/lessonPace";
 
 interface ClassStat {
   classId: string;
@@ -37,6 +38,8 @@ const GradeProgressPage = () => {
   const [loading, setLoading] = useState(true);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
+  const [lessonPace, setLessonPace] = useState<GradeLessonPaceRow[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<{ id: string; className: string; subject: string; reason: string | null }[]>([]);
 
   const container = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
   const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } };
@@ -53,6 +56,22 @@ const GradeProgressPage = () => {
       if (!classesData || classesData.length === 0) { setLoading(false); return; }
 
       const classIds = classesData.map((c: any) => c.id);
+
+      // Opportunistic check (no pg_cron in this project) - notifies this
+      // coordinator if any of their classes crossed the extreme-deficit
+      // threshold since their last visit.
+      supabase.rpc("check_lesson_pace_alerts").then(() => {});
+
+      fetchGradeLessonPace(roleData.grade as any).then(setLessonPace);
+
+      supabase.from("tutoring_requests").select("id, class_id, subject, reason")
+        .in("class_id", classIds).eq("status", "pending")
+        .then(({ data }) => {
+          setPendingRequests((data || []).map((r: any) => {
+            const cls = classesData.find((c: any) => c.id === r.class_id);
+            return { id: r.id, className: cls ? `${cls.grade}'${cls.class_number}` : "", subject: r.subject, reason: r.reason };
+          }));
+        });
 
       const { data: students } = await supabase.from("profiles").select("id, class_id").in("class_id", classIds);
 
@@ -214,6 +233,45 @@ const GradeProgressPage = () => {
           )}
         </CardContent>
       </Card></motion.div>
+
+      {/* Lesson pace recommendations */}
+      {(lessonPace.some(r => r.deficit > 0) || pendingRequests.length > 0) && (
+        <motion.div variants={item}><Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-heading flex items-center gap-2">
+              <Gauge className="h-5 w-5 text-warning" />המלצות תגבור — קצב שיעורים
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {pendingRequests.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-primary">בקשות תגבור ממחנכות</p>
+                {pendingRequests.map(r => (
+                  <div key={r.id} className="flex items-center justify-between text-xs p-2 rounded-lg bg-primary/5">
+                    <span><HandHelping className="h-3 w-3 inline ml-1" />{r.className} — {r.subject}{r.reason ? `: ${r.reason}` : ""}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {lessonPace.filter(r => r.deficit > 0).length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-warning">כיתות עם הפער הגדול ביותר</p>
+                {[...lessonPace].sort((a, b) => b.deficit - a.deficit).slice(0, 6).map(row => {
+                  const cls = classes.find(c => c.classId === row.classId);
+                  return (
+                    <div key={`${row.classId}-${row.subject}`} className="flex items-center justify-between text-xs">
+                      <span>{cls?.className || ""} — {row.subject}</span>
+                      <Badge variant="outline" className={row.deficit >= 4 ? "text-destructive border-destructive/30" : "text-warning border-warning/30"}>
+                        פער {row.deficit} שיעורים
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card></motion.div>
+      )}
 
       {/* Class comparison chart */}
       <motion.div variants={item}><Card>
