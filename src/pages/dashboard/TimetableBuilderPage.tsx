@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Clock, DoorOpen, ClipboardList, Users, Wand2 } from "lucide-react";
+import { Clock, DoorOpen, ClipboardList, Users, Wand2, ShieldAlert, History, Undo2, Redo2, Save } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +14,10 @@ import BellScheduleSetup from "@/components/timetable-builder/BellScheduleSetup"
 import RoomsManager from "@/components/timetable-builder/RoomsManager";
 import SubjectRequirementsEditor from "@/components/timetable-builder/SubjectRequirementsEditor";
 import CoordinatorTeacherHours from "@/components/timetable-builder/CoordinatorTeacherHours";
+import TeacherConstraintsManager from "@/components/timetable-builder/TeacherConstraintsManager";
+import TeacherContinuityPanel from "@/components/timetable-builder/TeacherContinuityPanel";
+import TimetableVersionHistoryModal from "@/components/timetable-builder/TimetableVersionHistoryModal";
+import { Input } from "@/components/ui/input";
 import TeacherCountsBySubject from "@/components/timetable-builder/TeacherCountsBySubject";
 import GeneratedTimetablePreview from "@/components/timetable-builder/GeneratedTimetablePreview";
 import {
@@ -26,6 +30,8 @@ import {
   type RoomInfo,
   type TimetableConflict,
 } from "@/lib/timetableGenerator";
+import type { ConstraintLite } from "@/lib/timetableConflicts";
+import type { Json } from "@/integrations/supabase/types";
 
 // A school day shouldn't end earlier than this just because a class's total
 // weekly hours happen to be light on a given day - flagged as a warning so
@@ -52,6 +58,11 @@ const TimetableBuilderPage = () => {
   const [eligibleTeachers, setEligibleTeachers] = useState<EligibleTeacher[]>([]);
   const [rooms, setRooms] = useState<RoomInfo[]>([]);
   const [slots, setSlots] = useState<GeneratedSlot[]>([]);
+  const [undoStack, setUndoStack] = useState<GeneratedSlot[][]>([]);
+  const [redoStack, setRedoStack] = useState<GeneratedSlot[][]>([]);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [savingVersion, setSavingVersion] = useState(false);
+  const [versionName, setVersionName] = useState("");
   const [conflicts, setConflicts] = useState<TimetableConflict[]>([]);
   const [hasGenerated, setHasGenerated] = useState(false);
   const [hoursSubjects, setHoursSubjects] = useState<string[]>([]);
@@ -59,6 +70,7 @@ const TimetableBuilderPage = () => {
   const [clearExisting, setClearExisting] = useState(false);
   const [subjectRoomTypes, setSubjectRoomTypes] = useState<Record<string, string | null>>({});
   const [subjectTrackGroup, setSubjectTrackGroup] = useState<Record<string, string>>({});
+  const [teacherConstraints, setTeacherConstraints] = useState<ConstraintLite[]>([]);
 
   useEffect(() => {
     // Re-fetch every time the generate tab is opened, not just once on page
@@ -91,12 +103,64 @@ const TimetableBuilderPage = () => {
     setApprovedChecked(true);
   };
 
+  // Every manual edit (a cell save, or picking a conflict-resolution
+  // alternative) goes through this instead of setSlots directly, so it's
+  // undoable - a fresh auto-generation (handleGenerate) resets both stacks
+  // instead, since "undo" back into a previous generation run wouldn't mean
+  // anything a coordinator would expect.
+  const updateSlots = (next: GeneratedSlot[]) => {
+    setUndoStack(st => [...st, slots]);
+    setRedoStack([]);
+    setSlots(next);
+  };
+
+  const handleUndo = () => {
+    if (undoStack.length === 0) return;
+    const prev = undoStack[undoStack.length - 1];
+    setRedoStack(r => [...r, slots]);
+    setSlots(prev);
+    setUndoStack(st => st.slice(0, -1));
+  };
+
+  const handleRedo = () => {
+    if (redoStack.length === 0) return;
+    const next = redoStack[redoStack.length - 1];
+    setUndoStack(u => [...u, slots]);
+    setSlots(next);
+    setRedoStack(st => st.slice(0, -1));
+  };
+
+  const handleSaveVersion = async () => {
+    const name = versionName.trim();
+    if (!name || !profile.schoolId || slots.length === 0) return;
+    setSavingVersion(true);
+    const { error } = await supabase.from("timetable_versions").insert({
+      school_id: profile.schoolId,
+      name,
+      slots: slots as unknown as Json,
+      created_by: profile.id,
+    });
+    setSavingVersion(false);
+    if (error) {
+      toast({ title: "שגיאה בשמירת הגרסה", description: error.message, variant: "destructive" });
+      return;
+    }
+    setVersionName("");
+    toast({ title: "הגרסה נשמרה בהצלחה ✅" });
+  };
+
+  const handleRestoreVersion = (restoredSlots: GeneratedSlot[]) => {
+    updateSlots(restoredSlots);
+    setShowVersionHistory(false);
+    setHasGenerated(true);
+  };
+
   const handleGenerate = async () => {
     setGenerating(true);
     await checkApproval();
 
     const schoolId = profile.schoolId!;
-    const [classesRes, bellRes, reqRes, tcRes, roleRes, profilesRes, roomsRes, existingRes, teacherCountsRes] = await Promise.all([
+    const [classesRes, bellRes, reqRes, tcRes, roleRes, profilesRes, roomsRes, existingRes, teacherCountsRes, constraintsRes] = await Promise.all([
       supabase.from("classes").select("id, grade, class_number").eq("school_id", schoolId),
       supabase.from("bell_schedule").select("lesson_number, label, end_time, is_break").eq("school_id", schoolId).order("lesson_number"),
       supabase.from("subject_requirements").select("*").eq("school_id", schoolId),
@@ -106,6 +170,7 @@ const TimetableBuilderPage = () => {
       supabase.from("rooms").select("name, room_type, capacity").eq("school_id", schoolId),
       supabase.from("timetable_slots").select("*").eq("school_id", schoolId),
       supabase.from("subject_teacher_counts").select("subject, teacher_count").eq("school_id", schoolId),
+      supabase.from("teacher_constraints").select("*").eq("school_id", schoolId).eq("status", "approved"),
     ]);
 
     if (!reqRes.data?.length) {
@@ -165,16 +230,30 @@ const TimetableBuilderPage = () => {
       group_name: s.group_name,
     }));
 
+    // Keyed by group_name too (not just class+subject) - an ability_group
+    // block publishes several options under the identical subject text
+    // (distinguished only by group_name), so collapsing by subject alone
+    // would sum every group's already-scheduled hours together and silently
+    // under-schedule the rest.
     const existingCounts = new Map<string, number>();
     for (const s of existingSlots) {
-      const k = `${s.class_id}-${s.subject}`;
+      const k = `${s.class_id}-${s.subject}-${s.group_name ?? ""}`;
       existingCounts.set(k, (existingCounts.get(k) || 0) + 1);
     }
 
-    // Resolve grade-wide defaults + per-class overrides into one requirement per class.
+    // Resolve grade-wide defaults + per-class overrides into one requirement
+    // per class. Track rows (track_group set - מגמות/הקבצות/קבוצות רמה) are
+    // handled in their own pass below instead of through this subject-keyed
+    // resolution: an ability_group block intentionally reuses the identical
+    // subject text across every option (see timetableGenerator.ts's
+    // optionKey), so deduping by subject here (as the non-track path does)
+    // would silently drop every option but one.
+    const nonTrackRows = (reqRes.data as any[]).filter(r => !r.track_group);
+    const trackRows = (reqRes.data as any[]).filter(r => r.track_group);
+
     const requirementsByGrade = new Map<string, any>();
     const overridesByClass = new Map<string, any>();
-    for (const r of reqRes.data as any[]) {
+    for (const r of nonTrackRows) {
       if (r.class_id) overridesByClass.set(`${r.class_id}-${r.subject}`, r);
       else requirementsByGrade.set(`${r.grade}-${r.subject}`, r);
     }
@@ -182,14 +261,14 @@ const TimetableBuilderPage = () => {
     const resolved: GeneratorRequirement[] = [];
     for (const cls of classList) {
       const subjectsForGrade = new Set<string>();
-      for (const r of reqRes.data as any[]) {
+      for (const r of nonTrackRows) {
         if (r.grade === cls.grade) subjectsForGrade.add(r.subject);
       }
       for (const subject of subjectsForGrade) {
         const override = overridesByClass.get(`${cls.id}-${subject}`);
         const base = override || requirementsByGrade.get(`${cls.grade}-${subject}`);
         if (!base) continue;
-        const already = existingCounts.get(`${cls.id}-${subject}`) || 0;
+        const already = existingCounts.get(`${cls.id}-${subject}-`) || 0;
         const remaining = Math.max(0, base.weekly_hours - already);
         if (remaining <= 0) continue;
         resolved.push({
@@ -201,7 +280,36 @@ const TimetableBuilderPage = () => {
           group_count: base.group_count,
           preferred_room_type: base.preferred_room_type,
           is_grade_wide: !!base.is_grade_wide,
-          track_group: base.track_group ?? null,
+          track_group: null,
+          track_kind: null,
+          base_subject: null,
+          group_label: null,
+        });
+      }
+    }
+
+    // Track rows: every option becomes its own resolved row for every class
+    // in the grade, never deduped by subject text (see comment above).
+    for (const r of trackRows) {
+      const groupName = r.track_kind === "ability_group" ? (r.group_label || r.subject) : r.subject;
+      for (const cls of classList) {
+        if (cls.grade !== r.grade) continue;
+        const already = existingCounts.get(`${cls.id}-${r.subject}-${groupName}`) || 0;
+        const remaining = Math.max(0, r.weekly_hours - already);
+        if (remaining <= 0) continue;
+        resolved.push({
+          class_id: cls.id,
+          grade: r.grade as GradeLevel,
+          subject: r.subject,
+          weekly_hours: remaining,
+          block_size: r.block_size,
+          group_count: r.group_count,
+          preferred_room_type: r.preferred_room_type,
+          is_grade_wide: !!r.is_grade_wide,
+          track_group: r.track_group,
+          track_kind: r.track_kind ?? null,
+          base_subject: r.base_subject ?? null,
+          group_label: r.group_label ?? null,
         });
       }
     }
@@ -211,23 +319,28 @@ const TimetableBuilderPage = () => {
     // (e.g. some already partially scheduled from a prior run), the generator
     // would only build as many hours as the least-scheduled class needed,
     // silently under-scheduling the rest of the grade. Normalize every class
-    // up to the group's own maximum instead - but keyed per SUBJECT, not just
-    // per track_group: a track block's options can legitimately need
-    // different totals from each other (e.g. a 10-hour מדעי המחשב option
-    // sharing a slot with 4-hour כימיה/ביולוגיה options), and grouping by
-    // track_group alone previously collapsed every option in the block up to
-    // whichever one asked for the most hours - silently overriding the
-    // school's own per-option numbers instead of just reconciling the same
-    // option across classes.
+    // up to the group's own maximum instead - but keyed per OPTION (subject +
+    // group_label), not just per track_group: a track block's options can
+    // legitimately need different totals from each other (e.g. a 10-hour
+    // מדעי המחשב option sharing a slot with 4-hour כימיה/ביולוגיה options, or
+    // an ability_group's "קבוצה א'" needing more weekly hours than "קבוצה ב'"),
+    // and grouping by track_group alone previously collapsed every option in
+    // the block up to whichever one asked for the most hours - silently
+    // overriding the school's own per-option numbers instead of just
+    // reconciling the same option across classes.
     const maxByGroup = new Map<string, number>();
     for (const r of resolved) {
       if (!r.is_grade_wide && !r.track_group) continue;
-      const k = r.track_group ? `track::${r.grade}::${r.track_group}::${r.subject}` : `wide::${r.grade}::${r.subject}`;
+      const k = r.track_group
+        ? `track::${r.grade}::${r.track_group}::${r.subject}::${r.group_label ?? ""}`
+        : `wide::${r.grade}::${r.subject}`;
       maxByGroup.set(k, Math.max(maxByGroup.get(k) ?? 0, r.weekly_hours));
     }
     for (const r of resolved) {
       if (!r.is_grade_wide && !r.track_group) continue;
-      const k = r.track_group ? `track::${r.grade}::${r.track_group}::${r.subject}` : `wide::${r.grade}::${r.subject}`;
+      const k = r.track_group
+        ? `track::${r.grade}::${r.track_group}::${r.subject}::${r.group_label ?? ""}`
+        : `wide::${r.grade}::${r.subject}`;
       r.weekly_hours = maxByGroup.get(k)!;
     }
 
@@ -285,7 +398,42 @@ const TimetableBuilderPage = () => {
         }
       }
     }
-    const allTeachers = [...teachers, ...placeholders];
+    // Hard, approved recurring constraints (fixed unavailability / staff
+    // meetings) pre-block the teacher at that day+lesson before placement
+    // even starts. date_range_unavailable constraints are calendar-date
+    // based (a leave/medical range), not weekly-recurring, so they don't map
+    // onto this generator's day-of-week template and are intentionally left
+    // out here - they still show up in the "אילוצים" tab for record-keeping.
+    setTeacherConstraints((constraintsRes.data || []) as ConstraintLite[]);
+
+    const unavailable = new Set<string>();
+    for (const c of (constraintsRes.data || []) as any[]) {
+      if (!c.is_hard) continue;
+      if (c.constraint_type !== "unavailable_slot" && c.constraint_type !== "staff_meeting") continue;
+      if (c.day_of_week === null || c.lesson_number === null) continue;
+      unavailable.add(`${c.teacher_id}-${c.day_of_week}-${c.lesson_number}`);
+    }
+
+    // Approved "continue with class" requests: move that teacher to the
+    // FRONT of the eligible-teacher list for their (class, subject) pair, so
+    // the generator's own "first free match wins" selection (see
+    // tryPlace/tryPlaceGradeWide/tryPlaceTrackBlock in timetableGenerator.ts)
+    // tries them before any other eligible teacher, without needing a
+    // dedicated preference concept inside the generator itself.
+    const continuityPreferred = new Set(
+      ((constraintsRes.data || []) as any[])
+        .filter(c => c.constraint_type === "continue_with_class" && c.class_id && c.subject)
+        .map(c => `${c.class_id}::${c.subject}::${c.teacher_id}`)
+    );
+    const teachersOrdered = continuityPreferred.size
+      ? [...teachers].sort((a, b) => {
+          const aPref = continuityPreferred.has(`${a.class_id}::${a.subject}::${a.teacher_id}`) ? 1 : 0;
+          const bPref = continuityPreferred.has(`${b.class_id}::${b.subject}::${b.teacher_id}`) ? 1 : 0;
+          return bPref - aPref;
+        })
+      : teachers;
+
+    const allTeachers = [...teachersOrdered, ...placeholders];
     setEligibleTeachers(teachers); // manual-override dropdown offers real staff only, not placeholders
 
     const result = generateTimetable({
@@ -294,10 +442,29 @@ const TimetableBuilderPage = () => {
       days,
       requirements: resolved,
       eligibleTeachers: allTeachers,
-      unavailable: new Set(),
+      unavailable,
       rooms: roomList,
       lockedSlots: existingSlots,
     });
+
+    // A continuity request that couldn't actually be honored (the preferred
+    // teacher wasn't free at any slot the subject ended up placed in) is
+    // surfaced as a warning rather than silently dropped.
+    const unmetContinuity: TimetableConflict[] = [];
+    for (const c of (constraintsRes.data || []) as any[]) {
+      if (c.constraint_type !== "continue_with_class" || !c.class_id || !c.subject) continue;
+      const honored = result.slots.some(s => s.class_id === c.class_id && s.subject === c.subject && s.teacher_id === c.teacher_id);
+      if (!honored) {
+        const cls = classList.find(cc => cc.id === c.class_id);
+        unmetContinuity.push({
+          class_id: c.class_id,
+          grade: cls?.grade ?? null,
+          subject: c.subject,
+          reason: `בקשת ההמשכיות של ${profilesById.get(c.teacher_id) || "המורה"} במקצוע ${c.subject}${cls ? ` בכיתה ${cls.grade}'${cls.class_number}` : ""} לא מומשה — המורה לא היה/תה פנוי/ה באף שעה מתאימה`,
+          severity: "warning",
+        });
+      }
+    }
 
     const earlyEndingConflicts: TimetableConflict[] = [];
     const lastLessonByClassDay = new Map<string, { classId: string; day: number; lastLesson: number }>();
@@ -325,7 +492,9 @@ const TimetableBuilderPage = () => {
     }
 
     setSlots(result.slots.map(sanitizePlaceholderTeacher));
-    setConflicts([...teacherShortageConflicts, ...result.conflicts, ...earlyEndingConflicts]);
+    setUndoStack([]);
+    setRedoStack([]);
+    setConflicts([...teacherShortageConflicts, ...result.conflicts, ...earlyEndingConflicts, ...unmetContinuity]);
     setHasGenerated(true);
     setGenerating(false);
   };
@@ -335,6 +504,18 @@ const TimetableBuilderPage = () => {
     setPublishing(true);
     const schoolId = profile.schoolId;
     const affectedClassIds = Array.from(new Set(slots.map(s => s.class_id)));
+
+    // handlePublish below is a full destructive delete+insert with nothing
+    // else retained - snapshot what's about to be published first, so
+    // publish history survives even though the live timetable_slots rows
+    // themselves get replaced.
+    await supabase.from("timetable_versions").insert({
+      school_id: schoolId,
+      name: `פרסום — ${new Date().toLocaleDateString("he-IL")}`,
+      slots: slots as unknown as Json,
+      is_published: true,
+      created_by: profile.id,
+    });
 
     const { error: delError } = await supabase.from("timetable_slots").delete().eq("school_id", schoolId).in("class_id", affectedClassIds);
     if (delError) {
@@ -385,6 +566,8 @@ const TimetableBuilderPage = () => {
               <TabsTrigger value="bell" className="flex-1 gap-1.5 py-2.5 text-sm"><Clock className="h-4 w-4" /> יום הלימודים</TabsTrigger>
               <TabsTrigger value="rooms" className="flex-1 gap-1.5 py-2.5 text-sm"><DoorOpen className="h-4 w-4" /> חדרים</TabsTrigger>
               <TabsTrigger value="hours" className="flex-1 gap-1.5 py-2.5 text-sm"><ClipboardList className="h-4 w-4" /> תכנית שעות</TabsTrigger>
+              <TabsTrigger value="constraints" className="flex-1 gap-1.5 py-2.5 text-sm"><ShieldAlert className="h-4 w-4" /> אילוצים</TabsTrigger>
+              <TabsTrigger value="continuity" className="flex-1 gap-1.5 py-2.5 text-sm"><History className="h-4 w-4" /> המשכיות מורים</TabsTrigger>
               <TabsTrigger value="generate" className="flex-1 gap-1.5 py-2.5 text-sm"><Wand2 className="h-4 w-4" /> בנייה ופרסום</TabsTrigger>
             </>
           )}
@@ -410,6 +593,14 @@ const TimetableBuilderPage = () => {
 
             <TabsContent value="hours" className="mt-4">
               {tab === "hours" && <SubjectRequirementsEditor schoolId={profile.schoolId} profile={profile} />}
+            </TabsContent>
+
+            <TabsContent value="constraints" className="mt-4">
+              {tab === "constraints" && <TeacherConstraintsManager schoolId={profile.schoolId} profile={profile} />}
+            </TabsContent>
+
+            <TabsContent value="continuity" className="mt-4">
+              {tab === "continuity" && <TeacherContinuityPanel schoolId={profile.schoolId} profile={profile} />}
             </TabsContent>
           </>
         )}
@@ -463,23 +654,56 @@ const TimetableBuilderPage = () => {
 
           {hasGenerated && classes.length > 0 && (
             <>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={handleUndo} disabled={undoStack.length === 0}>
+                  <Undo2 className="h-3.5 w-3.5" /> בטל
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={handleRedo} disabled={redoStack.length === 0}>
+                  <Redo2 className="h-3.5 w-3.5" /> בצע שוב
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowVersionHistory(true)}>
+                  <History className="h-3.5 w-3.5" /> היסטוריית גרסאות
+                </Button>
+                <div className="flex items-center gap-1.5 mr-auto">
+                  <Input
+                    placeholder="שם לגרסה (למשל: טיוטה 1)"
+                    className="h-8 w-48"
+                    value={versionName}
+                    onChange={(e) => setVersionName(e.target.value)}
+                  />
+                  <Button size="sm" className="gap-1.5 h-8" onClick={handleSaveVersion} disabled={savingVersion || !versionName.trim()}>
+                    <Save className="h-3.5 w-3.5" /> {savingVersion ? "שומר..." : "שמור גרסה"}
+                  </Button>
+                </div>
+              </div>
+
               <GeneratedTimetablePreview
                 classes={classes}
                 periods={periods}
                 days={days}
                 slots={slots}
-                onSlotsChange={setSlots}
+                onSlotsChange={updateSlots}
                 conflicts={conflicts}
                 eligibleTeachers={eligibleTeachers}
                 rooms={rooms}
                 subjects={[...SUBJECTS]}
                 subjectRoomTypes={subjectRoomTypes}
                 subjectTrackGroup={subjectTrackGroup}
+                teacherConstraints={teacherConstraints}
               />
               <Button onClick={handlePublish} disabled={publishing} variant="default" className="w-full">
                 {publishing ? "מפרסם..." : "פרסם מערכת"}
               </Button>
             </>
+          )}
+
+          {showVersionHistory && profile.schoolId && (
+            <TimetableVersionHistoryModal
+              schoolId={profile.schoolId}
+              profile={profile}
+              onRestore={handleRestoreVersion}
+              onClose={() => setShowVersionHistory(false)}
+            />
           )}
         </TabsContent>}
       </Tabs>

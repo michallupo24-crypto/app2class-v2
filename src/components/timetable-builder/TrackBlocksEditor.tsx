@@ -5,14 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Route, Layers, Pencil } from "lucide-react";
+import { Plus, Trash2, Route, Layers, Users, Pencil } from "lucide-react";
 import type { GradeLevel } from "@/lib/constants";
 
-type TrackKind = "megama" | "hakbatza";
+type TrackKind = "megama" | "hakbatza" | "ability_group";
 
 interface TrackOption {
   id: string;
   subject: string;
+  groupLabel: string | null;
   preferred_room_type: string | null;
   weeklyHours: number;
 }
@@ -94,7 +95,7 @@ const TrackBlocksEditor = ({ schoolId, grade, roomTypes, onChanged }: TrackBlock
           options: [],
         });
       }
-      grouped.get(k)!.options.push({ id: row.id, subject: row.subject, preferred_room_type: row.preferred_room_type, weeklyHours: row.weekly_hours });
+      grouped.get(k)!.options.push({ id: row.id, subject: row.subject, groupLabel: row.group_label ?? null, preferred_room_type: row.preferred_room_type, weeklyHours: row.weekly_hours });
     }
     setBlocks(Array.from(grouped.values()));
     setLoading(false);
@@ -115,20 +116,49 @@ const TrackBlocksEditor = ({ schoolId, grade, roomTypes, onChanged }: TrackBlock
     });
   };
 
+  const kindLabel = (kind: TrackKind, key: "nameField" | "firstField" | "createErr" | "createdMsg") => {
+    if (kind === "ability_group") {
+      return {
+        nameField: "יש להזין שם מקצוע",
+        firstField: "יש להזין שם קבוצה ראשונה",
+        createErr: "שגיאה ביצירת קבוצות הרמה",
+        createdMsg: "המקצוע פוצל לקבוצות רמה — כעת הוסיפו לו עוד קבוצות ✅",
+      }[key];
+    }
+    if (kind === "hakbatza") {
+      return {
+        nameField: "יש להזין שם מקצוע",
+        firstField: "יש להזין רמה ראשונה",
+        createErr: "שגיאה ביצירת ההקבצה",
+        createdMsg: "ההקבצה נוצרה — כעת הוסיפו לה עוד רמות ✅",
+      }[key];
+    }
+    return {
+      nameField: "יש להזין שם לאשכול",
+      firstField: "יש להזין אפשרות ראשונה",
+      createErr: "שגיאה ביצירת המגמה",
+      createdMsg: "המגמה נוצרה — כעת הוסיפו לה עוד אפשרויות ✅",
+    }[key];
+  };
+
   const handleCreateBlock = async () => {
     const groupLabel = newGroupName.trim();
     const firstOption = newFirstOption.trim();
     if (!groupLabel) {
-      toast({ title: newKind === "hakbatza" ? "יש להזין שם מקצוע" : "יש להזין שם לאשכול", variant: "destructive" });
+      toast({ title: kindLabel(newKind, "nameField"), variant: "destructive" });
       return;
     }
     if (!firstOption) {
-      toast({ title: newKind === "hakbatza" ? "יש להזין רמה ראשונה" : "יש להזין אפשרות ראשונה", variant: "destructive" });
+      toast({ title: kindLabel(newKind, "firstField"), variant: "destructive" });
       return;
     }
     const hours = parseInt(newHours) || 1;
-    const trackGroup = newKind === "hakbatza" ? `${groupLabel} - הקבצות` : groupLabel;
-    const subject = newKind === "hakbatza" ? `${groupLabel} (${firstOption})` : firstOption;
+    // ability_group keeps ONE plain subject name across every option (unlike
+    // hakbatza, which composes a distinct "<subject> (<level>)" string per
+    // option) - options are told apart only by group_label, so reports/hour
+    // totals still show one canonical subject instead of N fake ones.
+    const trackGroup = newKind === "megama" ? groupLabel : `${groupLabel} - ${newKind === "hakbatza" ? "הקבצות" : "קבוצות רמה"}`;
+    const subject = newKind === "megama" ? firstOption : (newKind === "hakbatza" ? `${groupLabel} (${firstOption})` : groupLabel);
     const { data, error } = await supabase.from("subject_requirements").insert({
       school_id: schoolId,
       grade,
@@ -137,24 +167,25 @@ const TrackBlocksEditor = ({ schoolId, grade, roomTypes, onChanged }: TrackBlock
       block_size: Math.min(hours, 2),
       track_group: trackGroup,
       track_kind: newKind,
-      base_subject: newKind === "hakbatza" ? groupLabel : null,
+      base_subject: newKind === "megama" ? null : groupLabel,
+      group_label: newKind === "ability_group" ? firstOption : null,
     }).select().single();
     if (error) {
-      toast({ title: newKind === "hakbatza" ? "שגיאה ביצירת ההקבצה" : "שגיאה ביצירת המגמה", description: error.message, variant: "destructive" });
+      toast({ title: kindLabel(newKind, "createErr"), description: error.message, variant: "destructive" });
       return;
     }
     setBlocks(bs => [...bs, {
       trackGroup,
       trackKind: newKind,
-      baseSubject: newKind === "hakbatza" ? groupLabel : null,
+      baseSubject: newKind === "megama" ? null : groupLabel,
       weeklyHours: hours,
       blockSize: Math.min(hours, 2),
-      options: [{ id: data.id, subject, preferred_room_type: null, weeklyHours: hours }],
+      options: [{ id: data.id, subject, groupLabel: newKind === "ability_group" ? firstOption : null, preferred_room_type: null, weeklyHours: hours }],
     }]);
     setNewGroupName("");
     setNewFirstOption("");
     setAdding(null);
-    toast({ title: newKind === "hakbatza" ? "ההקבצה נוצרה — כעת הוסיפו לה עוד רמות ✅" : "המגמה נוצרה — כעת הוסיפו לה עוד אפשרויות ✅" });
+    toast({ title: kindLabel(newKind, "createdMsg") });
     await clearApproval();
     onChanged?.();
   };
@@ -162,8 +193,9 @@ const TrackBlocksEditor = ({ schoolId, grade, roomTypes, onChanged }: TrackBlock
   const handleAddOption = async (block: TrackBlock, optionInput: string) => {
     const value = optionInput.trim();
     if (!value) return;
-    const subject = block.trackKind === "hakbatza" ? `${block.baseSubject} (${value})` : value;
-    if (block.options.some(o => o.subject === subject)) {
+    const isAbilityGroup = block.trackKind === "ability_group";
+    const subject = block.trackKind === "hakbatza" ? `${block.baseSubject} (${value})` : (isAbilityGroup ? block.baseSubject! : value);
+    if (isAbilityGroup ? block.options.some(o => o.groupLabel === value) : block.options.some(o => o.subject === subject)) {
       toast({ title: "האפשרות הזו כבר קיימת בבלוק", variant: "destructive" });
       return;
     }
@@ -175,14 +207,15 @@ const TrackBlocksEditor = ({ schoolId, grade, roomTypes, onChanged }: TrackBlock
       block_size: block.blockSize,
       track_group: block.trackGroup,
       track_kind: block.trackKind,
-      base_subject: block.trackKind === "hakbatza" ? block.baseSubject : null,
+      base_subject: block.trackKind === "megama" ? null : block.baseSubject,
+      group_label: isAbilityGroup ? value : null,
     }).select().single();
     if (error) {
       toast({ title: "שגיאה בהוספת אפשרות", description: error.message, variant: "destructive" });
       return;
     }
     setBlocks(bs => bs.map(b => b.trackGroup === block.trackGroup
-      ? { ...b, options: [...b.options, { id: data.id, subject, preferred_room_type: null, weeklyHours: block.weeklyHours }] }
+      ? { ...b, options: [...b.options, { id: data.id, subject, groupLabel: isAbilityGroup ? value : null, preferred_room_type: null, weeklyHours: block.weeklyHours }] }
       : b
     ));
     await clearApproval();
@@ -201,17 +234,21 @@ const TrackBlocksEditor = ({ schoolId, grade, roomTypes, onChanged }: TrackBlock
     onChanged?.();
   };
 
-  const handleRenameOption = async (id: string, newSubject: string) => {
-    const previous = blocks.flatMap(b => b.options).find(o => o.id === id)?.subject;
-    setBlocks(bs => bs.map(b => ({ ...b, options: b.options.map(o => (o.id === id ? { ...o, subject: newSubject } : o)) })));
-    const { error } = await supabase.from("subject_requirements").update({ subject: newSubject }).eq("id", id);
+  // ability_group options rename their group_label (subject stays fixed as
+  // the block's base subject for all of them); every other kind renames the
+  // subject column itself.
+  const handleRenameOption = async (id: string, newValue: string, isAbilityGroup: boolean) => {
+    const column = isAbilityGroup ? "group_label" : "subject";
+    const previous = blocks.flatMap(b => b.options).find(o => o.id === id)?.[isAbilityGroup ? "groupLabel" : "subject"];
+    setBlocks(bs => bs.map(b => ({ ...b, options: b.options.map(o => (o.id === id ? { ...o, [isAbilityGroup ? "groupLabel" : "subject"]: newValue } : o)) })));
+    const { error } = await supabase.from("subject_requirements").update({ [column]: newValue }).eq("id", id);
     if (error) {
       const friendly = error.code === "23505"
-        ? "כבר קיים מקצוע בשם הזה בשכבה זו"
+        ? (isAbilityGroup ? "כבר קיימת קבוצה בשם הזה בבלוק" : "כבר קיים מקצוע בשם הזה בשכבה זו")
         : error.message;
       toast({ title: "שגיאה בשינוי השם", description: friendly, variant: "destructive" });
       if (previous !== undefined) {
-        setBlocks(bs => bs.map(b => ({ ...b, options: b.options.map(o => (o.id === id ? { ...o, subject: previous } : o)) })));
+        setBlocks(bs => bs.map(b => ({ ...b, options: b.options.map(o => (o.id === id ? { ...o, [isAbilityGroup ? "groupLabel" : "subject"]: previous } : o)) })));
       }
       return;
     }
@@ -279,11 +316,13 @@ const TrackBlocksEditor = ({ schoolId, grade, roomTypes, onChanged }: TrackBlock
         <div key={block.trackGroup} className="border border-border/50 rounded-lg p-3 space-y-2">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              {block.trackKind === "hakbatza" ? <Layers className="h-3.5 w-3.5 text-primary" /> : <Route className="h-3.5 w-3.5 text-primary" />}
+              {block.trackKind === "hakbatza" ? <Layers className="h-3.5 w-3.5 text-primary" /> : block.trackKind === "ability_group" ? <Users className="h-3.5 w-3.5 text-primary" /> : <Route className="h-3.5 w-3.5 text-primary" />}
               <span className="font-heading font-bold text-sm">
-                {block.trackKind === "hakbatza" ? block.baseSubject : block.trackGroup}
+                {block.trackKind === "megama" ? block.trackGroup : block.baseSubject}
               </span>
-              <Badge variant="outline" className="text-[10px]">{block.trackKind === "hakbatza" ? "הקבצה" : "מגמה"}</Badge>
+              <Badge variant="outline" className="text-[10px]">
+                {block.trackKind === "hakbatza" ? "הקבצה" : block.trackKind === "ability_group" ? "קבוצות רמה" : "מגמה"}
+              </Badge>
             </div>
             <BulkHoursInput initial={block.weeklyHours} onApply={(hours) => handleUpdateBlockHours(block, hours)} />
           </div>
@@ -293,6 +332,7 @@ const TrackBlocksEditor = ({ schoolId, grade, roomTypes, onChanged }: TrackBlock
               <OptionRow
                 key={opt.id}
                 option={opt}
+                isAbilityGroup={block.trackKind === "ability_group"}
                 roomTypes={roomTypes}
                 listId={block.trackKind === "megama" ? "known-subjects" : undefined}
                 onRename={handleRenameOption}
@@ -304,7 +344,7 @@ const TrackBlocksEditor = ({ schoolId, grade, roomTypes, onChanged }: TrackBlock
           </div>
 
           <AddOptionRow
-            placeholder={block.trackKind === "hakbatza" ? 'רמה חדשה (למשל: "5 יח״ל")' : "אפשרות חדשה למגמה..."}
+            placeholder={block.trackKind === "hakbatza" ? 'רמה חדשה (למשל: "5 יח״ל")' : block.trackKind === "ability_group" ? 'קבוצה חדשה (למשל: "קבוצה ג׳")' : "אפשרות חדשה למגמה..."}
             listId={block.trackKind === "megama" ? "known-subjects" : undefined}
             onAdd={(value) => handleAddOption(block, value)}
           />
@@ -314,20 +354,21 @@ const TrackBlocksEditor = ({ schoolId, grade, roomTypes, onChanged }: TrackBlock
       {adding ? (
         <div className="border border-dashed border-border rounded-lg p-3 flex flex-wrap gap-2 items-end">
           <Select value={newKind} onValueChange={(v) => setNewKind(v as TrackKind)}>
-            <SelectTrigger className="w-24 h-8"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-28 h-8"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="megama">מגמה</SelectItem>
               <SelectItem value="hakbatza">הקבצה</SelectItem>
+              <SelectItem value="ability_group">קבוצות רמה</SelectItem>
             </SelectContent>
           </Select>
           <Input
-            placeholder={newKind === "hakbatza" ? 'שם המקצוע (למשל: "מתמטיקה")' : 'שם האשכול (למשל: "אשכול א׳")'}
+            placeholder={newKind === "megama" ? 'שם האשכול (למשל: "אשכול א׳")' : 'שם המקצוע (למשל: "מתמטיקה")'}
             className="w-44 h-8"
             value={newGroupName}
             onChange={(e) => setNewGroupName(e.target.value)}
           />
           <Input
-            placeholder={newKind === "hakbatza" ? 'רמה ראשונה (למשל: "5 יח״ל")' : "אפשרות ראשונה"}
+            placeholder={newKind === "hakbatza" ? 'רמה ראשונה (למשל: "5 יח״ל")' : newKind === "ability_group" ? 'קבוצה ראשונה (למשל: "קבוצה א׳")' : "אפשרות ראשונה"}
             className="w-40 h-8"
             value={newFirstOption}
             onChange={(e) => setNewFirstOption(e.target.value)}
@@ -348,6 +389,9 @@ const TrackBlocksEditor = ({ schoolId, grade, roomTypes, onChanged }: TrackBlock
           </Button>
           <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { setNewKind("hakbatza"); setAdding("hakbatza"); }}>
             <Layers className="h-3.5 w-3.5" /> הוסף הקבצה
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { setNewKind("ability_group"); setAdding("ability_group"); }}>
+            <Users className="h-3.5 w-3.5" /> פצל לקבוצות רמה
           </Button>
         </div>
       )}
@@ -391,9 +435,10 @@ const BulkHoursInput = ({ initial, onApply }: { initial: number; onApply: (hours
 
 interface OptionRowProps {
   option: TrackOption;
+  isAbilityGroup: boolean;
   roomTypes: string[];
   listId?: string;
-  onRename: (id: string, subject: string) => void;
+  onRename: (id: string, value: string, isAbilityGroup: boolean) => void;
   onHoursApply: (id: string, hours: number) => void;
   onRoomChange: (id: string, room: string | null) => void;
   onRemove: (id: string) => void;
@@ -401,23 +446,26 @@ interface OptionRowProps {
 
 // Renaming happens in place (click the name, edit, save) instead of the old
 // delete-and-re-add-from-scratch flow, which lost the option's room type and
-// hours the moment it was deleted.
-const OptionRow = ({ option, roomTypes, listId, onRename, onHoursApply, onRoomChange, onRemove }: OptionRowProps) => {
+// hours the moment it was deleted. For an ability_group option, the editable
+// display name is its group_label (subject is fixed to the block's base
+// subject for every option in the block).
+const OptionRow = ({ option, isAbilityGroup, roomTypes, listId, onRename, onHoursApply, onRoomChange, onRemove }: OptionRowProps) => {
+  const displayName = isAbilityGroup ? (option.groupLabel || "") : option.subject;
   const [editingName, setEditingName] = useState(false);
-  const [nameDraft, setNameDraft] = useState(option.subject);
+  const [nameDraft, setNameDraft] = useState(displayName);
   const [hoursDraft, setHoursDraft] = useState(String(option.weeklyHours));
 
-  useEffect(() => { if (!editingName) setNameDraft(option.subject); }, [option.subject, editingName]);
+  useEffect(() => { if (!editingName) setNameDraft(displayName); }, [displayName, editingName]);
   useEffect(() => setHoursDraft(String(option.weeklyHours)), [option.weeklyHours]);
 
   const commitName = () => {
     const trimmed = nameDraft.trim();
     setEditingName(false);
-    if (!trimmed || trimmed === option.subject) {
-      setNameDraft(option.subject);
+    if (!trimmed || trimmed === displayName) {
+      setNameDraft(displayName);
       return;
     }
-    onRename(option.id, trimmed);
+    onRename(option.id, trimmed, isAbilityGroup);
   };
 
   const commitHours = () => {
@@ -437,7 +485,7 @@ const OptionRow = ({ option, roomTypes, listId, onRename, onHoursApply, onRoomCh
           onBlur={commitName}
           onKeyDown={(e) => {
             if (e.key === "Enter") commitName();
-            if (e.key === "Escape") { setNameDraft(option.subject); setEditingName(false); }
+            if (e.key === "Escape") { setNameDraft(displayName); setEditingName(false); }
           }}
           list={listId}
         />
@@ -448,7 +496,7 @@ const OptionRow = ({ option, roomTypes, listId, onRename, onHoursApply, onRoomCh
           onClick={() => setEditingName(true)}
           title="לחצו לעריכת השם"
         >
-          <span className="group-hover:underline">{option.subject}</span>
+          <span className="group-hover:underline">{displayName}</span>
           <Pencil className="h-3 w-3 text-muted-foreground/50 shrink-0" />
         </button>
       )}

@@ -1,11 +1,15 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useRef, useState, type CSSProperties } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, XCircle, X, Printer } from "lucide-react";
+import { AlertTriangle, XCircle, X, Printer, FileDown } from "lucide-react";
 import { HEBREW_DAYS } from "@/lib/constants";
 import type { GeneratedSlot, TimetableConflict, EligibleTeacher, GeneratorClass, RoomInfo } from "@/lib/timetableGenerator";
+import { checkSlotConflict, findAlternativeSlots, type ConstraintLite, type SlotConflict, type AlternativeSlot } from "@/lib/timetableConflicts";
+import ConflictResolutionDialog from "@/components/timetable-builder/ConflictResolutionDialog";
+import { exportElementToPdf } from "@/lib/timetableExport";
+import { useToast } from "@/hooks/use-toast";
 
 interface BellPeriod {
   lesson_number: number;
@@ -41,13 +45,23 @@ interface GeneratedTimetablePreviewProps {
   // to show all of them together under their cluster name, not just
   // whichever one happens to be first.
   subjectTrackGroup: Record<string, string>;
+  // Approved teacher_constraints, used to flag a manual edit that would put
+  // a teacher in a slot they have a hard constraint against (see
+  // timetableConflicts.ts). Optional so existing callers/tests don't need
+  // to be updated just to keep compiling.
+  teacherConstraints?: ConstraintLite[];
 }
 
 const GeneratedTimetablePreview = ({
   classes, periods, days, slots, onSlotsChange, conflicts, eligibleTeachers, rooms, subjects, subjectRoomTypes, subjectTrackGroup,
+  teacherConstraints = [],
 }: GeneratedTimetablePreviewProps) => {
+  const { toast } = useToast();
   const [selectedClassId, setSelectedClassId] = useState(classes[0]?.id || "");
   const [editingCell, setEditingCell] = useState<{ day: number; lesson: number } | null>(null);
+  const [pendingConflict, setPendingConflict] = useState<{ candidate: GeneratedSlot; reason: SlotConflict; alternatives: AlternativeSlot[] } | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   const selectedClass = classes.find(c => c.id === selectedClassId);
 
@@ -67,10 +81,13 @@ const GeneratedTimetablePreview = ({
   const handleSave = (subject: string, teacherId: string | null, room: string | null) => {
     if (!editingCell || !selectedClassId) return;
     const teacher = teacherOptions.find(t => t.teacher_id === teacherId);
-    const next = slots.filter(
+    // otherSlots excludes the exact cell being edited, so re-saving the same
+    // slot unchanged (or just tweaking its room) never flags itself as a
+    // conflict with its own previous value.
+    const otherSlots = slots.filter(
       s => !(s.class_id === selectedClassId && s.day_of_week === editingCell.day && s.lesson_number === editingCell.lesson)
     );
-    next.push({
+    const candidate: GeneratedSlot = {
       class_id: selectedClassId,
       day_of_week: editingCell.day,
       lesson_number: editingCell.lesson,
@@ -79,8 +96,30 @@ const GeneratedTimetablePreview = ({
       teacher_name: teacher?.teacher_name || null,
       room,
       group_name: null,
-    });
-    onSlotsChange(next);
+    };
+
+    const conflict = checkSlotConflict(candidate, otherSlots, teacherConstraints);
+    if (conflict) {
+      const alternatives = findAlternativeSlots(
+        selectedClassId, subject, teacherId, room, otherSlots, teacherConstraints, days, periods.map(p => p.lesson_number)
+      );
+      setPendingConflict({ candidate, reason: conflict, alternatives });
+      return;
+    }
+
+    onSlotsChange([...otherSlots, candidate]);
+    setEditingCell(null);
+  };
+
+  // otherSlots is recomputed fresh here (not reused from handleSave's
+  // closure) since the user may have kept the edit form open across renders.
+  const applyConflictAlternative = (alt: AlternativeSlot) => {
+    if (!pendingConflict || !editingCell || !selectedClassId) return;
+    const otherSlots = slots.filter(
+      s => !(s.class_id === selectedClassId && s.day_of_week === editingCell.day && s.lesson_number === editingCell.lesson)
+    );
+    onSlotsChange([...otherSlots, { ...pendingConflict.candidate, day_of_week: alt.day, lesson_number: alt.lesson }]);
+    setPendingConflict(null);
     setEditingCell(null);
   };
 
@@ -94,6 +133,18 @@ const GeneratedTimetablePreview = ({
 
   const editingSlot = editingCell ? getCellSlot(editingCell.day, editingCell.lesson) : undefined;
 
+  const handleExportPdf = async () => {
+    if (!gridRef.current || !selectedClass) return;
+    setExporting(true);
+    try {
+      await exportElementToPdf(gridRef.current, `מערכת שעות - ${selectedClass.grade}'${selectedClass.class_number}`);
+    } catch (e) {
+      toast({ title: "שגיאה בייצוא PDF", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const scheduledCount = classSlots.length;
   const possibleCount = periods.length * days.length;
   const legendSubjects = useMemo(
@@ -104,7 +155,7 @@ const GeneratedTimetablePreview = ({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <Select value={selectedClassId} onValueChange={(v) => { setSelectedClassId(v); setEditingCell(null); }}>
+        <Select value={selectedClassId} onValueChange={(v) => { setSelectedClassId(v); setEditingCell(null); setPendingConflict(null); }}>
           <SelectTrigger className="w-32"><SelectValue placeholder="בחר כיתה" /></SelectTrigger>
           <SelectContent>
             {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.grade}'{c.class_number}</SelectItem>)}
@@ -116,6 +167,9 @@ const GeneratedTimetablePreview = ({
           </span>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => window.print()}>
             <Printer className="h-3.5 w-3.5" /> הדפסה
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExportPdf} disabled={exporting}>
+            <FileDown className="h-3.5 w-3.5" /> {exporting ? "מייצא..." : "ייצוא PDF"}
           </Button>
         </div>
       </div>
@@ -143,7 +197,7 @@ const GeneratedTimetablePreview = ({
         </div>
       )}
 
-      <Card className="print:border-none print:shadow-none">
+      <Card ref={gridRef} className="print:border-none print:shadow-none">
         <CardContent className="pt-6 overflow-x-auto print:p-0">
           <table className="w-full border-collapse min-w-[600px]">
             <thead>
@@ -174,7 +228,7 @@ const GeneratedTimetablePreview = ({
                     return (
                       <td key={d} className="p-1 align-top">
                         <button
-                          onClick={() => setEditingCell({ day: d, lesson: p.lesson_number })}
+                          onClick={() => { setEditingCell({ day: d, lesson: p.lesson_number }); setPendingConflict(null); }}
                           style={hue !== null ? ({ "--sh": hue } as CSSProperties) : undefined}
                           className={`w-full min-h-[60px] rounded-lg p-1.5 text-right border border-s-4 transition-all print:min-h-[44px] ${
                             isEditing ? "ring-2 ring-primary" : "border-border/40 hover:border-primary/40"
@@ -217,7 +271,7 @@ const GeneratedTimetablePreview = ({
             <CardTitle className="text-sm font-heading">
               עריכת שיבוץ — {HEBREW_DAYS[editingCell.day]}, שיעור {editingCell.lesson}
             </CardTitle>
-            <Button variant="ghost" size="icon" onClick={() => setEditingCell(null)}><X className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" onClick={() => { setEditingCell(null); setPendingConflict(null); }}><X className="h-4 w-4" /></Button>
           </CardHeader>
           <CardContent>
             <CellEditForm
@@ -233,6 +287,15 @@ const GeneratedTimetablePreview = ({
             />
           </CardContent>
         </Card>
+      )}
+
+      {pendingConflict && (
+        <ConflictResolutionDialog
+          conflict={pendingConflict.reason}
+          alternatives={pendingConflict.alternatives}
+          onCancel={() => setPendingConflict(null)}
+          onChooseAlternative={applyConflictAlternative}
+        />
       )}
 
       {classConflicts.length > 0 && (

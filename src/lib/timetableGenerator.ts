@@ -29,6 +29,14 @@ export interface GeneratorRequirement {
   // own teacher/room (unlike is_grade_wide, where every class gets the same
   // subject). Implies grade-wide placement regardless of is_grade_wide.
   track_group: string | null;
+  // 'ability_group' is the one track_kind where options are NOT different
+  // subjects: every row shares subject === base_subject, and group_label
+  // (e.g. "קבוצה א'") is the only thing telling options apart. 'megama'/
+  // 'hakbatza' (or null, for legacy rows) keep the original behavior of one
+  // distinct subject string per option.
+  track_kind: "megama" | "hakbatza" | "ability_group" | null;
+  base_subject: string | null;
+  group_label: string | null;
 }
 
 export interface EligibleTeacher {
@@ -144,10 +152,14 @@ export function sanitizePlaceholderTeacher(slot: GeneratedSlot): GeneratedSlot {
  * the same class+subject) schedules each group on its own independent free
  * slot rather than guaranteeing all groups land on the exact same slot -
  * true concurrent same-class splitting would need a more involved co-placement
- * search. group_count is also currently ignored for is_grade_wide subjects
- * (only weekly_hours/block_size/preferred_room_type are read from them). The
- * DB schema (group_name-aware unique indexes) supports true concurrency for
- * manual placement; the generator doesn't exploit it yet.
+ * search. group_count is also currently ignored for plain is_grade_wide
+ * subjects (only weekly_hours/block_size/preferred_room_type are read from
+ * them) - a grade-wide subject that needs to fan out into several
+ * cross-class ability groups (same subject, several teachers, one shared
+ * slot) uses track_kind='ability_group' instead (see TrackOption/optionKey
+ * above), not group_count. The DB schema (group_name-aware unique indexes)
+ * supports true concurrency for manual placement; the generator doesn't
+ * exploit it for group_count yet.
  */
 export function generateTimetable(input: GenerateTimetableInput): GenerateTimetableResult {
   const { classes, periods, days, requirements, eligibleTeachers, unavailable, rooms, lockedSlots } = input;
@@ -212,7 +224,11 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
   const perClassReqs = requirements.filter(r => !r.track_group && !r.is_grade_wide);
 
   interface TrackOption {
-    subject: string;
+    // Unique key within the block: group_label for ability_group rows
+    // (subject is identical across all of them), subject text otherwise.
+    key: string;
+    subject: string; // the subject value written onto the placed slot
+    groupName: string | null; // the group_name value written onto the placed slot
     preferredRoomType: string | null;
   }
   interface TrackBlockUnit {
@@ -236,8 +252,14 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
       // classIds should be identical across options in practice (the whole
       // grade), deduplicated defensively in case of partial per-class data.
       const classIds = Array.from(new Set(reqs.map(r => r.class_id)));
-      const optionsBySubject = new Map(reqs.map(r => [r.subject, r]));
-      const options: TrackOption[] = Array.from(optionsBySubject.values()).map(r => ({ subject: r.subject, preferredRoomType: r.preferred_room_type }));
+      const optionKey = (r: GeneratorRequirement) => (r.track_kind === "ability_group" ? (r.group_label ?? r.subject) : r.subject);
+      const optionsByKey = new Map(reqs.map(r => [optionKey(r), r]));
+      const options: TrackOption[] = Array.from(optionsByKey.entries()).map(([k, r]) => ({
+        key: k,
+        subject: r.track_kind === "ability_group" ? (r.base_subject || r.subject) : r.subject,
+        groupName: r.track_kind === "ability_group" ? (r.group_label || k) : r.subject,
+        preferredRoomType: r.preferred_room_type,
+      }));
       // Options can carry different weekly_hours (e.g. a 5-יח"ל הקבצה level
       // meeting more hours/week than 3-יח"ל) - block_size is still assumed
       // uniform across options (they share the same slot while both are
@@ -250,11 +272,11 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
       // remaining option isn't necessarily the only one - a superset
       // constraint, but always correct).
       const base = reqs[0];
-      const maxHours = Math.max(...Array.from(optionsBySubject.values()).map(r => r.weekly_hours));
+      const maxHours = Math.max(...Array.from(optionsByKey.values()).map(r => r.weekly_hours));
       let covered = 0;
       while (covered < maxHours) {
         const blockLen = Math.min(base.block_size, maxHours - covered);
-        const activeOptions = options.filter(o => optionsBySubject.get(o.subject)!.weekly_hours > covered);
+        const activeOptions = options.filter(o => optionsByKey.get(o.key)!.weekly_hours > covered);
         if (activeOptions.length > 0) {
           trackBlockUnits.push({ grade: base.grade, trackGroup: base.track_group!, classIds, options: activeOptions, blockLen });
         }
@@ -520,7 +542,7 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
         let roomsOk = true;
         for (const opt of tb.options) {
           if (!opt.preferredRoomType) {
-            roomByOption.set(opt.subject, null);
+            roomByOption.set(opt.key, null);
             continue;
           }
           const alreadyUsed = new Set(Array.from(roomByOption.values()).filter((r): r is string => !!r));
@@ -531,7 +553,7 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
             roomsOk = false;
             break;
           }
-          roomByOption.set(opt.subject, room);
+          roomByOption.set(opt.key, room);
         }
         if (!roomsOk) continue;
 
@@ -548,7 +570,7 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
             usedTeachers.add(free.teacher_id);
             filledCount++;
           }
-          teacherByOption.set(opt.subject, free);
+          teacherByOption.set(opt.key, free);
         }
 
         let score = 0;
@@ -577,8 +599,8 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
     const lessons = Array.from({ length: tb.blockLen }, (_, i) => periods[best!.startIdx + i]);
     for (const cid of tb.classIds) {
       for (const opt of tb.options) {
-        const teacher = best.teacherByOption.get(opt.subject) || null;
-        const room = best.roomByOption.get(opt.subject) || null;
+        const teacher = best.teacherByOption.get(opt.key) || null;
+        const room = best.roomByOption.get(opt.key) || null;
         for (const lessonNumber of lessons) {
           const slot: GeneratedSlot = {
             class_id: cid,
@@ -588,7 +610,7 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
             teacher_id: teacher?.teacher_id || null,
             teacher_name: teacher?.teacher_name || null,
             room,
-            group_name: opt.subject,
+            group_name: opt.groupName,
           };
           slots.push(slot);
           markOccupied(slot);

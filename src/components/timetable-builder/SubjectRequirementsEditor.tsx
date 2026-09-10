@@ -27,6 +27,7 @@ interface Requirement {
   track_group: string | null;
   track_kind: string | null;
   base_subject: string | null;
+  group_label: string | null;
 }
 
 interface SubjectRequirementsEditorProps {
@@ -41,6 +42,7 @@ const SubjectRequirementsEditor = ({ schoolId, profile }: SubjectRequirementsEdi
   const [approved, setApproved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [convertingId, setConvertingId] = useState<string | null>(null);
+  const [convertingToAbilityGroupId, setConvertingToAbilityGroupId] = useState<string | null>(null);
 
   const canApprove = profile.roles.some(r => ["management", "system_admin"].includes(r));
 
@@ -161,6 +163,33 @@ const SubjectRequirementsEditor = ({ schoolId, profile }: SubjectRequirementsEdi
     }
     setConvertingId(null);
     toast({ title: "המקצוע הפך להקבצה — כעת אפשר להוסיף לו עוד רמות למטה ✅" });
+    clearApproval();
+    loadData();
+  };
+
+  // Converts an existing plain (or is_grade_wide) subject row in-place into
+  // the first ability group of a cross-class level split: unlike
+  // handleConvertToHakbatza, the subject text is left untouched (every
+  // option in an ability_group block shares one plain subject name) - only
+  // group_label distinguishes the option, so reports/hour totals still show
+  // one canonical subject instead of N composed level names.
+  const handleConvertToAbilityGroup = async (item: Requirement, groupName: string) => {
+    const trimmed = groupName.trim();
+    if (!trimmed) return;
+    const patch = {
+      is_grade_wide: true,
+      track_group: `${item.subject} - קבוצות רמה`,
+      track_kind: "ability_group",
+      base_subject: item.subject,
+      group_label: trimmed,
+    };
+    const { error } = await supabase.from("subject_requirements").update(patch).eq("id", item.id);
+    if (error) {
+      toast({ title: "שגיאה בפיצול לקבוצות רמה", description: error.message, variant: "destructive" });
+      return;
+    }
+    setConvertingToAbilityGroupId(null);
+    toast({ title: "המקצוע פוצל לקבוצות רמה — כעת אפשר להוסיף לו עוד קבוצות למטה ✅" });
     clearApproval();
     loadData();
   };
@@ -286,6 +315,9 @@ const SubjectRequirementsEditor = ({ schoolId, profile }: SubjectRequirementsEdi
                           <DropdownMenuItem onClick={() => setConvertingId(item.id)}>
                             הפוך להקבצה (רמות לימוד)
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setConvertingToAbilityGroupId(item.id)}>
+                            פצל לקבוצות רמה (אותו מקצוע)
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                       <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleRemove(item.id)}>
@@ -298,6 +330,13 @@ const SubjectRequirementsEditor = ({ schoolId, profile }: SubjectRequirementsEdi
                       subject={item.subject}
                       onConfirm={(level) => handleConvertToHakbatza(item, level)}
                       onCancel={() => setConvertingId(null)}
+                    />
+                  )}
+                  {convertingToAbilityGroupId === item.id && (
+                    <ConvertToAbilityGroupRow
+                      subject={item.subject}
+                      onConfirm={(groupName) => handleConvertToAbilityGroup(item, groupName)}
+                      onCancel={() => setConvertingToAbilityGroupId(null)}
                     />
                   )}
                 </div>
@@ -372,6 +411,27 @@ const ConvertToHakbatzaRow = ({ subject, onConfirm, onCancel }: { subject: strin
         autoFocus
       />
       <Button size="sm" className="h-8" onClick={() => onConfirm(level)} disabled={!level.trim()}>אשר</Button>
+      <Button size="sm" variant="ghost" className="h-8" onClick={onCancel}>ביטול</Button>
+    </div>
+  );
+};
+
+const ConvertToAbilityGroupRow = ({ subject, onConfirm, onCancel }: { subject: string; onConfirm: (groupName: string) => void; onCancel: () => void }) => {
+  const [groupName, setGroupName] = useState("");
+  return (
+    <div className="flex flex-wrap gap-2 items-end p-2 mt-1 rounded-lg bg-primary/5 border border-primary/20">
+      <p className="text-xs text-muted-foreground w-full">
+        "{subject}" יילמד בקבוצות רמה חוצות-כיתה, כולן באותה שעה - הקבוצה הראשונה תיקרא "{groupName || "..."}", ואפשר יהיה להוסיף עוד קבוצות למטה. שם המקצוע עצמו ("{subject}") יישאר זהה לכל הקבוצות.
+      </p>
+      <Input
+        placeholder='שם הקבוצה הראשונה (למשל: "קבוצה א׳")'
+        className="w-48 h-8"
+        value={groupName}
+        onChange={(e) => setGroupName(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && groupName.trim() && onConfirm(groupName)}
+        autoFocus
+      />
+      <Button size="sm" className="h-8" onClick={() => onConfirm(groupName)} disabled={!groupName.trim()}>אשר</Button>
       <Button size="sm" variant="ghost" className="h-8" onClick={onCancel}>ביטול</Button>
     </div>
   );
