@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "import:bagrut": "node scripts/import-bagrut.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
