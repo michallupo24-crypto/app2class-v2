@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Archive, Plus, FileText, Download, Trash2, Loader2, Search, ScanText } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Archive, Plus, FileText, Download, Trash2, Loader2, Search, ScanText, Library, School } from "lucide-react";
+import BagrutArchive from "@/components/exam-archive/BagrutArchive";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -164,6 +166,17 @@ const ExamArchivePage = () => {
         )}
       </div>
 
+      <Tabs defaultValue="bagrut" dir="rtl">
+        <TabsList>
+          <TabsTrigger value="bagrut" className="gap-1.5"><Library className="h-4 w-4" /> מאגר הבגרויות הארצי</TabsTrigger>
+          <TabsTrigger value="school" className="gap-1.5"><School className="h-4 w-4" /> מבחני בית הספר</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="bagrut" className="mt-4">
+          <BagrutArchive />
+        </TabsContent>
+
+        <TabsContent value="school" className="mt-4 space-y-6">
       <div className="flex gap-2 flex-wrap">
         <Select value={subjectFilter} onValueChange={setSubjectFilter}>
           <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
@@ -223,6 +236,8 @@ const ExamArchivePage = () => {
           ))}
         </div>
       )}
+        </TabsContent>
+      </Tabs>
     </motion.div>
   );
 };
