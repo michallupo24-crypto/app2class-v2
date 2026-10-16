@@ -14,6 +14,7 @@ import { GRADES } from "@/lib/constants";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { isValidIsraeliId } from "@/lib/israeliId";
+import { saveAvatar } from "@/components/avatar/avatarModel";
 
 const StudentRegistration = () => {
   const navigate = useNavigate();
@@ -103,22 +104,7 @@ const StudentRegistration = () => {
       if (roleError) throw roleError;
 
       // Save avatar
-      const { error: avatarError } = await supabase.from("avatars").insert({
-        user_id: userId,
-        face_shape: avatar.body_type || "basic",
-        skin_color: avatar.skin || "#FDDBB4",
-        eye_shape: "round",
-        eye_color: avatar.eye_color || "brown",
-        hair_style: avatar.hair_style || "boy",
-        hair_color: avatar.hair_color || "#2C1A0E",
-        facial_hair: avatar.facialHair || "none",
-        outfit: avatar.outfit || "casual",
-        outfit_color: avatar.outfitColor || "#3B82F6",
-        accessory: avatar.accessory || "none",
-        expression: avatar.expression || "happy",
-        background: avatar.background || "#E0F2FE",
-      });
-      if (avatarError) throw avatarError;
+      await saveAvatar(supabase, userId, avatar);
 
       // Save tracks
       const trackRows: any[] = [

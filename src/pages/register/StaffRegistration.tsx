@@ -14,6 +14,7 @@ import { GRADES, STAFF_ROLES, SUBJECTS } from "@/lib/constants";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { isValidIsraeliId } from "@/lib/israeliId";
+import { saveAvatar } from "@/components/avatar/avatarModel";
 
 interface TeachingClass {
   grade: string;
@@ -188,21 +189,7 @@ const StaffRegistration = () => {
       }
 
       // Avatar
-      await supabase.from("avatars").insert({
-        user_id: userId,
-        face_shape: avatar.body_type || "basic",
-        skin_color: avatar.skin || "#FDDBB4",
-        eye_shape: "round",
-        eye_color: avatar.eye_color || "brown",
-        hair_style: avatar.hair_style || "boy",
-        hair_color: avatar.hair_color || "#2C1A0E",
-        facial_hair: avatar.facialHair,
-        outfit: avatar.outfit,
-        outfit_color: avatar.outfitColor,
-        accessory: avatar.accessory,
-        expression: avatar.expression,
-        background: avatar.background,
-      });
+      await saveAvatar(supabase, userId, avatar).catch((e) => console.error("Avatar save failed", e));
 
       // Determine approval role based on STAFF_ROLES config
       const roleConfig = STAFF_ROLES.find((sr) => 

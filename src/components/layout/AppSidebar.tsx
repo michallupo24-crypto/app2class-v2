@@ -250,17 +250,16 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
             aria-label="ערוך אווטאר"
             title="ערוך אווטאר"
           >
-            {/* Round avatar with a white rim on a pastel background, per the design language */}
-            <div
-              className="shrink-0 rounded-full overflow-hidden border-[2.5px] border-white shadow-[0_2px_6px_rgba(40,30,15,0.25)] bg-info-soft flex items-center justify-center dark:border-card"
-              style={{ width: collapsed ? 32 : 42, height: collapsed ? 32 : 42 }}
-            >
-              {profile.avatar ? (
-                <AvatarPreview config={profile.avatar} size={collapsed ? 32 : 42} />
-              ) : (
+            {profile.avatar ? (
+              <AvatarPreview config={profile.avatar} size={collapsed ? 32 : 42} />
+            ) : (
+              <div
+                className="shrink-0 rounded-full border-[2.5px] border-white bg-info-soft shadow-[0_2px_6px_rgba(40,30,15,0.25)] flex items-center justify-center dark:border-card"
+                style={{ width: collapsed ? 32 : 42, height: collapsed ? 32 : 42 }}
+              >
                 <span className="font-heading font-black text-info text-base">{profile.fullName.trim().charAt(0)}</span>
-              )}
-            </div>
+              </div>
+            )}
             {!collapsed && (
               <div className="min-w-0">
                 <p className="font-heading font-extrabold text-[13.5px] leading-none truncate">{profile.fullName}</p>

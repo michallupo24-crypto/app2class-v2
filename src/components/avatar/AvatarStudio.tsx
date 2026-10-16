@@ -1,19 +1,9 @@
 import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import AvatarPreview from "./AvatarPreview";
-import {
-  BODY_TYPES,
-  EYE_COLORS,
-  HAIR_STYLES_BY_BODY,
-  SKIN_COLORS,
-  HAIR_COLORS,
-  EXPRESSIONS,
-  ACCESSORIES,
-  FACIAL_HAIR_OPTIONS,
-  OUTFITS,
-  BACKGROUNDS,
-} from "./avatarData";
+import { Undo2, Shuffle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { AvatarArt, type ArtConfig, type ArtMode } from "./avatarArt";
+import { toArtConfig, fromArtConfig } from "./avatarModel";
 
 // Full avatar config - supports both old camelCase fields (DB mapping) and new SVG fields
 export interface AvatarConfig {
@@ -36,28 +26,42 @@ export interface AvatarConfig {
   skin?: string;
   hair_style?: string;
   hair_color?: string;
+  freckles?: string;
 }
 
 export const defaultAvatarConfig: AvatarConfig = {
   body_type: "basic",
   eye_color: "brown",
-  skin: "#FDDBB4",
-  hair_style: "boy",
-  hair_color: "#2C1A0E",
-  // Keep old defaults for backward compat
-  faceShape: "round",
-  skinColor: "#FFD2A1",
-  eyeShape: "round",
-  eyeColor: "#4A3728",
-  hairStyle: "short",
-  hairColor: "#2C1B0E",
+  skin: "#F5C5A3",
+  hair_style: "ponytail",
+  hair_color: "#5C3317",
   facialHair: "none",
   outfit: "hoodie",
   outfitColor: "#3B82F6",
   accessory: "none",
   expression: "happy",
   background: "#E0F2FE",
+  freckles: "light",
 };
+
+// Options, from the Avatar Editor design.
+const SKINS: [string, string][] = [["לבן שנהב", "#FEECD2"], ["בהיר מאוד", "#FDDBB4"], ["בהיר", "#F5C5A3"], ["אפרסק", "#EEB98A"], ["חיטה", "#E0AC69"], ["זהוב", "#D4915A"], ["חום בינוני", "#C68642"], ["חום", "#A0622A"], ["כהה", "#8D5524"], ["כהה מאוד", "#6B3A1F"], ["שחום", "#4A2912"], ["שחור עור", "#2D1A0E"]];
+const EYES: [string, string, string][] = [["חום", "brown", "#8B4513"], ["כחול", "blue", "#4A90D9"], ["ירוק", "green", "#1A4A1A"]];
+const HAIRS: [string, string][] = [["ילד קצר", "boy"], ["מתולתל קצר", "curly"], ["מאלט", "mullet"], ["ארוך", "girl_long"], ["קשור", "bun"], ["מתולתל ארוך", "curly_long"], ["קוקו", "ponytail"], ["קצר", "short_girl"], ["ללא", "none"]];
+const HAIR_COLORS: [string, string][] = [["שחור", "#0D0D0D"], ["חום כהה", "#2C1A0E"], ["חום", "#5C3317"], ["חום בינוני", "#8B4513"], ["חום אדמדם", "#A0522D"], ["ג'ינג'י כהה", "#8B2500"], ["ג'ינג'י", "#C0392B"], ["ג'ינג'י בהיר", "#E8603C"], ["בלונד כהה", "#B8860B"], ["בלונד", "#D4A017"], ["בלונד בהיר", "#F0C040"], ["אפור", "#808080"], ["אפור בהיר", "#B0B0B0"], ["לבן", "#E8E8E8"]];
+const EXPR: [string, string][] = [["שמח", "happy"], ["נלהב", "excited"], ["רגוע", "calm"], ["מרוכז", "focused"], ["מגניב", "cool"]];
+const OUTFITS: [string, string][] = [["קפוצ'ון", "hoodie"], ["חולצת טי", "tshirt"], ["פולו", "polo"], ["סוודר", "sweater"], ["ג'קט", "jacket"], ["חולצת ספורט", "sport"], ["משבצות", "plaid"], ["מכופתרת", "formal"], ["שמלה", "dress"]];
+const OUTFIT_COLORS: [string, string][] = [["כחול", "#3B82F6"], ["אדום", "#EF4444"], ["ירוק", "#22C55E"], ["כתום", "#F59E0B"], ["סגול", "#A855F7"], ["אפור כהה", "#1F2937"]];
+const ACC: [string, string][] = [["ללא", "none"], ["משקפיים", "glasses"], ["משקפי שמש", "sunglasses"], ["כובע מצחייה", "cap"], ["כיפה", "kippah"], ["חיג'אב", "hijab"], ["מטפחת", "headscarf"], ["מכשיר שמיעה", "hearing_aid"]];
+const FRECKLES: [string, string][] = [["ללא", "none"], ["מעט", "light"], ["הרבה", "many"]];
+const FACIAL: [string, string][] = [["ללא", "none"], ["שפם", "mustache"], ["זקן", "beard"], ["זקנקן", "goatee"]];
+const BACKGROUNDS: [string, string][] = [["שמיים", "#E0F2FE"], ["ורוד", "#FCE7F3"], ["ירוק", "#DCFCE7"], ["צהוב", "#FEF3C7"], ["סגול", "#EDE9FE"], ["תכלת", "#E0F7FA"], ["אפור", "#E8EDF7"]];
+
+type Tab = "face" | "hair" | "eyes" | "clothes";
+const TABS: [Tab, string][] = [["face", "פנים"], ["hair", "שיער"], ["eyes", "עיניים"], ["clothes", "בגדים"]];
+const ZOOMS: [ArtMode, string][] = [["full", "גוף"], ["head", "ראש"], ["face", "פנים"]];
+const TAB_ZOOM: Record<Tab, ArtMode> = { face: "head", hair: "head", eyes: "head", clothes: "full" };
+const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
 
 interface AvatarStudioProps {
   config: AvatarConfig;
@@ -65,193 +69,160 @@ interface AvatarStudioProps {
   variant?: "student" | "adult";
 }
 
-const ColorSwatch = ({
-  colors,
-  value,
-  onChange,
-  label,
-}: {
-  colors: { hex: string; label: string }[];
-  value: string;
-  onChange: (v: string) => void;
-  label: string;
-}) => (
-  <div className="space-y-2">
-    <Label className="font-heading text-sm">{label}</Label>
-    <div className="flex flex-wrap gap-2">
-      {colors.map((c) => (
-        <button
-          key={c.hex}
-          type="button"
-          title={c.label}
-          onClick={() => onChange(c.hex)}
-          className="w-9 h-9 rounded-full transition-all hover:scale-110"
-          style={{
-            // "background" (not "backgroundColor") so this also renders the
-            // gradient values used by the themed BACKGROUNDS entries
-            // (ספרייה/מעבדה/בית), not just the flat-color ones.
-            background: c.hex,
-            border: value === c.hex ? "3px solid hsl(var(--primary))" : "2px solid hsl(var(--border))",
-            transform: value === c.hex ? "scale(1.15)" : undefined,
-            boxShadow: value === c.hex ? "0 0 8px hsl(var(--primary) / 0.4)" : undefined,
-          }}
-        />
-      ))}
-    </div>
-  </div>
-);
+/** Avatar editor (the "Avatar Editor" design). Saving is up to the page that hosts it. */
+const AvatarStudio = ({ config, onChange }: AvatarStudioProps) => {
+  const cfg = toArtConfig(config);
+  const [tab, setTab] = useState<Tab>("face");
+  const [zoom, setZoom] = useState<ArtMode | null>(null);
+  const [history, setHistory] = useState<ArtConfig[]>([]);
+  const view = zoom || TAB_ZOOM[tab];
 
-const OptionPicker = ({
-  options,
-  value,
-  onChange,
-  label,
-}: {
-  options: { key: string; label: string }[];
-  value: string;
-  onChange: (v: string) => void;
-  label: string;
-}) => (
-  <div className="space-y-2">
-    <Label className="font-heading text-sm">{label}</Label>
-    <div className="flex flex-wrap gap-2">
-      {options.map((opt) => (
-        <button
-          key={opt.key}
-          type="button"
-          onClick={() => onChange(opt.key)}
-          className={`px-3 py-1.5 rounded-lg text-sm font-body transition-all ${
-            value === opt.key
-              ? "bg-primary text-primary-foreground shadow-md"
-              : "bg-muted text-muted-foreground hover:bg-muted/80"
-          }`}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  </div>
-);
-
-const AvatarStudio = ({ config, onChange, variant = "student" }: AvatarStudioProps) => {
-  const update = (key: keyof AvatarConfig, value: string) => {
-    onChange({ ...config, [key]: value });
+  const apply = (next: ArtConfig) => {
+    setHistory((h) => [...h, cfg].slice(-30));
+    onChange(fromArtConfig(next, config));
   };
-
-  const bodyTypeKey = config.body_type || "basic";
-  const currentHairStyles = HAIR_STYLES_BY_BODY[bodyTypeKey] || HAIR_STYLES_BY_BODY.basic;
-
-  const handleBodyTypeChange = (newBodyType: string) => {
-    const newHairStyles = HAIR_STYLES_BY_BODY[newBodyType];
-    const currentHairExists = newHairStyles.some((h) => h.key === config.hair_style);
-    // "wider" has no green-eyes artwork (missing SVG asset) - fall back to
-    // green_dark, the closest available shade, same as the hair_style fallback above.
-    const needsEyeColorFallback = newBodyType === "wider" && config.eye_color === "green";
-    onChange({
-      ...config,
-      body_type: newBodyType,
-      hair_style: currentHairExists ? config.hair_style : newHairStyles[0].key,
-      eye_color: needsEyeColorFallback ? "green_dark" : config.eye_color,
+  const set = (key: keyof ArtConfig, value: string) => {
+    if (cfg[key] !== value) apply({ ...cfg, [key]: value });
+  };
+  const undo = () => {
+    if (!history.length) return;
+    onChange(fromArtConfig(history[history.length - 1], config));
+    setHistory((h) => h.slice(0, -1));
+  };
+  const randomize = () =>
+    apply({
+      ...cfg,
+      skin: pick(SKINS)[1], eyes: pick(EYES)[1], hair: pick(HAIRS.slice(0, 8))[1], hairColor: pick(HAIR_COLORS)[1],
+      expression: pick(EXPR)[1], outfit: pick(OUTFITS)[1], outfitColor: pick(OUTFIT_COLORS)[1],
+      accessory: pick(["none", "none", "glasses", "cap"]), freckles: pick(["none", "none", "light", "many"]),
     });
-  };
 
-  // "wider" body type has no green-eyes artwork on disk - hide that swatch
-  // instead of offering a choice that renders as a broken silhouette.
-  const availableEyeColors = EYE_COLORS.filter((e) => !(bodyTypeKey === "wider" && e.key === "green"));
+  const Tiles = ({ title, field, list, mode }: { title: string; field: keyof ArtConfig; list: [string, string][]; mode: ArtMode }) => (
+    <Section title={title} current={list.find((x) => x[1] === cfg[field])?.[0]}>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(72px,1fr))] gap-2">
+        {list.map(([label, value]) => {
+          const on = cfg[field] === value;
+          return (
+            <button key={value} type="button" onClick={() => set(field, value)} aria-pressed={on} className="flex flex-col gap-1.5">
+              <div className={cn("overflow-hidden rounded-[16px] outline-offset-2", on ? "outline outline-[3px] outline-link" : "outline outline-1 outline-border")}>
+                <AvatarArt cfg={{ ...cfg, [field]: value }} mode={mode} />
+              </div>
+              <span className={cn("text-center font-body text-xs font-bold leading-tight", on ? "text-link" : "text-text-secondary")}>{label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </Section>
+  );
+
+  const Swatches = ({ title, field, list, hexIdx = 1 }: { title: string; field: keyof ArtConfig; list: string[][]; hexIdx?: number }) => (
+    <Section title={title} current={list.find((x) => x[1] === cfg[field])?.[0]}>
+      <div className="flex flex-wrap gap-2.5">
+        {list.map((x) => {
+          const on = cfg[field] === x[1];
+          return (
+            <button
+              key={x[1]}
+              type="button"
+              title={x[0]}
+              aria-label={x[0]}
+              aria-pressed={on}
+              onClick={() => set(field, x[1])}
+              className="h-10 w-10 rounded-full"
+              style={{ background: x[hexIdx], boxShadow: on ? "0 0 0 3px #fff, 0 0 0 6px hsl(var(--link))" : "inset 0 0 0 1px rgba(27,35,51,.12)" }}
+            />
+          );
+        })}
+      </div>
+    </Section>
+  );
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="grid items-start gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
       {/* Preview */}
-      <div className="flex justify-center items-start">
-        <div className="sticky top-24">
-          <AvatarPreview config={config} size={200} />
-          <p className="text-center text-xs text-muted-foreground mt-2 font-body">תצוגה מקדימה</p>
+      <div className="flex flex-col gap-4 rounded-card bg-card p-5 shadow-card md:sticky md:top-20">
+        <div className="mx-auto w-full max-w-[380px] overflow-hidden rounded-[18px]">
+          <AvatarArt cfg={cfg} mode={view} />
+        </div>
+        <div className="flex justify-center gap-2">
+          {ZOOMS.map(([k, label]) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setZoom(k)}
+              className={cn("rounded-full px-3.5 py-2 font-body text-[13px] font-bold", k === view ? "bg-primary text-primary-foreground" : "bg-muted text-text-secondary")}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="flex justify-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={undo} disabled={!history.length} className="gap-1.5">
+            <Undo2 className="h-4 w-4" /> ביטול שינוי
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={randomize} className="gap-1.5">
+            <Shuffle className="h-4 w-4" /> הפתיעו אותי
+          </Button>
         </div>
       </div>
 
-      {/* Options */}
-      <Card className="border-border/50">
-        <CardContent className="pt-4 space-y-5">
-          <OptionPicker
-            label="סוג גוף"
-            options={BODY_TYPES.map((b) => ({ key: b.key, label: b.label }))}
-            value={bodyTypeKey}
-            onChange={handleBodyTypeChange}
-          />
-          <ColorSwatch
-            label="צבע עיניים"
-            colors={availableEyeColors.map((e) => ({ hex: e.hex, label: e.label }))}
-            value={EYE_COLORS.find((e) => e.key === (config.eye_color || "brown"))?.hex || EYE_COLORS[0].hex}
-            onChange={(hex) => {
-              const entry = EYE_COLORS.find((e) => e.hex === hex);
-              if (entry) update("eye_color", entry.key);
-            }}
-          />
-          <ColorSwatch
-            label="גוון עור"
-            colors={SKIN_COLORS}
-            value={config.skin || "#FDDBB4"}
-            onChange={(v) => update("skin", v)}
-          />
-          <OptionPicker
-            label="סגנון שיער"
-            options={currentHairStyles.map((h) => ({ key: h.key, label: h.label }))}
-            value={config.hair_style || "boy"}
-            onChange={(v) => update("hair_style", v)}
-          />
-          <ColorSwatch
-            label="צבע שיער"
-            colors={HAIR_COLORS}
-            value={config.hair_color || "#2C1A0E"}
-            onChange={(v) => update("hair_color", v)}
-          />
-          <OptionPicker
-            label="הבעה"
-            options={EXPRESSIONS.map((e) => ({ key: e.key, label: e.label }))}
-            value={config.expression || "happy"}
-            onChange={(v) => update("expression", v)}
-          />
-          <OptionPicker
-            label="אביזר"
-            options={ACCESSORIES.map((a) => ({ key: a.key, label: a.label }))}
-            value={config.accessory || "none"}
-            onChange={(v) => update("accessory", v)}
-          />
-          <OptionPicker
-            label="שיער פנים"
-            options={FACIAL_HAIR_OPTIONS.map((f) => ({ key: f.key, label: f.label }))}
-            value={config.facialHair || "none"}
-            onChange={(v) => update("facialHair", v)}
-          />
-          <OptionPicker
-            label="לבוש"
-            options={OUTFITS.map((o) => ({ key: o.key, label: o.label }))}
-            value={config.outfit || "hoodie"}
-            onChange={(v) => update("outfit", v)}
-          />
-          <ColorSwatch
-            label="צבע לבוש"
-            colors={[
-              { hex: "#3B82F6", label: "כחול" },
-              { hex: "#EF4444", label: "אדום" },
-              { hex: "#22C55E", label: "ירוק" },
-              { hex: "#F59E0B", label: "כתום" },
-              { hex: "#A855F7", label: "סגול" },
-              { hex: "#1F2937", label: "אפור כהה" },
-            ]}
-            value={config.outfitColor || "#3B82F6"}
-            onChange={(v) => update("outfitColor", v)}
-          />
-          <ColorSwatch
-            label="רקע"
-            colors={BACKGROUNDS.map((b) => ({ hex: b.hex, label: b.label }))}
-            value={config.background || "#E0F2FE"}
-            onChange={(v) => update("background", v)}
-          />
-        </CardContent>
-      </Card>
+      {/* Controls */}
+      <div className="flex min-w-0 flex-col gap-[22px] rounded-card bg-card p-5 shadow-card">
+        <div className="grid grid-cols-4 gap-1.5 rounded-[16px] bg-muted p-[5px]">
+          {TABS.map(([k, label]) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => { setTab(k); setZoom(null); }}
+              className={cn("rounded-xl px-1.5 py-3 text-center font-heading text-[15px] font-extrabold", k === tab ? "bg-card text-foreground shadow-[0_1px_3px_rgba(27,35,51,0.12)]" : "text-muted-foreground")}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "face" && (
+          <>
+            <Swatches title="גוון עור" field="skin" list={SKINS} />
+            <Tiles title="הבעה" field="expression" list={EXPR} mode="head" />
+            <Tiles title="נמשים" field="freckles" list={FRECKLES} mode="head" />
+            <Tiles title="שיער פנים" field="facialHair" list={FACIAL} mode="head" />
+            <Swatches title="רקע" field="background" list={BACKGROUNDS} />
+          </>
+        )}
+        {tab === "hair" && (
+          <>
+            <Tiles title="תסרוקת" field="hair" list={HAIRS} mode="head" />
+            <Swatches title="צבע שיער" field="hairColor" list={HAIR_COLORS} />
+          </>
+        )}
+        {tab === "eyes" && (
+          <>
+            <Swatches title="צבע עיניים" field="eyes" list={EYES} hexIdx={2} />
+            <Tiles title="משקפיים ואביזרים" field="accessory" list={ACC} mode="head" />
+          </>
+        )}
+        {tab === "clothes" && (
+          <>
+            <Tiles title="לבוש" field="outfit" list={OUTFITS} mode="full" />
+            <Swatches title="צבע" field="outfitColor" list={OUTFIT_COLORS} />
+          </>
+        )}
+      </div>
     </div>
   );
 };
+
+function Section({ title, current, children }: { title: string; current?: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2.5">
+      <div className="flex items-baseline justify-between gap-2.5">
+        <span className="font-heading text-[15px] font-extrabold text-foreground">{title}</span>
+        {current && <span className="font-body text-[13px] font-semibold text-muted-foreground">{current}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
 
 export default AvatarStudio;

@@ -28,6 +28,7 @@ import type { UserProfile } from "@/hooks/useAuth";
 import type { AvatarConfig } from "@/components/avatar/AvatarStudio";
 import { extractDocumentText, isExtractableDocument, isImageFile } from "@/lib/fileExtraction";
 import { requestImageOcr } from "@/lib/fileOcr";
+import { avatarFromRow } from "@/components/avatar/avatarModel";
 
 /* ─── Types ───────────────────────────────────────────── */
 type ConversationType = 
@@ -119,22 +120,6 @@ const CHANNEL_SECTIONS: { types: ConversationType[]; title: string }[] = [
   { types: ["private"], title: "אישי" },
 ];
 
-const FACE_TO_BODY: Record<string, string> = {
-  round: "basic", oval: "basic", square: "wider", long: "taller",
-  basic: "basic", wider: "wider", taller: "taller",
-};
-
-function avatarFromRow(av: any): AvatarConfig | null {
-  if (!av) return null;
-  return {
-    body_type: FACE_TO_BODY[av.face_shape] || "basic",
-    eye_color: av.eye_color || "brown",
-    skin: av.skin_color || "#FDDBB4",
-    hair_style: av.hair_style || "boy",
-    hair_color: av.hair_color || "#2C1A0E",
-  };
-}
-
 /** Supabase may return avatars as one row or an array */
 function firstAvatarFromProfile(avatars: unknown): any {
   if (!avatars) return null;
@@ -149,7 +134,7 @@ async function fetchAvatarsByUserIds(userIds: string[]) {
   if (!uniq.length) return map;
   const { data, error } = await supabase
     .from("avatars")
-    .select("user_id, face_shape, eye_color, skin_color, hair_style, hair_color")
+    .select("*")
     .in("user_id", uniq);
   if (error) {
     console.error("avatars (batch):", error);
