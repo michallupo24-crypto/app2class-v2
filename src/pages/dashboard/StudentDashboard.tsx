@@ -2,7 +2,7 @@ import { useOutletContext } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Brain, Loader2, Sparkles, Cake } from "lucide-react";
+import { Brain, Loader2, Sparkles, Cake, Sun, Moon } from "lucide-react";
 import ClassMessenger from "@/components/dashboard/ClassMessenger";
 import { supabase } from "@/integrations/supabase/client";
 import type { UserProfile } from "@/hooks/useAuth";
@@ -11,7 +11,7 @@ import { useGamification } from "@/hooks/useGamification";
 import { useStudentDay } from "@/hooks/useStudentDay";
 import { subjectColor } from "@/components/SubjectSticker";
 import {
-  HomeHeader, HeroCard, HomeSection, HomeColumns, LessonStrip, StatTiles, HomeRow, HomeEmpty,
+  HomeHeader, HeroCard, HomeSection, HomeColumns, LessonStrip, StatTiles, HomeRow, HomeEmpty, IconTile,
   greeting, longHebrewDate, firstName, type StripLesson, type Tone,
 } from "@/components/home/HomeKit";
 
@@ -390,7 +390,7 @@ ${birthdayText}
     const live = (subject: string) => () => navigate(`/dashboard/subjects/${encodeURIComponent(subject)}?tab=live`);
 
     if (activeHoliday) {
-      return { color: "#F0A21A", subject: "שעת חינוך", tag: "חופשה", title: `חופשת ${activeHoliday.title}`,
+      return { color: "#F0A21A", icon: <IconTile icon={Sun} color="#F2A007" size={92} />, tag: "חופשה", title: `חופשת ${activeHoliday.title}`,
         meta: activeHoliday.returnDate ? `חוזרים ללימודים ב-${shortDateFmt.format(parseDate(activeHoliday.returnDate))}` : undefined };
     }
     if (day.phase === "lesson" && day.current) {
@@ -412,7 +412,7 @@ ${birthdayText}
       return { color: subjectColor(nextExam.subject || nextExam.title), subject: nextExam.subject || undefined, tag: "המבחן הקרוב",
         title: eventTitle(nextExam), meta: formatCountdown(now, nextExam) };
     }
-    return { color: INK_HERO, subject: "שעת חינוך", tag: day.phase === "after" ? "היום הסתיים" : "אין לימודים היום", title: "יום טוב!",
+    return { color: INK_HERO, icon: <IconTile icon={Moon} color="#8E9BD6" size={92} />, tag: day.phase === "after" ? "היום הסתיים" : "אין לימודים היום", title: "יום טוב!",
       meta: "אין מבחנים קרובים ביומן" };
   })();
 
@@ -429,7 +429,7 @@ ${birthdayText}
       {(aiLoading || aiInsight) && (
         <HomeSection title="תובנת המנטור לשבוע">
           <HomeRow
-            icon={<div className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-info-soft"><Brain className="h-5 w-5 text-info" /></div>}
+            icon={<IconTile icon={Brain} color="#9257EC" />}
             title={aiLoading ? "המנטור חושב על השבוע שלך..." : "מה כדאי לעשות השבוע"}
             meta={aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : aiInsight}
           />

@@ -239,6 +239,18 @@ export function RowTag({ label, tone }: { label: string; tone: Tone }) {
   );
 }
 
+/** A subject-tile-shaped icon (white rim, colored square, white glyph) for things that aren't a subject. */
+export function IconTile({ icon: Icon, color, size = 42 }: { icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; color: string; size?: number }) {
+  return (
+    <div
+      className="flex shrink-0 items-center justify-center border-white shadow-[0_2.5px_3px_rgba(40,30,15,0.22)] dark:border-card"
+      style={{ width: size, height: size, background: color, borderRadius: size * 0.3, borderWidth: Math.max(3, size * 0.07) }}
+    >
+      <Icon className="text-white" style={{ width: size * 0.48, height: size * 0.48 }} />
+    </div>
+  );
+}
+
 /** Initials in a colored circle - stands in where a person has no avatar. */
 export function PersonBadge({ name, tilt = 0 }: { name: string; tilt?: number }) {
   const parts = name.trim().split(/\s+/);
