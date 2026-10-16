@@ -1,6 +1,5 @@
 import { AppMode } from '@/types/smartseat';
-import { Button } from '@/components/ui/button';
-import { Edit3, BookOpen, GraduationCap } from 'lucide-react';
+import { PillSwitch } from '@/components/home/HomeKit';
 
 interface TopBarProps {
     mode: AppMode;
@@ -10,34 +9,20 @@ interface TopBarProps {
 
 export function TopBar({ mode, setMode, className }: TopBarProps) {
     return (
-        <header className="flex items-center justify-between px-6 py-3 bg-card border-b shadow-sm">
+        <header className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
             <div className="flex items-center gap-3">
-                <GraduationCap className="h-8 w-8 text-primary" />
-                <div>
-                    <h1 className="text-xl font-bold text-foreground">SmartSeat</h1>
-                    <p className="text-xs text-muted-foreground">{className}</p>
-                </div>
+                <h1 className="font-heading text-2xl font-black text-foreground">מפת כיתה</h1>
+                {className && (
+                    <span className="rounded-full border-[2.5px] border-white bg-card px-3 py-2 font-body text-[13px] font-extrabold text-foreground shadow-[0_3px_8px_-5px_rgba(40,30,15,0.35)] dark:border-card">
+                        {className}
+                    </span>
+                )}
             </div>
-            <div className="flex gap-2 bg-muted rounded-lg p-1">
-                <Button
-                    variant={mode === 'edit' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setMode('edit')}
-                    className="gap-2"
-                >
-                    <Edit3 className="h-4 w-4" />
-                    מצב עריכה
-                </Button>
-                <Button
-                    variant={mode === 'lesson' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setMode('lesson')}
-                    className="gap-2"
-                >
-                    <BookOpen className="h-4 w-4" />
-                    מצב שיעור
-                </Button>
-            </div>
+            <PillSwitch<AppMode>
+                options={[{ value: 'edit', label: 'סידור' }, { value: 'lesson', label: 'שיעור' }]}
+                value={mode}
+                onChange={setMode}
+            />
         </header>
     );
 }

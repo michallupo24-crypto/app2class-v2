@@ -22,7 +22,7 @@ export function StudentSidebar({ students, unseated, mode, highlightedId, onHigh
     };
 
     return (
-        <aside className="w-80 border-r bg-card p-4 flex flex-col gap-6" dir="rtl">
+        <aside className="w-72 border-r border-border bg-card/70 p-4 flex flex-col gap-5" dir="rtl">
             <div>
                 <h3 className="font-heading font-bold text-lg mb-4 flex items-center gap-2">
                     תלמידים ({students.length})
@@ -30,7 +30,7 @@ export function StudentSidebar({ students, unseated, mode, highlightedId, onHigh
             </div>
 
             <div className="flex-1 overflow-auto space-y-2">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                <h4 className="font-heading text-[13px] font-extrabold text-text-secondary mb-2">
                     {mode === 'edit' ? 'ממתינים לשיבוץ' : 'רשימת תלמידים'}
                 </h4>
                 
@@ -41,8 +41,8 @@ export function StudentSidebar({ students, unseated, mode, highlightedId, onHigh
                         onDragStart={(e) => handleDragStart(e, s.id)}
                         className={`
                             group flex items-center justify-between p-2 rounded-xl border transition-all
-                            ${s.id === highlightedId ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-transparent hover:bg-muted'}
-                            ${mode === 'edit' ? 'cursor-grab active:cursor-grabbing hover:border-primary/30' : ''}
+                            ${s.id === highlightedId ? 'border-foreground bg-card shadow-card' : 'border-transparent bg-card hover:bg-soft'}
+                            ${mode === 'edit' ? 'cursor-grab active:cursor-grabbing hover:border-input' : ''}
                         `}
                     >
                         <div className="flex items-center gap-3">
@@ -55,7 +55,7 @@ export function StudentSidebar({ students, unseated, mode, highlightedId, onHigh
                               </div>
                             )}
                           </div>
-                          <span className="text-sm font-medium">{s.name}</span>
+                          <span className="font-body text-[13.5px] font-bold">{s.name}</span>
                         </div>
 
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
