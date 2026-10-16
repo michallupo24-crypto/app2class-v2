@@ -1,11 +1,13 @@
-import { useOutletContext, Navigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useOutletContext, Navigate, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Users, CheckCircle2, Clock, GraduationCap, BookOpen, Shield } from "lucide-react";
-import AvatarPreview from "@/components/avatar/AvatarPreview";
+import { Users, Calendar, UserCheck, BarChart3, Building2, Newspaper, Wallet } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  HomeHeader, HeroCard, HomeSection, HomeColumns, StatTiles, BarList, HomeRow, HomeEmpty, IconTile,
+  greeting, longHebrewDate, firstName, type Tone,
+} from "@/components/home/HomeKit";
 
 const ROLE_LABELS: Record<string, string> = {
   student: "תלמיד/ה",
@@ -19,18 +21,6 @@ const ROLE_LABELS: Record<string, string> = {
   system_admin: "מנהל/ת מערכת",
 };
 
-const ROLE_COLORS: Record<string, string> = {
-  student: "bg-student/10 text-student border-student/20",
-  parent: "bg-parent/10 text-parent border-parent/20",
-  educator: "bg-staff/10 text-staff border-staff/20",
-  professional_teacher: "bg-primary/10 text-primary border-primary/20",
-  subject_coordinator: "bg-accent/10 text-accent-foreground border-accent/20",
-  grade_coordinator: "bg-secondary/10 text-secondary-foreground border-secondary/20",
-  counselor: "bg-info/10 text-info border-info/20",
-  management: "bg-management/10 text-management border-management/20",
-  system_admin: "bg-admin/10 text-admin border-admin/20",
-};
-
 interface Stats {
   totalUsers: number;
   approvedUsers: number;
@@ -38,12 +28,40 @@ interface Stats {
   totalClasses: number;
 }
 
+interface SchoolToday {
+  students: number;
+  present: number;
+  absent: number;
+  reported: number;
+}
+
+interface WeekItem {
+  id: string;
+  title: string;
+  date: string;
+  subject: string | null;
+  kind: "exam" | "event" | "holiday";
+}
+
+const GRADE_ORDER = ["ז'", "ח'", "ט'", "י'", "י\"א", "י\"ב"];
+const dayFmt = new Intl.DateTimeFormat("he-IL", { weekday: "long", day: "numeric", month: "numeric" });
+const KIND_TAG: Record<WeekItem["kind"], { label: string; tone: Tone }> = {
+  exam: { label: "מבחן", tone: "alert" },
+  event: { label: "אירוע", tone: "info" },
+  holiday: { label: "חופשה", tone: "success" },
+};
+
 const DashboardHome = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
+  const navigate = useNavigate();
   const [stats, setStats] = useState<Stats>({ totalUsers: 0, approvedUsers: 0, pendingUsers: 0, totalClasses: 0 });
+  const [today, setToday] = useState<SchoolToday | null>(null);
+  const [gradeAvgs, setGradeAvgs] = useState<{ label: string; value: number }[]>([]);
+  const [week, setWeek] = useState<WeekItem[]>([]);
 
   const isStudent = profile.roles.includes("student");
   const isTeacher = profile.roles.includes("professional_teacher");
+  const isEducator = profile.roles.includes("educator");
   const isGradeCoordinator = profile.roles.includes("grade_coordinator");
   const isSubjectCoordinator = profile.roles.includes("subject_coordinator");
   const isCounselor = profile.roles.includes("counselor");
@@ -91,13 +109,64 @@ const DashboardHome = () => {
     load();
   }, [isStaff, isSystemAdmin, profile.schoolId]);
 
+  // School-wide picture for management: today's attendance, grade averages,
+  // and this week's exams/events (same sources as the principal dashboard).
+  useEffect(() => {
+    if (!isManagementOrAdmin || !profile.schoolId) return;
+    const schoolId = profile.schoolId;
+    const load = async () => {
+      const todayIso = new Date().toISOString().split("T")[0];
+      const now = new Date();
+      const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+      const [{ data: classes }, { data: avgRows }, { data: gEvents }, { data: sEvents }] = await Promise.all([
+        supabase.from("classes").select("id").eq("school_id", schoolId),
+        supabase.rpc("get_school_grade_averages", { p_school_id: schoolId }),
+        supabase.from("grade_events").select("id, title, subject, event_date, event_type, grade")
+          .eq("school_id", schoolId).eq("status", "approved").gte("event_date", iso(weekStart)).lte("event_date", iso(weekEnd)),
+        supabase.from("school_events").select("id, title, start_date, is_holiday")
+          .eq("school_id", schoolId).gte("start_date", iso(weekStart)).lte("start_date", iso(weekEnd)),
+      ]);
+
+      setGradeAvgs(
+        ((avgRows || []) as any[])
+          .sort((a, b) => GRADE_ORDER.indexOf(a.grade) - GRADE_ORDER.indexOf(b.grade))
+          .map((r) => ({ label: r.grade, value: Math.round(r.avg_grade) }))
+      );
+
+      setWeek([
+        ...((gEvents || []) as any[]).filter((e) => ["exam", "bagrut"].includes(e.event_type))
+          .map((e) => ({ id: e.id, title: e.title, date: e.event_date, subject: e.subject, kind: "exam" as const })),
+        ...((sEvents || []) as any[]).map((e) => ({ id: e.id, title: e.title, date: e.start_date, subject: null, kind: e.is_holiday ? "holiday" as const : "event" as const })),
+      ].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 6));
+
+      const classIds = (classes || []).map((c: any) => c.id);
+      if (classIds.length === 0) return;
+      const { data: students } = await supabase.from("profiles").select("id").in("class_id", classIds);
+      const studentIds = (students || []).map((s: any) => s.id);
+      if (studentIds.length === 0) { setToday({ students: 0, present: 0, absent: 0, reported: 0 }); return; }
+      const { data: att } = await supabase.from("attendance").select("status, student_id").in("student_id", studentIds).gte("noted_at", todayIso);
+      // A student absent from any lesson counts as absent today.
+      const byStudent = new Map<string, string>();
+      (att || []).forEach((a: any) => { if (byStudent.get(a.student_id) !== "absent") byStudent.set(a.student_id, a.status); });
+      let present = 0, absent = 0;
+      byStudent.forEach((s) => { if (s === "absent") absent++; else present++; });
+      setToday({ students: studentIds.length, present, absent, reported: byStudent.size });
+    };
+    load();
+  }, [isManagementOrAdmin, profile.schoolId]);
+
   // Redirect students to their dedicated dashboard
   if (isStudent) {
     return <Navigate to="/dashboard/student-home" replace />;
   }
 
-  // Redirect teachers (non-management) to teacher dashboard
-  if (isTeacher && !isManagementOrAdmin && !isGradeCoordinator) {
+  // Teachers and homeroom educators (non-management) share the teacher dashboard,
+  // which also carries the homeroom view.
+  if ((isTeacher || isEducator) && !isManagementOrAdmin && !isGradeCoordinator && !isCounselor) {
     return <Navigate to="/dashboard/teacher-home" replace />;
   }
 
@@ -121,123 +190,98 @@ const DashboardHome = () => {
     return <Navigate to="/dashboard/my-child" replace />;
   }
 
-  const container = {
-    hidden: {},
-    show: { transition: { staggerChildren: 0.1 } },
-  };
-  const item = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 },
-  };
+  const presentPct = today && today.reported > 0 ? Math.round((today.present / today.reported) * 100) : null;
+  const roleLabel = profile.roles.map((r) => ROLE_LABELS[r]).filter(Boolean)[0];
 
-  return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
-      {/* Welcome */}
-      <motion.div variants={item} className="flex items-center gap-4">
-        {profile.avatar && <AvatarPreview config={profile.avatar} size={80} />}
-        <div>
-          <h1 className="text-2xl md:text-3xl font-heading font-bold">שלום, {profile.fullName}</h1>
-          <div className="flex flex-wrap gap-2 mt-2">
-            {profile.roles.map((r) => (
-              <span key={r} className={`text-xs px-2.5 py-1 rounded-full font-heading border ${ROLE_COLORS[r] || "bg-muted text-muted-foreground"}`}>
-                {ROLE_LABELS[r] || r}
-              </span>
+  const main = (
+    <>
+      <HeroCard
+        color="#2B3350"
+        subject="ניהול"
+        tag={isManagementOrAdmin ? "בית הספר היום" : roleLabel || "App2Class"}
+        title={presentPct !== null ? `${presentPct}% נוכחות` : profile.schoolName || "בית הספר"}
+        meta={[
+          today ? `${today.students.toLocaleString("he-IL")} תלמידים` : null,
+          today && today.absent ? `${today.absent} חסרים` : null,
+          today && today.reported < today.students ? `${today.reported.toLocaleString("he-IL")} דווחו עד עכשיו` : null,
+          stats.totalClasses ? `${stats.totalClasses} כיתות` : null,
+        ].filter(Boolean).join(" · ") || undefined}
+        action={isManagementOrAdmin ? { label: "לדאשבורד המנהלת", onClick: () => navigate("/dashboard/principal") } : undefined}
+      />
+
+      <HomeSection title="דורש החלטה">
+        {profile.pendingApprovalsCount > 0 ? (
+          <HomeRow icon={<IconTile icon={UserCheck} color="#F2A007" />} title={`${profile.pendingApprovalsCount} בקשות ממתינות לאישור`}
+            meta="הצטרפות, אירועים ובקשות צוות" action={{ label: "לאישורים", onClick: () => navigate("/dashboard/approvals") }} />
+        ) : (
+          <HomeEmpty>אין בקשות שמחכות להחלטה שלך</HomeEmpty>
+        )}
+      </HomeSection>
+
+      {isManagementOrAdmin && (
+        <HomeSection title="השבוע בבית הספר">
+          {week.length === 0 ? (
+            <HomeEmpty>אין מבחנים או אירועים מאושרים השבוע</HomeEmpty>
+          ) : (
+            week.map((w, i) => (
+              <HomeRow key={w.id} index={i} subject={w.subject || undefined} icon={!w.subject ? <IconTile icon={Calendar} color="#3B7BF2" /> : undefined}
+                title={w.title} meta={[w.subject, dayFmt.format(new Date(`${w.date}T12:00:00`))].filter(Boolean).join(" · ")} tag={KIND_TAG[w.kind]} />
+            ))
+          )}
+        </HomeSection>
+      )}
+    </>
+  );
+
+  const side = (
+    <>
+      <HomeSection title="משתמשים">
+        <StatTiles
+          size="sm"
+          items={[
+            { value: stats.totalUsers.toLocaleString("he-IL"), label: "רשומים", tone: "ink" },
+            { value: stats.pendingUsers, label: "ממתינים לאישור", tone: stats.pendingUsers ? "warning" : "success" },
+            { value: stats.totalClasses, label: "כיתות", tone: "info" },
+          ]}
+        />
+      </HomeSection>
+
+      {gradeAvgs.length > 0 && (
+        <HomeSection title="ממוצע ציונים לפי שכבה">
+          <BarList items={gradeAvgs} threshold={75} unit="" />
+        </HomeSection>
+      )}
+
+      {isManagementOrAdmin && (
+        <HomeSection title="כלים">
+          <div className="grid grid-cols-2 gap-2.5">
+            {[
+              { icon: BarChart3, label: "דאשבורד מנהלת", path: "/dashboard/principal", color: "#2B3350" },
+              { icon: Users, label: "תפקידי צוות", path: "/dashboard/team-roles", color: "#9257EC" },
+              { icon: Building2, label: "מבנה בית הספר", path: "/dashboard/org-tree", color: "#1592B3" },
+              { icon: Newspaper, label: "עיתון בית הספר", path: "/dashboard/newspaper", color: "#EE5A8F" },
+              { icon: Wallet, label: "מרכז תשלומים", path: "/dashboard/finance-hub", color: "#23B26D" },
+              { icon: Calendar, label: "לוח זמנים", path: "/dashboard/schedule", color: "#3B7BF2" },
+            ].map((a) => (
+              <button key={a.path} type="button" onClick={() => navigate(a.path)}
+                className="flex items-center gap-2.5 rounded-[16px] bg-card px-3 py-2.5 text-right shadow-[0_4px_12px_-9px_rgba(40,30,15,0.4)] transition-colors hover:bg-soft">
+                <IconTile icon={a.icon} color={a.color} size={32} />
+                <span className="font-body text-[13px] font-extrabold text-foreground">{a.label}</span>
+              </button>
             ))}
           </div>
-          {profile.schoolName && (
-            <p className="text-sm text-muted-foreground mt-1 font-body">{profile.schoolName}</p>
-          )}
-        </div>
-      </motion.div>
-
-      {/* Status */}
-      {!profile.isApproved && (
-        <motion.div variants={item}>
-          <Card className="border-warning/30 bg-warning/5">
-            <CardContent className="py-4 flex items-center gap-3">
-              <Clock className="h-5 w-5 text-warning shrink-0" />
-              <div>
-                <p className="font-heading font-medium text-warning">החשבון שלך ממתין לאישור</p>
-                <p className="text-xs text-muted-foreground">תקבל/י גישה מלאה לאחר אישור הגורם המוסמך</p>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+        </HomeSection>
       )}
+    </>
+  );
 
-      {/* Pending notifications */}
-      {profile.pendingApprovalsCount > 0 && (
-        <motion.div variants={item}>
-          <Card className="border-destructive/30 bg-destructive/5 cursor-pointer hover:bg-destructive/10 transition-colors"
-                onClick={() => window.location.href = "/dashboard/approvals"}>
-            <CardContent className="py-4 flex items-center gap-3">
-              <div className="relative">
-                <Users className="h-6 w-6 text-destructive" />
-                <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
-                  {profile.pendingApprovalsCount}
-                </span>
-              </div>
-              <div>
-                <p className="font-heading font-medium">יש {profile.pendingApprovalsCount} בקשות אישור ממתינות</p>
-                <p className="text-xs text-muted-foreground">לחץ כדי לצפות ולאשר</p>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
-
-      {/* Stats Grid - Staff only */}
-      {isStaff && (
-        <motion.div variants={item} className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="pt-4 pb-3 text-center">
-              <Users className="h-8 w-8 mx-auto text-primary mb-2" />
-              <p className="text-2xl font-heading font-bold">{stats.totalUsers}</p>
-              <p className="text-xs text-muted-foreground font-body">משתמשים</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-3 text-center">
-              <CheckCircle2 className="h-8 w-8 mx-auto text-success mb-2" />
-              <p className="text-2xl font-heading font-bold">{stats.approvedUsers}</p>
-              <p className="text-xs text-muted-foreground font-body">מאושרים</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-3 text-center">
-              <Clock className="h-8 w-8 mx-auto text-warning mb-2" />
-              <p className="text-2xl font-heading font-bold">{stats.pendingUsers}</p>
-              <p className="text-xs text-muted-foreground font-body">ממתינים</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-3 text-center">
-              <BookOpen className="h-8 w-8 mx-auto text-secondary mb-2" />
-              <p className="text-2xl font-heading font-bold">{stats.totalClasses}</p>
-              <p className="text-xs text-muted-foreground font-body">כיתות</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
-
-      {/* Quick Info */}
-      <motion.div variants={item}>
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-heading text-lg">מידע כללי</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 font-body text-sm">
-            <p><span className="text-muted-foreground">אימייל:</span> {profile.email}</p>
-            {profile.schoolName && (
-              <p><span className="text-muted-foreground">בית ספר:</span> {profile.schoolName}</p>
-            )}
-            <p>
-              <span className="text-muted-foreground">סטטוס:</span>{" "}
-              {profile.isApproved ? "מאושר" : "ממתין לאישור"}
-            </p>
-          </CardContent>
-        </Card>
-      </motion.div>
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
+      <HomeHeader
+        title={`${greeting()}, ${firstName(profile.fullName)}`}
+        subtitle={[longHebrewDate(), roleLabel, profile.schoolName].filter(Boolean).join(" · ")}
+      />
+      <HomeColumns main={main} side={side} />
     </motion.div>
   );
 };
