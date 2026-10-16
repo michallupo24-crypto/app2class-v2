@@ -1,26 +1,20 @@
-import { useOutletContext, Navigate } from "react-router-dom";
+import { useOutletContext } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Users, 
-  BookOpen, 
-  ClipboardList, 
-  FileText, 
-  BarChart3, 
-  Bell, 
-  Clock, 
-  CheckCircle2, 
+import {
+  Users,
+  BookOpen,
+  ClipboardList,
+  FileText,
+  CheckCircle2,
   AlertTriangle,
-  BrainCircuit,
-  Settings,
   MessageSquare,
   Lock,
-  CalendarCheck2
+  CalendarCheck2,
+  UserCheck,
+  HandHelping,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import AvatarPreview from "@/components/avatar/AvatarPreview";
 import SyllabusProgressTracker from "@/components/dashboard/SyllabusProgressTracker";
 import ClassMessenger from "@/components/dashboard/ClassMessenger";
 import type { UserProfile } from "@/hooks/useAuth";
@@ -31,7 +25,17 @@ import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchGradeLessonPace, type GradeLessonPaceRow } from "@/lib/lessonPace";
-import { Gauge, HandHelping } from "lucide-react";
+import { useTeacherDay } from "@/hooks/useTeacherDay";
+import { formatClassName } from "@/hooks/useStudentDay";
+import { SubjectTile, subjectColor } from "@/components/SubjectSticker";
+import {
+  HomeHeader, HeroCard, HomeSection, HomeColumns, StatTiles, BarList, HomeRow, HomeEmpty, PillSwitch, IconTile, PersonBadge, RowTag,
+  greeting, longHebrewDate, firstName, type Tone,
+} from "@/components/home/HomeKit";
+
+// Hero background: the subject color, a little darker so white text reads.
+const shadeHex = (h: string, f = 0.84) =>
+  "#" + [1, 3, 5].map((i) => Math.round(parseInt(h.slice(i, i + 2), 16) * f).toString(16).padStart(2, "0")).join("");
 
 interface TeacherStats {
   totalStudents: number;
@@ -71,9 +75,6 @@ const TeacherDashboard = () => {
   const [reminderSent, setReminderSent] = useState(false);
   const [disciplinePatterns, setDisciplinePatterns] = useState<{ studentName: string; subject: string; count: number; total: number }[]>([]);
 
-  const container = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };
-  const item = { hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } };
-
   useEffect(() => {
     const load = async () => {
       const [classesRes, submissionsRes] = await Promise.all([
@@ -86,7 +87,7 @@ const TeacherDashboard = () => {
 
       const classesData = (classesRes.data || []).map((c: any) => ({
         id: c.class_id,
-        name: `${c.classes?.grade}' ${c.classes?.class_number}`
+        name: c.classes?.grade ? formatClassName(c.classes.grade, c.classes.class_number) : "כיתה"
       }));
       setMyClasses(classesData);
       if (classesData.length > 0) setSelectedClassId(classesData[0].id);
@@ -357,30 +358,204 @@ const TeacherDashboard = () => {
         description: `נשלחה תזכורת ל-${missingSubmissions.students.length} תלמידים והוריהם`,
       });
     } catch {
-      toast({ title: "שגיאה בשליחת התזכורת", description: "נסה שוב מאוחר יותר", variant: "destructive" });
+      toast({ title: "שגיאה בשליחת התזכורת", description: "נסה/י שוב מאוחר יותר", variant: "destructive" });
     } finally {
       setSendingReminder(false);
     }
   };
 
+  const day = useTeacherDay(profile.schoolId, profile.id);
+  const dayNames = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+  const todayAttendance = weeklyAttendance.find((d) => d.day === dayNames[new Date().getDay()]);
+  const homeroomName = myClasses.find((c) => c.id === homeroomClassId)?.name;
+  const roomText = (room: string | null) => (room ? (/^\d/.test(room) ? `חדר ${room}` : room) : null);
+
+  // What matters right now: the lesson being taught, the homeroom's day, or the next lesson.
+  let heroIsNextLesson = false;
+  const hero = (() => {
+    if (day.current) {
+      const l = day.current;
+      return {
+        color: shadeHex(subjectColor(l.subject)), subject: l.subject, tag: `עכשיו · שיעור ${l.lesson_number}`,
+        title: [l.subject, l.className].filter(Boolean).join(" · "),
+        meta: [roomText(l.room), `${day.minutesLeft} דק׳ נותרו`].filter(Boolean).join(" · "),
+        action: { label: "להזנת נוכחות", onClick: () => navigate("/dashboard/roll-call") },
+      };
+    }
+    if (homeroomClassId && todayAttendance) {
+      const total = todayAttendance.present + todayAttendance.absent + todayAttendance.late;
+      return {
+        color: "#178A52", icon: <IconTile icon={Users} color="#23B26D" size={92} />, tag: `${homeroomName ?? "הכיתה שלי"} היום`,
+        title: `${todayAttendance.present + todayAttendance.late} מתוך ${total} הגיעו`,
+        meta: [todayAttendance.absent && `${todayAttendance.absent} חסרים`, todayAttendance.late && `${todayAttendance.late} איחורים`].filter(Boolean).join(" · ") || "כולם כאן",
+        action: { label: "למפת הכיתה", onClick: () => navigate("/dashboard/seating") },
+      };
+    }
+    const next = day.upcoming[0];
+    if (next) {
+      heroIsNextLesson = true;
+      return {
+        color: shadeHex(subjectColor(next.subject)), subject: next.subject, tag: `השיעור הבא · ${next.bellStart}`,
+        title: [next.subject, next.className].filter(Boolean).join(" · "), meta: [`שיעור ${next.lesson_number}`, roomText(next.room)].filter(Boolean).join(" · "),
+      };
+    }
+    return {
+      color: "#2B3350", icon: <IconTile icon={CalendarCheck2} color="#8E9BD6" size={92} />, tag: day.today.length ? "סיימת להיום" : "אין שיעורים היום",
+      title: `${stats.classCount} כיתות · ${stats.totalStudents} תלמידים`, meta: stats.pendingSubmissions ? `${stats.pendingSubmissions} הגשות מחכות לבדיקה` : "אין הגשות שמחכות לבדיקה",
+    };
+  })();
+
+  // The hero already shows the next lesson when there's nothing on now.
+  const laterToday = heroIsNextLesson ? day.upcoming.slice(1) : day.upcoming;
+
+  // Everything waiting on the teacher, most urgent first.
+  const todo: { key: string; icon: React.ReactNode; title: string; meta: string; action?: { label: string; onClick: () => void }; tag?: { label: string; tone: Tone } }[] = [];
+  if (profile.pendingApprovalsCount > 0) {
+    todo.push({ key: "approvals", icon: <IconTile icon={UserCheck} color="#F2A007" />, title: `${profile.pendingApprovalsCount} בקשות הצטרפות ממתינות`,
+      meta: "הורים ותלמידים שמחכים לאישור שלך", action: { label: "לטיפול", onClick: () => navigate("/dashboard/approvals") } });
+  }
+  if (missingSubmissions && missingSubmissions.students.length > 0) {
+    todo.push({ key: "missing", icon: <IconTile icon={FileText} color="#F0572A" />, title: `${missingSubmissions.students.length} לא הגישו את "${missingSubmissions.assignmentTitle}"`,
+      meta: `${missingSubmissions.className} · התזכורת תישלח לתלמידים ולהורים שלהם`,
+      action: reminderSent ? undefined : { label: sendingReminder ? "שולח..." : "שליחת תזכורת", onClick: handleSendReminder },
+      tag: reminderSent ? { label: "נשלחה", tone: "success" } : undefined });
+  }
+  if (profile.roles?.includes("subject_coordinator") && missingWeightsCount > 0) {
+    todo.push({ key: "weights", icon: <IconTile icon={AlertTriangle} color="#E5484D" />, title: `${missingWeightsCount} מבחנים בלי משקל בציון`,
+      meta: `${coordinatorSubject} · צריך להזין אחוז מהציון הסופי`, action: { label: "להזנה", onClick: () => navigate("/dashboard/schedule") } });
+  }
+  if (profile.roles?.includes("subject_coordinator")) {
+    materialGapExams.forEach((e) => todo.push({ key: `gap-${e.id}`, icon: <IconTile icon={BookOpen} color="#F2A007" />, title: `"${e.title}" עדיין בלי חומר`,
+      meta: `מבחן ב-${new Date(e.dueDate).toLocaleDateString("he-IL")}`, action: { label: "לבדיקה", onClick: () => navigate("/dashboard/schedule") } }));
+  }
+  disciplinePatterns.forEach((p) => todo.push({ key: `disc-${p.studentName}-${p.subject}`, icon: <PersonBadge name={p.studentName} />, title: p.studentName,
+    meta: `רוב ההערות ב${p.subject} (${p.count} מתוך ${p.total})`, tag: { label: "דפוס", tone: "warning" } }));
+
+  const main = (
+    <>
+      <HeroCard {...hero} />
+
+      <HomeSection title="דורש טיפול">
+        {todo.length === 0 ? (
+          <HomeEmpty>אין כרגע משהו שמחכה לך. יפה!</HomeEmpty>
+        ) : (
+          todo.map((t, i) => <HomeRow key={t.key} index={i} icon={t.icon} title={t.title} meta={t.meta} action={t.action} tag={t.tag} />)
+        )}
+      </HomeSection>
+
+      {laterToday.length > 0 && (
+        <HomeSection title="בהמשך היום">
+          {laterToday.map((l, i) => (
+            <HomeRow key={l.lesson_number} index={i} subject={l.subject} title={[l.className, `שיעור ${l.lesson_number}`].filter(Boolean).join(" · ")}
+              meta={[l.bellStart, roomText(l.room)].filter(Boolean).join(" · ")} />
+          ))}
+        </HomeSection>
+      )}
+
+      <HomeSection
+        title="תקשורת כיתתית"
+        action={myClasses.length > 1 ? (
+          <PillSwitch options={myClasses.map((c) => ({ value: c.id, label: c.name }))} value={selectedClassId || myClasses[0].id} onChange={setSelectedClassId} />
+        ) : undefined}
+      >
+        {selectedClassId ? (
+          <ClassMessenger classId={selectedClassId} userId={profile.id} isTeacher={true} />
+        ) : (
+          <HomeEmpty>עדיין לא שובצו לך כיתות</HomeEmpty>
+        )}
+      </HomeSection>
+
+      <SyllabusProgressTracker teacherId={profile.id} schoolId={profile.schoolId || ""} />
+    </>
+  );
+
+  const side = (
+    <>
+      <HomeSection title="סיכום פעילות">
+        <StatTiles
+          size="sm"
+          items={[
+            { value: stats.totalStudents, label: "תלמידים", tone: "info" },
+            { value: stats.pendingSubmissions, label: "הגשות לבדיקה", tone: stats.pendingSubmissions ? "warning" : "success" },
+            { value: stats.todayLessons, label: "שיעורים שדווחו היום", tone: "success" },
+          ]}
+        />
+      </HomeSection>
+
+      {profile.roles?.includes("subject_coordinator") && (
+        <HomeSection title="המקצוע שלי">
+          <Select value={coordinatorSubject} onValueChange={setCoordinatorSubject}>
+            <SelectTrigger className="bg-card"><SelectValue placeholder="בחר/י מקצוע" /></SelectTrigger>
+            <SelectContent>
+              {["מתמטיקה", "אנגלית", "לשון", "היסטוריה", "אזרחות", "ספרות", "מדעים"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {missingWeightsCount === 0 && (
+            <HomeRow icon={<IconTile icon={CheckCircle2} color="#23B26D" />} title="כל המשקלים הוזנו" meta="לכל המבחנים במקצוע יש אחוז מהציון" />
+          )}
+        </HomeSection>
+      )}
+
+      {weeklyAttendance.length > 0 && (
+        <HomeSection title={`נוכחות השבוע${homeroomName ? ` · ${homeroomName}` : ""}`}>
+          <BarList
+            items={weeklyAttendance.map((d) => {
+              const total = d.present + d.absent + d.late;
+              return { label: d.day, value: total ? Math.round(((d.present + d.late) / total) * 100) : 0 };
+            })}
+          />
+          {attendanceWatchList.map((s, i) => (
+            <HomeRow key={s.name} index={i} person={s.name} title={s.name} meta="חיסורים חוזרים השבוע"
+              tag={{ label: `${s.absences} היעדרויות`, tone: "alert" }} />
+          ))}
+        </HomeSection>
+      )}
+
+      {myClassPace.length > 0 && (
+        <HomeSection
+          title="קצב שיעורים מול השכבה"
+          action={
+            <button type="button" onClick={() => { setTutoringSubject(myClassPace[0]?.subject || ""); setShowTutoringDialog(true); }}
+              className="flex items-center gap-1 font-body text-[13px] font-extrabold text-link">
+              <HandHelping className="h-3.5 w-3.5" />בקשת תגבור
+            </button>
+          }
+        >
+          <div className="flex flex-col gap-2 rounded-card bg-card p-[18px] shadow-card">
+            {myClassPace.map((row) => {
+              const gradeAvg = gradeAvgDeficitBySubject.get(row.subject) ?? 0;
+              const tone: Tone = row.deficit >= 4 ? "alert" : row.deficit > 0 ? "warning" : "success";
+              return (
+                <div key={row.subject} className="flex items-center gap-3 py-1">
+                  <SubjectTile subject={row.subject} size={30} flat />
+                  <span className="flex-1 font-heading text-sm font-extrabold text-foreground">{row.subject}</span>
+                  <span className="font-body text-xs font-bold text-hint">שכבה: {gradeAvg}</span>
+                  <RowTag label={row.deficit > 0 ? `פער ${row.deficit}` : "בזמן"} tone={tone} />
+                </div>
+              );
+            })}
+          </div>
+        </HomeSection>
+      )}
+    </>
+  );
+
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-8 p-1">
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
       <Dialog open={hasSkippedRollcall}>
         <DialogContent className="sm:max-w-md [&>button]:hidden">
           <DialogHeader>
-             <div className="mx-auto w-16 h-16 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mb-4">
-               <Lock className="w-8 h-8" />
-             </div>
-             <DialogTitle className="text-center font-heading font-black text-2xl">המערכת ננעלה: דיווח נוכחות חסר</DialogTitle>
+             <div className="mx-auto mb-2"><IconTile icon={Lock} color="#E5484D" size={64} /></div>
+             <DialogTitle className="text-center font-heading font-black text-2xl">חסר דיווח נוכחות להיום</DialogTitle>
              <DialogDescription className="text-center text-base mt-2">
-               על פי מערכת השעות שובצו לך שיעורים היום, אך טרם הוזנה להם נוכחות. המערכת דורשת דיווח רציף.
+               לפי מערכת השעות היו לך שיעורים היום, ועדיין לא הוזנה בהם נוכחות. אחרי ההזנה ההורים יקבלו עדכון.
              </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-col gap-2 sm:justify-center w-full mt-4">
-             <Button className="w-full font-bold h-12" onClick={() => { setHasSkippedRollcall(false); navigate("/dashboard/roll-call"); }}>
-                עבור מיד להזנת נוכחות
+             <Button className="w-full h-12" onClick={() => { setHasSkippedRollcall(false); navigate("/dashboard/roll-call"); }}>
+                להזנת נוכחות
              </Button>
-             <Button variant="outline" className="w-full text-muted-foreground" onClick={() => setHasSkippedRollcall(false)}>
+             <Button variant="outline" className="w-full" onClick={() => setHasSkippedRollcall(false)}>
                 השיעור התבטל / אירוע מיוחד
              </Button>
           </DialogFooter>
@@ -391,7 +566,7 @@ const TeacherDashboard = () => {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="font-heading">בקשת תגבור לכיתה</DialogTitle>
-            <DialogDescription>הבקשה תישלח לרכז/ת השכבה ורכז/ת המקצוע לאישור.</DialogDescription>
+            <DialogDescription>הבקשה תישלח לרכז/ת השכבה ולרכז/ת המקצוע לאישור.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <Select value={tutoringSubject} onValueChange={setTutoringSubject}>
@@ -404,327 +579,27 @@ const TeacherDashboard = () => {
           </div>
           <DialogFooter>
             <Button onClick={submitTutoringRequest} disabled={submittingTutoringRequest || !tutoringSubject} className="w-full">
-              {submittingTutoringRequest ? "שולח..." : "שלח בקשה"}
+              {submittingTutoringRequest ? "שולח..." : "שליחת הבקשה"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ─── WELCOME & FAST ACTIONS ─── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <motion.div variants={item} className="flex items-center gap-5">
-           <div className="relative">
-              {profile.avatar && <AvatarPreview config={profile.avatar} size={88} />}
-              <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground p-1.5 rounded-lg border-4 border-background">
-                <BrainCircuit className="h-4 w-4" />
-              </div>
-           </div>
-           <div>
-              <h1 className="text-3xl font-heading font-black tracking-tighter">שלום, {profile.fullName.split(' ')[0]}</h1>
-              <p className="text-sm text-muted-foreground font-medium flex items-center gap-2 mt-1">
-                <BookOpen className="h-4 w-4 text-primary" /> {profile.schoolName ? `${profile.schoolName} • ` : ""}מורה פדגוגי
-              </p>
-           </div>
-        </motion.div>
-
-        <div className="flex items-center gap-3">
-           <Button variant="outline" className="h-12 gap-2 text-sm font-bold" onClick={() => navigate("/dashboard/roll-call")}>
-              <ClipboardList className="h-4 w-4 text-primary" /> הקראת שמות מהירה
-           </Button>
-           <Button onClick={() => navigate("/dashboard/chat")} className="h-12 px-8 font-bold gap-2">
-              <MessageSquare className="h-4 w-4" /> צ'אט אישי
-           </Button>
+      <HomeHeader
+        title={`${greeting()}, ${firstName(profile.fullName)}`}
+        subtitle={[longHebrewDate(), homeroomName ? `מחנך/ת ${homeroomName}` : null, stats.classCount ? `${stats.classCount} כיתות` : null].filter(Boolean).join(" · ")}
+      >
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate("/dashboard/chat")} className="gap-2">
+            <MessageSquare className="h-4 w-4" /> שיחות
+          </Button>
+          <Button onClick={() => navigate("/dashboard/roll-call")} className="gap-2">
+            <ClipboardList className="h-4 w-4" /> הקראת שמות
+          </Button>
         </div>
-      </div>
+      </HomeHeader>
 
-      {/* ─── MISSING EXAM WEIGHTS ALERT ─── */}
-      {profile.roles?.includes("subject_coordinator") && (
-        <motion.div variants={item}>
-          <div className="bg-muted/30 border rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <BrainCircuit className="h-5 w-5 text-primary" />
-              <div>
-                <p className="font-heading font-bold text-primary">פנל רכז מקצוע</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-sm">המקצוע שלי:</span>
-                  <select 
-                    value={coordinatorSubject} 
-                    onChange={(e) => setCoordinatorSubject(e.target.value)} 
-                    className="bg-background border rounded-md px-2 py-1 text-sm font-bold"
-                  >
-                     <option value="מתמטיקה">מתמטיקה</option>
-                     <option value="אנגלית">אנגלית</option>
-                     <option value="לשון">לשון</option>
-                     <option value="היסטוריה">היסטוריה</option>
-                     <option value="אזרחות">אזרחות</option>
-                     <option value="ספרות">ספרות</option>
-                     <option value="מדעים">מדעים</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-            {missingWeightsCount > 0 ? (
-              <div className="bg-destructive/10 text-destructive px-4 py-2 rounded-lg flex items-center gap-2 font-bold text-sm">
-                 <AlertTriangle className="h-4 w-4" /> יש {missingWeightsCount} מבחנים שחסר להם סך אחוז ציון!
-                 <Button variant="destructive" size="sm" className="ml-2 h-7" onClick={() => navigate("/dashboard/schedule")}>הזן כעת</Button>
-              </div>
-            ) : (
-               <div className="text-success text-sm flex items-center gap-1 font-bold">
-                 <CheckCircle2 className="h-4 w-4" /> כל האחוזים הוזנו
-               </div>
-            )}
-          </div>
-        </motion.div>
-      )}
-
-      {/* ─── MISSING EXAM MATERIAL REMINDER (7 days out) ─── */}
-      {profile.roles?.includes("subject_coordinator") && materialGapExams.length > 0 && (
-        <motion.div variants={item}>
-          <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 space-y-2">
-            <div className="flex items-center gap-2 font-heading font-bold text-warning">
-              <AlertTriangle className="h-4 w-4" /> {materialGapExams.length} מבחנים בשבוע הקרוב עדיין ללא חומר לימוד
-            </div>
-            <ul className="text-sm space-y-1">
-              {materialGapExams.map((e) => (
-                <li key={e.id} className="flex items-center justify-between gap-2">
-                  <span>"{e.title}" — {new Date(e.dueDate).toLocaleDateString("he-IL")}</span>
-                  <Button variant="outline" size="sm" className="h-7" onClick={() => navigate("/dashboard/schedule")}>לבדיקה</Button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </motion.div>
-      )}
-
-      {/* ─── PENDING APPROVALS ALERT ─── */}
-      {profile.pendingApprovalsCount > 0 && (
-        <motion.div variants={item}>
-          <Card className="border-warning/30 bg-warning/10 cursor-pointer transition-colors hover:border-warning/50"
-            onClick={() => navigate("/dashboard/approvals")}>
-            <CardContent className="py-6 flex items-center justify-between">
-              <div className="flex items-center gap-5">
-                 <div className="h-14 w-14 rounded-lg bg-warning/20 flex items-center justify-center shrink-0">
-                    <AlertTriangle className="h-7 w-7 text-warning" />
-                 </div>
-                 <div>
-                    <h3 className="text-xl font-heading font-black">בקשות אישור ממתינות</h3>
-                    <p className="text-sm text-muted-foreground font-medium">ישנם {profile.pendingApprovalsCount} הורים ותלמידים שמחכים לאישור שלך.</p>
-                 </div>
-              </div>
-              <Button variant="secondary" className="font-bold">טפל עכשיו</Button>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* ─── LEFT: PEDAGOGICAL & MESSENGER ─── */}
-        <div className="lg:col-span-8 space-y-8">
-           <motion.div variants={item}>
-              <SyllabusProgressTracker teacherId={profile.id} schoolId={profile.schoolId || ""} />
-           </motion.div>
-
-           <motion.div variants={item} className="space-y-4">
-              <div className="flex items-center justify-between px-1">
-                 <h2 className="font-heading font-black text-xl text-foreground flex items-center gap-2">
-                    <MessageSquare className="h-5 w-5 text-primary" /> תקשורת כיתתית
-                 </h2>
-                 {myClasses.length > 1 && (
-                    <div className="flex bg-muted p-1 rounded-lg border border-border">
-                       {myClasses.map(c => (
-                          <Button 
-                            key={c.id} 
-                            size="sm" 
-                            variant={selectedClassId === c.id ? "default" : "ghost"} 
-                            onClick={() => setSelectedClassId(c.id)}
-                            className="rounded-lg h-8 px-3 text-[11px] font-bold"
-                          >
-                             כיתה {c.name}
-                          </Button>
-                       ))}
-                    </div>
-                 )}
-              </div>
-              {selectedClassId && (
-                <ClassMessenger classId={selectedClassId} userId={profile.id} isTeacher={true} />
-              )}
-           </motion.div>
-
-           {/* Quick Actions */}
-           <motion.div variants={item}>
-              <h2 className="font-heading font-black text-xl mb-4 text-foreground">גישה מהירה</h2>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {[
-                  { icon: ClipboardList, label: "הקראת שמות", path: "/dashboard/roll-call", color: "bg-primary" },
-                  { icon: FileText, label: "סטודיו משימות", path: "/dashboard/task-studio", color: "bg-accent" },
-                  { icon: BarChart3, label: "ניהול ציונים", path: "/dashboard/teacher-grades", color: "bg-success" },
-                  { icon: Settings, label: "הכיתות שלי", path: "/dashboard/my-classes", color: "bg-muted-foreground" },
-                ].map((action, i) => (
-                  <Card key={i} className="cursor-pointer transition-colors hover:border-primary/50 bg-card border border-border p-4"
-                    onClick={() => navigate(action.path)}>
-                    <div className={`${action.color} h-12 w-12 rounded-lg flex items-center justify-center text-primary-foreground mb-3`}>
-                       <action.icon className="h-6 w-6" />
-                    </div>
-                    <p className="font-heading font-black text-sm">{action.label}</p>
-                    <p className="text-[10px] text-muted-foreground mt-1">נהל {action.label}</p>
-                  </Card>
-                ))}
-              </div>
-           </motion.div>
-        </div>
-
-        {/* ─── RIGHT: STATS & SUMMARY ─── */}
-        <div className="lg:col-span-4 space-y-6">
-           <motion.div variants={item}>
-              <Card className="bg-card border border-border">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-heading font-bold text-muted-foreground">סיכום פעילות</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-4">
-                   {[
-                     { icon: Users, label: "תלמידים תחת אחריותי", value: stats.totalStudents, color: "text-primary", bg: "bg-primary/10" },
-                     { icon: BookOpen, label: "כיתות לימוד", value: stats.classCount, color: "text-accent", bg: "bg-accent/10" },
-                     { icon: FileText, label: "הגשות הדורשות בדיקה", value: stats.pendingSubmissions, color: "text-warning", bg: "bg-warning/10" },
-                     { icon: Clock, label: "שיעורים שבוצעו היום", value: stats.todayLessons, color: "text-success", bg: "bg-success/10" },
-                   ].map((s, i) => (
-                     <div key={i} className="flex items-center justify-between p-4 rounded-lg bg-background border border-border">
-                        <div className="flex items-center gap-3">
-                           <div className={`${s.bg} p-2 rounded-lg`}>
-                              <s.icon className={`h-5 w-5 ${s.color}`} />
-                           </div>
-                           <span className="text-xs font-bold text-muted-foreground">{s.label}</span>
-                        </div>
-                        <span className="text-xl font-heading font-black text-foreground">{s.value}</span>
-                     </div>
-                   ))}
-                </CardContent>
-              </Card>
-           </motion.div>
-
-           {weeklyAttendance.length > 0 && (
-             <motion.div variants={item}>
-                <Card className="bg-card border border-border">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-heading font-bold text-muted-foreground flex items-center gap-2">
-                      <CalendarCheck2 className="h-4 w-4 text-primary" />נוכחות שבועית
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 pt-2">
-                    {weeklyAttendance.map((d) => {
-                      const total = d.present + d.absent + d.late;
-                      return (
-                        <div key={d.day} className="flex items-center gap-3">
-                          <span className="text-xs font-bold text-muted-foreground w-10 shrink-0">{d.day}</span>
-                          <div className="flex-1 h-2.5 rounded-full bg-muted overflow-hidden flex">
-                            {total > 0 && (
-                              <>
-                                <div className="bg-success h-full" style={{ width: `${(d.present / total) * 100}%` }} />
-                                <div className="bg-warning h-full" style={{ width: `${(d.late / total) * 100}%` }} />
-                                <div className="bg-destructive h-full" style={{ width: `${(d.absent / total) * 100}%` }} />
-                              </>
-                            )}
-                          </div>
-                          <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">{d.present}/{total}</span>
-                        </div>
-                      );
-                    })}
-                    {attendanceWatchList.length > 0 && (
-                      <div className="pt-3 mt-3 border-t border-border space-y-1.5">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-destructive">תלמידים לתשומת לב השבוע</p>
-                        {attendanceWatchList.map((s) => (
-                          <div key={s.name} className="flex items-center justify-between text-xs">
-                            <span className="font-bold text-foreground">{s.name}</span>
-                            <Badge variant="outline" className="text-[9px] text-destructive border-destructive/30">{s.absences} היעדרויות</Badge>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-             </motion.div>
-           )}
-
-           {myClassPace.length > 0 && (
-             <motion.div variants={item}>
-                <Card className="bg-card border border-border">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-heading font-bold text-muted-foreground flex items-center gap-2">
-                      <Gauge className="h-4 w-4 text-primary" />קצב שיעורים מול השכבה
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 pt-2">
-                    {myClassPace.map((row) => {
-                      const gradeAvg = gradeAvgDeficitBySubject.get(row.subject) ?? 0;
-                      return (
-                        <div key={row.subject} className="flex items-center justify-between text-xs py-1">
-                          <span className="font-bold text-foreground">{row.subject}</span>
-                          <div className="flex items-center gap-2">
-                            <span className={row.deficit >= 4 ? "text-destructive font-bold" : row.deficit > 0 ? "text-warning font-bold" : "text-success font-bold"}>
-                              פער {row.deficit}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground">(ממוצע שכבה: {gradeAvg})</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <Button
-                      variant="outline" size="sm" className="w-full gap-2 mt-2"
-                      onClick={() => { setTutoringSubject(myClassPace[0]?.subject || ""); setShowTutoringDialog(true); }}
-                    >
-                      <HandHelping className="h-3.5 w-3.5" />בקש תגבור מהרכזים
-                    </Button>
-                  </CardContent>
-                </Card>
-             </motion.div>
-           )}
-
-           {disciplinePatterns.length > 0 && (
-             <motion.div variants={item}>
-                <Card className="bg-card border border-border">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-heading font-bold text-muted-foreground flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-warning" />זיהוי דפוסי משמעת
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 pt-2">
-                    {disciplinePatterns.map((p) => (
-                      <div key={p.studentName + p.subject} className="p-2.5 rounded-lg bg-warning/10 text-xs">
-                        <span className="font-bold text-foreground">{p.studentName}</span>
-                        <span className="text-muted-foreground"> — מפריע/ה בעיקר ב{p.subject} ({p.count}/{p.total} הערות)</span>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-             </motion.div>
-           )}
-
-           <motion.div variants={item}>
-              <Card className="bg-card border border-border p-6">
-                 <div className="flex items-center gap-2 mb-2">
-                   <BrainCircuit className="h-5 w-5 text-primary" />
-                   <h4 className="font-heading font-black text-lg">טיפ AI למורה</h4>
-                 </div>
-                 <p className="text-muted-foreground text-xs leading-relaxed">
-                    {missingSubmissions && missingSubmissions.students.length > 0
-                      ? `${missingSubmissions.students.length} תלמידים בכיתה ${missingSubmissions.className} לא הגישו את "${missingSubmissions.assignmentTitle}". מומלץ לשלוח להם תזכורת כדי למנוע פערים פדגוגיים.`
-                      : missingSubmissions
-                        ? `כל התלמידים הגישו את "${missingSubmissions.assignmentTitle}". אין צורך בתזכורת כרגע.`
-                        : "אין עדיין מטלות פרסומות לכיתות שלך."}
-                 </p>
-                 {missingSubmissions && missingSubmissions.students.length > 0 && (
-                   <Button
-                     variant="link"
-                     className="text-primary p-0 mt-4 h-auto font-bold text-xs disabled:opacity-50"
-                     disabled={sendingReminder || reminderSent}
-                     onClick={handleSendReminder}
-                   >
-                      {reminderSent ? "התזכורת נשלחה" : sendingReminder ? "שולח..." : "שלח תזכורת עכשיו"}
-                   </Button>
-                 )}
-              </Card>
-           </motion.div>
-        </div>
-      </div>
+      <HomeColumns main={main} side={side} />
     </motion.div>
   );
 };

@@ -7,7 +7,7 @@ const TermsOfServicePage = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-background px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="max-w-3xl mx-auto">
         <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2 mb-4 text-muted-foreground">
           <ArrowRight className="w-4 h-4" />

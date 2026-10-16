@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Student, ClassroomConfig, AppMode, AttendanceStatus } from '@/types/smartseat';
+import { avatarFromRow } from "@/components/avatar/avatarModel";
 
 /**
  * useSmartSeat Hook - Real-time Classroom Seating and Attendance
@@ -38,13 +39,7 @@ export function useSmartSeat(classId?: string, lessonId?: string) {
                 .select('*')
                 .in('user_id', profiles.map(p => p.id));
 
-            const avatarMap = new Map((avatars || []).map(a => [a.user_id, {
-                body_type: 'basic', // Default since UI expects AvatarConfig
-                eye_color: a.eye_color,
-                skin: a.skin_color,
-                hair_style: a.hair_style,
-                hair_color: a.hair_color
-            }]));
+            const avatarMap = new Map((avatars || []).map(a => [a.user_id, avatarFromRow(a)!]));
 
             // 3. Fetch Seats
             const { data: seats } = await supabase

@@ -1,17 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  Users, Heart, ChevronLeft, UserRound,
-  HeartHandshake, MessageSquare, Activity, Percent,
-  FileText, ArrowLeft, GraduationCap,
-  XCircle, CalendarDays, ShieldCheck, Scale, Eye, ClipboardCheck,
-} from "lucide-react";
+import { motion } from "framer-motion";
+import { ShieldCheck, MessageSquare, Loader2, CalendarDays, FileText, PartyPopper, Moon } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { computeWeightedAverage } from "@/lib/gradeMath";
+import { useStudentDay, formatClassName } from "@/hooks/useStudentDay";
+import { subjectColor } from "@/components/SubjectSticker";
+import {
+  HomeHeader, HeroCard, HomeSection, HomeColumns, StatTiles, HomeRow, HomeEmpty, PillSwitch, IconTile,
+  greeting, longHebrewDate, firstName, type Tone,
+} from "@/components/home/HomeKit";
 
 /* ─── Types ───────────────────────────────────────────── */
 interface ChildInfo {
@@ -32,6 +32,31 @@ interface WeeklyItem {
   dayLabel: string;
 }
 
+interface RecentGrade {
+  id: string;
+  grade: number;
+  graded_at: string | null;
+  assignments: { title: string; subject: string | null; max_grade: number | null } | null;
+}
+
+// Icon tile per roadmap item type (exam orange, submission yellow, event blue).
+const ROADMAP_ICON: Record<WeeklyItem["type"], { icon: typeof CalendarDays; color: string }> = {
+  exam: { icon: FileText, color: "#F0572A" },
+  assignment: { icon: FileText, color: "#F2A007" },
+  event: { icon: PartyPopper, color: "#3B7BF2" },
+  holiday: { icon: CalendarDays, color: "#14B8A6" },
+};
+
+const ROADMAP_TAG: Record<WeeklyItem["type"], { label: string; tone: Tone }> = {
+  exam: { label: "מבחן", tone: "alert" },
+  assignment: { label: "הגשה", tone: "warning" },
+  event: { label: "אירוע", tone: "info" },
+  holiday: { label: "חופשה", tone: "info" },
+};
+
+const shortDate = new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "numeric" });
+const weekday = new Intl.DateTimeFormat("he-IL", { weekday: "long" });
+
 const ParentDashboardPage = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
   const navigate = useNavigate();
@@ -40,13 +65,14 @@ const ParentDashboardPage = () => {
   const [children, setChildren] = useState<ChildInfo[]>([]);
   const [selectedChild, setSelectedChild] = useState<ChildInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   const [state, setState] = useState({
     overallAvg: null as number | null,
     classAvg: null as number | null,
     attendancePct: 100,
     absentCount: 0,
     weeklyRoadmap: [] as WeeklyItem[],
+    recentGrades: [] as RecentGrade[],
     educators: { teacherId: "", educatorName: "", counselorId: "", counselorName: "" },
     classComparison: null as {
       childAbsenceRate: number; classAbsenceRate: number;
@@ -56,6 +82,8 @@ const ParentDashboardPage = () => {
   });
   const [aiInsight, setAiInsight] = useState<string>("");
   const [aiInsightLoading, setAiInsightLoading] = useState(false);
+
+  const day = useStudentDay(selectedChild?.schoolId ?? null, selectedChild?.id ?? null);
 
   const syncCommunity = useCallback(async (child: ChildInfo) => {
     if (!child.classId || !child.schoolId) return;
@@ -77,11 +105,19 @@ const ParentDashboardPage = () => {
     await syncCommunity(child);
 
     // 1. PERFORMANCE: Factual Grades
-    const { data: subs } = await supabase.from("submissions")
-      .select("grade, assignments(max_grade, weight_percent)")
-      .eq("student_id", child.id)
-      .not("grade", "is", null);
-      
+    const [{ data: subs }, { data: recent }] = await Promise.all([
+      supabase.from("submissions")
+        .select("grade, assignments(max_grade, weight_percent)")
+        .eq("student_id", child.id)
+        .not("grade", "is", null),
+      supabase.from("submissions")
+        .select("id, grade, graded_at, assignments(title, subject, max_grade)")
+        .eq("student_id", child.id)
+        .not("grade", "is", null)
+        .order("graded_at", { ascending: false })
+        .limit(3),
+    ]);
+
     const gradedEntries = (subs || []).flatMap((s: any) => {
       const assign = Array.isArray(s.assignments) ? s.assignments[0] : s.assignments;
       if (!assign) return [];
@@ -95,7 +131,7 @@ const ParentDashboardPage = () => {
        const { data: roles } = await supabase.from("user_roles")
          .select("user_id, role, profiles!inner(full_name)")
          .or(`homeroom_class_id.eq.${child.classId},and(role.eq.counselor,grade.eq.${child.grade})`);
-       
+
        roles?.forEach(r => {
          if (r.role === 'educator') {
             staff.teacherId = r.user_id;
@@ -156,6 +192,7 @@ const ParentDashboardPage = () => {
       attendancePct: attPct,
       absentCount: absences,
       weeklyRoadmap: finalRoadmap,
+      recentGrades: (recent || []) as any,
       educators: staff,
       classComparison,
     });
@@ -172,7 +209,7 @@ const ParentDashboardPage = () => {
       });
       setAiInsight(data?.message || "לא ניתן לטעון תובנה כרגע");
     } catch {
-      setAiInsight("שגיאה בטעינת התובנה, נסה שוב מאוחר יותר");
+      setAiInsight("שגיאה בטעינת התובנה, נסה/י שוב מאוחר יותר");
     } finally {
       setAiInsightLoading(false);
     }
@@ -230,228 +267,174 @@ const ParentDashboardPage = () => {
   const goToChat = (id?: string) => id && navigate("/dashboard/chat", { state: { targetUserId: id } });
   const goToCommunity = (type: string) => navigate("/dashboard/chat", { state: { initialType: type } });
 
-  if (loading) return <div className="h-screen flex items-center justify-center text-muted-foreground">טוען...</div>;
+  if (loading) return <div className="flex h-[60vh] items-center justify-center text-muted-foreground">טוען...</div>;
+
+  const childLabel = (c: ChildInfo) => [firstName(c.fullName), c.grade && formatClassName(c.grade, c.classNumber)].filter(Boolean).join(" · ");
+  const kidsNames = children.map((c) => firstName(c.fullName));
+  const subtitle = [
+    longHebrewDate(),
+    kidsNames.length ? `הורה של ${kidsNames.length > 1 ? `${kidsNames.slice(0, -1).join(", ")} ו${kidsNames[kidsNames.length - 1]}` : kidsNames[0]}` : null,
+  ].filter(Boolean).join(" · ");
+
+  if (!selectedChild) {
+    return (
+      <div className="flex flex-col gap-6">
+        <HomeHeader title={`${greeting()}, ${firstName(profile.fullName)}`} subtitle={longHebrewDate()} />
+        <HomeEmpty>עדיין לא קושרו ילדים לחשבון. אחרי שהמחנך/ת יאשר/תאשר את הקישור, הם יופיעו כאן</HomeEmpty>
+      </div>
+    );
+  }
+
+  const childName = firstName(selectedChild.fullName);
+  const lessonMeta = (l: { teacher_name: string | null; room: string | null; lesson_number: number }) =>
+    [`שיעור ${l.lesson_number}`, l.teacher_name, l.room && `חדר ${l.room}`].filter(Boolean).join(" · ");
+
+  // What the child is doing right now.
+  const hero = (() => {
+    if (day.phase === "lesson" && day.current) {
+      return { color: day.current.color || subjectColor(day.current.subject), subject: day.current.subject,
+        tag: `${childName} עכשיו`, title: day.current.subject, meta: lessonMeta(day.current) };
+    }
+    if (day.phase === "break" && day.next) {
+      return { color: "#C2552A", subject: "תזונה", tag: `${childName} עכשיו`, title: "בהפסקה",
+        meta: `השיעור הבא: ${day.next.subject} ב-${day.next.bellStart}` };
+    }
+    if (day.phase === "before" && day.next) {
+      return { color: day.next.color || subjectColor(day.next.subject), subject: day.next.subject,
+        tag: `היום של ${childName} מתחיל ב-${day.next.bellStart}`, title: day.next.subject, meta: lessonMeta(day.next) };
+    }
+    const nextItem = state.weeklyRoadmap[0];
+    if (nextItem) {
+      return { color: "#2F64D0", icon: <IconTile icon={ROADMAP_ICON[nextItem.type].icon} color={ROADMAP_ICON[nextItem.type].color} size={92} />, tag: `הבא אצל ${childName}`, title: nextItem.title,
+        meta: `${ROADMAP_TAG[nextItem.type].label} · ${weekday.format(new Date(nextItem.date))} ${shortDate.format(new Date(nextItem.date))}` };
+    }
+    return { color: "#2B3350", icon: <IconTile icon={Moon} color="#8E9BD6" size={92} />, tag: childLabel(selectedChild),
+      title: day.phase === "after" ? "היום הסתיים" : "אין לימודים היום", meta: selectedChild.schoolName || undefined };
+  })();
+
+  const presenceTone: Tone = state.attendancePct >= 90 ? "success" : state.attendancePct >= 85 ? "warning" : "danger";
+  const cmp = state.classComparison;
+  const comparisonRows = cmp ? [
+    { label: "נוכחות", child: Math.round((1 - cmp.childAbsenceRate) * 100), cls: Math.round((1 - cmp.classAbsenceRate) * 100),
+      childText: `${Math.round((1 - cmp.childAbsenceRate) * 100)}%`, clsText: `${Math.round((1 - cmp.classAbsenceRate) * 100)}%` },
+    { label: "ריכוז בשיעור", child: Math.round((cmp.childFocusAvg / 5) * 100), cls: Math.round((cmp.classFocusAvg / 5) * 100),
+      childText: cmp.childFocusAvg > 0 ? `${cmp.childFocusAvg.toFixed(1)}/5` : "—", clsText: cmp.classFocusAvg > 0 ? `${cmp.classFocusAvg.toFixed(1)}/5` : "—" },
+    { label: "הגשה בזמן", child: Math.round(cmp.childSubmissionRate * 100), cls: Math.round(cmp.classSubmissionRate * 100),
+      childText: `${Math.round(cmp.childSubmissionRate * 100)}%`, clsText: `${Math.round(cmp.classSubmissionRate * 100)}%` },
+  ] : [];
+
+  const main = (
+    <>
+      <HeroCard {...hero} />
+
+      <HomeSection title={`השבוע של ${childName}`}>
+        {state.weeklyRoadmap.length === 0 ? (
+          <HomeEmpty>אין מבחנים, הגשות או אירועים בימים הקרובים</HomeEmpty>
+        ) : (
+          state.weeklyRoadmap.map((i, idx) => (
+            <HomeRow key={i.id} index={idx} icon={<IconTile icon={ROADMAP_ICON[i.type].icon} color={ROADMAP_ICON[i.type].color} />}
+              title={i.title} meta={`${weekday.format(new Date(i.date))} ${shortDate.format(new Date(i.date))}`} tag={ROADMAP_TAG[i.type]} />
+          ))
+        )}
+      </HomeSection>
+
+      <HomeSection title="ערוצי קשר">
+        <HomeRow person={state.educators.educatorName || "מחנך/ת"} index={0} title={state.educators.educatorName || "לא שובצ/ה מחנך/ת"} meta="מחנך/ת הכיתה"
+          action={state.educators.teacherId ? { label: "לשיחה", onClick: () => goToChat(state.educators.teacherId) } : undefined} />
+        <HomeRow person={state.educators.counselorName || "יועץ/ת"} index={1} title={state.educators.counselorName || "לא שובצ/ה יועץ/ת"} meta="יועץ/ת השכבה"
+          action={state.educators.counselorId ? { label: "לשיחה", onClick: () => goToChat(state.educators.counselorId) } : undefined} />
+        <HomeRow index={0} icon={<IconTile icon={MessageSquare} color="#1592B3" />}
+          title={`קבוצת הורי ${selectedChild.grade ? formatClassName(selectedChild.grade, selectedChild.classNumber) : "הכיתה"}`} meta="שיחה עם הורי הכיתה"
+          onClick={() => goToCommunity("parent_class")} />
+        <HomeRow index={1} icon={<IconTile icon={MessageSquare} color="#4F70C9" />}
+          title={`פורום הורי שכבת ${selectedChild.grade ? formatClassName(selectedChild.grade) : ""}`} meta="שיחה עם כל הורי השכבה"
+          onClick={() => goToCommunity("parent_grade")} />
+      </HomeSection>
+
+      {(aiInsightLoading || aiInsight) && (
+        <HomeSection title="תובנה על השבוע">
+          <HomeRow
+            icon={<IconTile icon={ShieldCheck} color="#9257EC" />}
+            title={`מה כדאי לדעת על ${childName}`}
+            meta={aiInsightLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : aiInsight}
+          />
+        </HomeSection>
+      )}
+    </>
+  );
+
+  const side = (
+    <>
+      <HomeSection title="תמונת מצב">
+        <div onClick={goToAttendance} className="cursor-pointer">
+          <StatTiles
+            size="sm"
+            items={[
+              { value: `${state.attendancePct}%`, label: "נוכחות", tone: presenceTone },
+              { value: state.overallAvg ?? "—", label: state.classAvg !== null ? `ממוצע (כיתה ${state.classAvg})` : "ממוצע", tone: "info" },
+              { value: state.absentCount, label: "היעדרויות", tone: state.absentCount > 0 ? "neutral" : "success" },
+            ]}
+          />
+        </div>
+      </HomeSection>
+
+      <HomeSection
+        title="ציונים אחרונים"
+        action={<button type="button" onClick={goToGrades} className="font-body text-[13px] font-extrabold text-link">דוחות וציונים ←</button>}
+      >
+        {state.recentGrades.length === 0 ? (
+          <HomeEmpty>עדיין אין ציונים</HomeEmpty>
+        ) : (
+          state.recentGrades.map((g, i) => {
+            const max = g.assignments?.max_grade || 100;
+            return (
+              <HomeRow key={g.id} index={i} subject={g.assignments?.subject || undefined} title={g.assignments?.title || "מטלה"}
+                meta={[g.assignments?.subject, g.graded_at && shortDate.format(new Date(g.graded_at))].filter(Boolean).join(" · ")}
+                tag={{ label: max === 100 ? String(g.grade) : `${g.grade}/${max}`, tone: (g.grade / max) * 100 >= 80 ? "success" : "warning" }}
+                onClick={goToGrades} />
+            );
+          })
+        )}
+      </HomeSection>
+
+      {comparisonRows.length > 0 && (
+        <HomeSection title="לעומת הכיתה">
+          <div className="flex flex-col gap-3.5 rounded-card bg-card p-[18px] shadow-card">
+            {comparisonRows.map((r) => {
+              const low = r.child < r.cls - 5;
+              return (
+                <div key={r.label} className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between font-body text-[13px] font-extrabold">
+                    <span className="text-foreground">{r.label}</span>
+                    <span style={{ color: low ? "#A8320F" : "#11734A" }}>{r.childText} <span className="font-bold text-hint">· כיתה {r.clsText}</span></span>
+                  </div>
+                  <div className="relative h-3.5 overflow-hidden rounded-[7px] bg-[#F0EBE2] dark:bg-muted">
+                    <div className="absolute inset-y-0 right-0 rounded-[7px]" style={{ width: `${Math.min(100, Math.max(0, r.child))}%`, background: low ? "#F0602F" : "#23B26D" }} />
+                    <div className="absolute inset-y-0 w-[3px] rounded bg-foreground/60" style={{ right: `${Math.min(100, Math.max(0, r.cls))}%` }} title={`ממוצע הכיתה: ${r.clsText}`} />
+                  </div>
+                </div>
+              );
+            })}
+            <p className="font-body text-xs font-semibold text-hint">הקו הכהה הוא ממוצע הכיתה</p>
+          </div>
+        </HomeSection>
+      )}
+    </>
+  );
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8 pb-24 text-right" dir="rtl">
-      <div className="max-w-6xl mx-auto space-y-10">
-
-        {/* HEADER */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-           <div className="space-y-4">
-              <h1 className="text-3xl md:text-4xl font-black tracking-tight flex items-center gap-4">
-                 <div className="w-14 h-14 bg-primary rounded-lg flex items-center justify-center text-primary-foreground"><Heart className="h-7 w-7" /></div>
-                 <span className="text-foreground font-heading">אזור ההורה</span>
-              </h1>
-              <div className="flex flex-wrap gap-3">
-                 {children.map(c => (
-                   <button key={c.id} onClick={() => setSelectedChild(c)} className={`px-6 py-2.5 rounded-lg text-xs font-black transition-colors border ${selectedChild?.id === c.id ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border hover:border-primary/50"}`}>
-                      {c.fullName}
-                   </button>
-                 ))}
-              </div>
-           </div>
-           <Button onClick={goToGrades} className="w-full md:w-auto h-14 px-8 rounded-lg bg-success hover:bg-success/90 text-success-foreground font-black gap-3">
-              <FileText className="h-5 w-5" />
-              דוחות וציונים מפורטים
-              <ChevronLeft className="h-4 w-4 mr-2" />
-           </Button>
-        </div>
-
-        {selectedChild && (
-           <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-              
-              {/* MAIN CONTENT */}
-              <div className="lg:col-span-2 space-y-12">
-                 
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <Card className="bg-primary text-primary-foreground rounded-lg p-8 flex flex-col justify-between">
-                       <div className="space-y-8">
-                          <div>
-                             <h2 className="text-3xl font-black">{selectedChild.fullName}</h2>
-                             <p className="text-xs text-primary-foreground/70 font-bold italic">כיתה {selectedChild.grade}'{selectedChild.classNumber} • {selectedChild.schoolName}</p>
-                          </div>
-
-                          <div className="flex items-center gap-12">
-                             <div className="text-center">
-                                <p className="text-7xl font-black tracking-tighter tabular-nums leading-none">{state.overallAvg ?? "—"}</p>
-                                <p className="text-[10px] uppercase font-black tracking-widest text-primary-foreground/60 mt-3">GPA משוקלל</p>
-                             </div>
-                             <div className="w-px h-20 bg-primary-foreground/20" />
-                             <div className="text-center opacity-70">
-                                <p className="text-4xl font-black tabular-nums leading-none tracking-tight">{state.classAvg ?? "—"}</p>
-                                <p className="text-[10px] uppercase font-black tracking-widest text-primary-foreground/60 mt-3">ממוצע כיתה</p>
-                             </div>
-                          </div>
-                       </div>
-                    </Card>
-
-                    <div className="grid grid-cols-2 gap-8">
-                       <Card
-                         className="bg-card border border-border rounded-lg p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:border-primary/50 transition-colors"
-                         onClick={goToAttendance}
-                       >
-                          <div className="w-16 h-16 rounded-lg bg-destructive/10 flex items-center justify-center text-destructive mb-6"><XCircle className="h-8 w-8" /></div>
-                          <p className="text-5xl font-black tabular-nums tracking-tighter">{state.absentCount}</p>
-                          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-4">היעדרויות סה"כ</p>
-                       </Card>
-                       <Card className="bg-card border border-border rounded-lg p-8 flex flex-col items-center justify-center text-center">
-                          <div className="w-16 h-16 rounded-lg bg-success/10 flex items-center justify-center text-success mb-6"><Percent className="h-8 w-8" /></div>
-                          <p className="text-5xl font-black tabular-nums tracking-tighter">{state.attendancePct}%</p>
-                          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-4">נוכחות שנתית</p>
-                       </Card>
-                    </div>
-
-                    {/* SOFT COMPARISONS: previously only grades were
-                        compared to the class average - attendance, focus
-                        and homework follow-through each showed only the
-                        child's own raw number, with no context for whether
-                        that's normal or a real outlier. */}
-                    {state.classComparison && (
-                      <Card className="bg-card border border-border rounded-lg p-8 space-y-6">
-                         <div className="flex items-center gap-3">
-                            <Scale className="h-5 w-5 text-primary" />
-                            <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground">השוואה לממוצע הכיתה</h3>
-                         </div>
-                         {[
-                           {
-                             icon: Percent, color: "bg-success",
-                             label: "נוכחות",
-                             childPct: Math.round((1 - state.classComparison.childAbsenceRate) * 100),
-                             classPct: Math.round((1 - state.classComparison.classAbsenceRate) * 100),
-                             childDisplay: `${Math.round((1 - state.classComparison.childAbsenceRate) * 100)}%`,
-                             classDisplay: `${Math.round((1 - state.classComparison.classAbsenceRate) * 100)}% ממוצע`,
-                           },
-                           {
-                             icon: Eye, color: "bg-info",
-                             label: "ריכוז בשיעור",
-                             childPct: Math.round((state.classComparison.childFocusAvg / 5) * 100),
-                             classPct: Math.round((state.classComparison.classFocusAvg / 5) * 100),
-                             childDisplay: state.classComparison.childFocusAvg > 0 ? `${state.classComparison.childFocusAvg.toFixed(1)}/5` : "אין נתונים",
-                             classDisplay: state.classComparison.classFocusAvg > 0 ? `${state.classComparison.classFocusAvg.toFixed(1)}/5 ממוצע` : "אין נתונים",
-                           },
-                           {
-                             icon: ClipboardCheck, color: "bg-warning",
-                             label: "הגשת מטלות בזמן",
-                             childPct: Math.round(state.classComparison.childSubmissionRate * 100),
-                             classPct: Math.round(state.classComparison.classSubmissionRate * 100),
-                             childDisplay: `${Math.round(state.classComparison.childSubmissionRate * 100)}%`,
-                             classDisplay: `${Math.round(state.classComparison.classSubmissionRate * 100)}% ממוצע`,
-                           },
-                         ].map((row) => (
-                           <div key={row.label} className="space-y-2">
-                              <div className="flex items-center justify-between text-xs">
-                                 <span className="flex items-center gap-2 font-bold text-foreground">
-                                    <row.icon className="h-3.5 w-3.5" />{row.label}
-                                 </span>
-                                 <span className="font-black tabular-nums">{row.childDisplay}</span>
-                              </div>
-                              <div className="relative h-2.5 rounded-full bg-muted overflow-hidden">
-                                 <div className={`absolute inset-y-0 right-0 rounded-full ${row.color}`} style={{ width: `${Math.min(100, Math.max(0, row.childPct))}%` }} />
-                                 <div className="absolute inset-y-0 w-0.5 bg-muted-foreground" style={{ right: `${Math.min(100, Math.max(0, row.classPct))}%` }} title={row.classDisplay} />
-                              </div>
-                              <p className="text-[10px] text-muted-foreground text-left">{row.classDisplay}</p>
-                           </div>
-                         ))}
-                      </Card>
-                    )}
-                 </div>
-
-                 {/* CALENDAR ROADMAP */}
-                 <div className="space-y-6">
-                    <div className="flex justify-between items-center px-4">
-                       <h3 className="text-xl font-black flex items-center gap-3">
-                          <CalendarDays className="h-6 w-6 text-primary" /> לו"ז אירועים ומבצעי למידה
-                       </h3>
-                       <div className="px-4 py-1.5 rounded-lg border border-border text-[10px] font-black text-muted-foreground uppercase">מתעדכן בזמן אמת</div>
-                    </div>
-                    <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide px-4">
-                       {["א'", "ב'", "ג'", "ד'", "ה'"].map(day => {
-                          const items = state.weeklyRoadmap.filter(r => r.dayLabel === day);
-                          return (
-                            <div key={day} className="flex-none w-56 space-y-4">
-                               <p className="text-xs font-black text-muted-foreground border-b border-border pb-3 text-center tracking-widest">{day}</p>
-                               {items.map(i => (
-                                 <div key={i.id} className={`p-6 rounded-lg text-xs font-black text-center border ${
-                                   i.type === 'exam' ? "bg-destructive/10 border-destructive/20 text-destructive" :
-                                   i.type === 'holiday' ? "bg-info/10 border-info/20 text-info" :
-                                   "bg-primary/10 border-primary/20 text-primary"
-                                 }`}>
-                                    <div className="opacity-60 text-[9px] mb-2 uppercase tracking-tightest">
-                                       {i.type === 'exam' ? "מבחן הרשום בלוח" : i.type === 'event' ? "אירוע בית ספר" : "מטלה להגשה"}
-                                    </div>
-                                    {i.title}
-                                 </div>
-                               ))}
-                               {items.length === 0 && <div className="h-28 w-full border-2 border-dashed border-border rounded-lg opacity-50 flex items-center justify-center text-muted-foreground text-xs font-bold">אין אירועים</div>}
-                            </div>
-                          );
-                       })}
-                    </div>
-                 </div>
-              </div>
-
-              {/* SIDEBAR PANEL */}
-              <div className="space-y-12">
-                 
-                 {/* STAFF CONTACTS */}
-                 <Card className="bg-card border border-border rounded-lg p-8">
-                    <h3 className="text-xl font-black mb-8 text-foreground">ערוצי קשר ישירים</h3>
-                    <div className="space-y-4">
-                       <button onClick={() => goToChat(state.educators.teacherId)} className="w-full flex items-center gap-5 p-6 rounded-lg bg-muted hover:bg-muted/70 transition-colors border border-border active:scale-[0.99]">
-                          <div className="w-14 h-14 rounded-lg bg-primary/10 flex items-center justify-center text-primary"><UserRound className="h-6 w-6" /></div>
-                          <div className="flex-1 text-right">
-                             <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest mb-1">מחנכת הכיתה</p>
-                             <p className="text-md font-black text-foreground">{state.educators.educatorName || "—"}</p>
-                          </div>
-                          <ChevronLeft className="h-5 w-5 opacity-40" />
-                       </button>
-
-                       <button onClick={() => goToChat(state.educators.counselorId)} className="w-full flex items-center gap-5 p-6 rounded-lg bg-muted hover:bg-muted/70 transition-colors border border-border active:scale-[0.99]">
-                          <div className="w-14 h-14 rounded-lg bg-destructive/10 flex items-center justify-center text-destructive"><HeartHandshake className="h-6 w-6" /></div>
-                          <div className="flex-1 text-right">
-                             <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest mb-1">יועצת השכבה</p>
-                             <p className="text-md font-black text-foreground italic opacity-80">{state.educators.counselorName || "—"}</p>
-                          </div>
-                          <ChevronLeft className="h-5 w-5 opacity-40" />
-                       </button>
-                    </div>
-                 </Card>
-
-                 {/* COMMUNITY HUB */}
-                 <div className="p-8 rounded-lg bg-card border border-border space-y-6">
-                    <div className="flex items-center gap-3 justify-end leading-none">
-                       <h4 className="text-[11px] font-black uppercase text-primary tracking-widest">קהילת הורים</h4>
-                       <MessageSquare className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="space-y-4">
-                       <button onClick={() => goToCommunity('parent_class')} className="w-full h-14 rounded-lg bg-muted hover:bg-muted/70 transition-colors flex items-center justify-between px-6 text-xs font-black border border-border active:scale-[0.99]">
-                         קבוצת הורי כיתה {selectedChild.grade}'{selectedChild.classNumber}
-                         <ArrowLeft className="h-5 w-5 text-primary" />
-                       </button>
-                       <button onClick={() => goToCommunity('parent_grade')} className="w-full h-14 rounded-lg border border-border hover:bg-muted transition-colors flex items-center justify-between px-6 text-xs font-black active:scale-[0.99]">
-                         פורום הורי שכבת {selectedChild.grade}
-                         <ArrowLeft className="h-5 w-5 text-primary" />
-                       </button>
-                    </div>
-                 </div>
-
-                 {/* SYSTEM INSIGHT */}
-                 <div className="p-8 rounded-lg bg-primary/10 border border-primary/20 text-right">
-                    <div className="flex items-center gap-3 mb-4 justify-end">
-                       <p className="text-[10px] font-black uppercase text-primary tracking-widest">תובנת AI</p>
-                       <ShieldCheck className="h-5 w-5 text-primary" />
-                    </div>
-                    <p className="text-xs font-bold text-muted-foreground leading-relaxed italic">
-                       {aiInsightLoading ? "טוען תובנה..." : aiInsight}
-                    </p>
-                 </div>
-
-              </div>
-           </div>
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
+      <HomeHeader title={`${greeting()}, ${firstName(profile.fullName)}`} subtitle={subtitle}>
+        {children.length > 1 && (
+          <PillSwitch
+            options={children.map((c) => ({ value: c.id, label: childLabel(c) }))}
+            value={selectedChild.id}
+            onChange={(id) => setSelectedChild(children.find((c) => c.id === id) || selectedChild)}
+          />
         )}
-      </div>
-    </div>
+      </HomeHeader>
+      <HomeColumns main={main} side={side} />
+    </motion.div>
   );
 };
 

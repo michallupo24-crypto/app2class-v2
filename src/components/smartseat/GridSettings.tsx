@@ -10,7 +10,7 @@ interface Props {
 
 export function GridSettings({ config, onChange }: Props) {
     return (
-        <div className="flex items-center gap-4 px-6 py-3 bg-card border-b">
+        <div className="mx-5 flex flex-wrap items-center gap-4 rounded-[18px] bg-card px-3.5 py-2.5 shadow-[0_6px_16px_-12px_rgba(40,30,15,0.4)]">
             <Settings className="h-4 w-4 text-muted-foreground" />
             <div className="flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground">שם כיתה:</Label>

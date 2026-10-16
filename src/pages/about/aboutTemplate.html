@@ -1,0 +1,335 @@
+<div dir="rtl" data-screen-label="{{ screenLabel }}" style="position:relative; height: {{ totalH }}; background:#F7F3EC; font-family:Assistant, sans-serif; color:#1B2333;">
+  <div style="position:sticky; top:0; height:100svh; width:100%; overflow:hidden; background-color:#F7F3EC; background-image: {{ dotBg }}; background-size:22px 22px;">
+    <div style="position:absolute; left:50%; top:50%; width:1280px; height:800px; transform: {{ stageTf }}; transform-origin:center center; clip-path: {{ stageClip }};">
+
+      <!-- header -->
+      <div style="position:absolute; top:32px; right:56px; left:56px; display:flex; align-items:center; justify-content:space-between; z-index:40; opacity: {{ deskOp }};">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <img src="/logo.png" alt="App2Class" style="width:36px; height:36px; object-fit:contain;">
+          <span style="font-family:Rubik, sans-serif; font-weight:800; font-size:18px;">App2Class</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; font-family:Rubik, sans-serif; font-weight:700; font-size:13px;">
+          <span style="color: {{ act1C }};">החפצים</span>
+          <div style="position:relative; width:220px; height:4px; border-radius:999px; background:#E8E0D2; overflow:hidden;">
+            <div style="position:absolute; top:0; bottom:0; right:0; border-radius:999px; background:#1B2333; width: {{ progW }};"></div>
+            <div style="position:absolute; top:0; bottom:0; right:50%; width:2px; background:#F7F3EC;"></div>
+          </div>
+          <span style="color: {{ act2C }};">האפליקציות</span>
+        </div>
+      </div>
+
+      <!-- hero -->
+      <div style="position:absolute; left:260px; right:260px; top:280px; text-align:center; z-index:30; opacity: {{ heroOp }}; transform: {{ heroTf }};">
+        <h1 style="margin:0; font-family:Rubik, sans-serif; font-weight:900; font-size:76px; line-height:1.02; letter-spacing:-1px; text-wrap:balance;">פעם, כל צורך<br>היה חפץ.</h1>
+        <p style="margin:22px auto 0; max-width:500px; font-size:21px; font-weight:600; line-height:1.5; color:#5B5548; text-wrap:pretty;">מפה, טלפון, עיתון, עט, מצלמה, רב-קו, מכתב ונגן MP3. ואז הם הפכו לטלפון אחד.</p>
+      </div>
+      <div style="position:absolute; bottom:44px; left:0; right:0; display:flex; flex-direction:column; align-items:center; gap:8px; z-index:30; opacity: {{ hintOp }};">
+        <span style="font-family:Rubik, sans-serif; font-weight:700; font-size:13px; color:#7A7468;">גללו למטה</span>
+        <div style="width:22px; height:34px; border-radius:999px; border:2px solid #7A7468; display:flex; justify-content:center; padding-top:6px; box-sizing:border-box;">
+          <div style="width:4px; height:8px; border-radius:999px; background:#7A7468;"></div>
+        </div>
+      </div>
+
+      <!-- captions -->
+      <div style="position:absolute; right:72px; top:240px; width:420px; height:340px; z-index:30; opacity: {{ deskOp }};">
+        <sc-for list="{{ caps }}" as="c" hint-placeholder-count="0">
+          <div style="position:absolute; inset:0; opacity: {{ c.op }}; transform: {{ c.tf }};">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:18px;">
+              <span style="padding:5px 10px; border-radius:9px; font-family:Rubik, sans-serif; font-weight:800; font-size:13px; background: {{ c.tagBg }}; color: {{ c.tagC }};">{{ c.tag }}</span>
+              <span style="font-family:Rubik, sans-serif; font-weight:700; font-size:15px; color:#7A7468;">{{ c.eyebrow }}</span>
+            </div>
+            <h2 style="margin:0 0 16px; font-family:Rubik, sans-serif; font-weight:900; font-size:48px; line-height:1.06; text-wrap:balance;">{{ c.title }}</h2>
+            <p style="margin:0; font-size:20px; font-weight:600; line-height:1.55; color:#5B5548; text-wrap:pretty;">{{ c.body }}</p>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- final -->
+      <div style="position:absolute; right:90px; top:210px; width:540px; z-index:30; opacity: {{ finOp }}; transform: {{ finTf }}; pointer-events: {{ finPE }};">
+        <h2 style="margin:0 0 16px; font-family:Rubik, sans-serif; font-weight:900; font-size:64px; line-height:1.02;">הכל. במקום. אחד.</h2>
+        <p style="margin:0 0 36px; font-size:24px; font-weight:600; line-height:1.5; color:#5B5548; max-width:460px;">מערכת ניהול בית ספרית חכמה.</p>
+        <div style="display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; margin-bottom:22px;">
+          <a href="#" sc-camel-on-click="{{ roleBtns.0.pick }}" aria-pressed="{{ roleBtns.0.on }}" style="display:flex; flex-direction:column; align-items:center; gap:12px; padding:22px 8px; background:#FFFFFF; border-radius:14px; color:#1B2333; text-decoration:none; cursor:pointer; transition:border-color .2s, box-shadow .2s; border: {{ roleBtns.0.bd }}; box-shadow: {{ roleBtns.0.sh }};" style-hover="border-color:#1268E8; text-decoration:none; color:#1B2333;">
+            <span style="width:48px; height:48px; border-radius:12px; background:#1268E8; display:flex; align-items:center; justify-content:center;"><svg width="24" height="24" sc-camel-view-box="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"></path><path d="M22 10v6"></path><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"></path></svg></span>
+            <span style="font-family:Rubik, sans-serif; font-weight:800; font-size:16px;">תלמיד/ה</span>
+          </a>
+          <a href="#" sc-camel-on-click="{{ roleBtns.1.pick }}" aria-pressed="{{ roleBtns.1.on }}" style="display:flex; flex-direction:column; align-items:center; gap:12px; padding:22px 8px; background:#FFFFFF; border-radius:14px; color:#1B2333; text-decoration:none; cursor:pointer; transition:border-color .2s, box-shadow .2s; border: {{ roleBtns.1.bd }}; box-shadow: {{ roleBtns.1.sh }};" style-hover="border-color:#1268E8; text-decoration:none; color:#1B2333;">
+            <span style="width:48px; height:48px; border-radius:12px; background:#23B26D; display:flex; align-items:center; justify-content:center;"><svg width="24" height="24" sc-camel-view-box="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>
+            <span style="font-family:Rubik, sans-serif; font-weight:800; font-size:16px;">הורה</span>
+          </a>
+          <a href="#" sc-camel-on-click="{{ roleBtns.2.pick }}" aria-pressed="{{ roleBtns.2.on }}" style="display:flex; flex-direction:column; align-items:center; gap:12px; padding:22px 8px; background:#FFFFFF; border-radius:14px; color:#1B2333; text-decoration:none; cursor:pointer; transition:border-color .2s, box-shadow .2s; border: {{ roleBtns.2.bd }}; box-shadow: {{ roleBtns.2.sh }};" style-hover="border-color:#1268E8; text-decoration:none; color:#1B2333;">
+            <span style="width:48px; height:48px; border-radius:12px; background:#9257EC; display:flex; align-items:center; justify-content:center;"><svg width="24" height="24" sc-camel-view-box="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path><rect width="20" height="14" x="2" y="6" rx="2"></rect></svg></span>
+            <span style="font-family:Rubik, sans-serif; font-weight:800; font-size:16px;">צוות</span>
+          </a>
+          <a href="#" sc-camel-on-click="{{ roleBtns.3.pick }}" aria-pressed="{{ roleBtns.3.on }}" style="display:flex; flex-direction:column; align-items:center; gap:12px; padding:22px 8px; background:#FFFFFF; border-radius:14px; color:#1B2333; text-decoration:none; cursor:pointer; transition:border-color .2s, box-shadow .2s; border: {{ roleBtns.3.bd }}; box-shadow: {{ roleBtns.3.sh }};" style-hover="border-color:#1268E8; text-decoration:none; color:#1B2333;">
+            <span style="width:48px; height:48px; border-radius:12px; background:#FBBE24; display:flex; align-items:center; justify-content:center;"><svg width="24" height="24" sc-camel-view-box="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"></path><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path><path d="M10 6h4"></path><path d="M10 10h4"></path><path d="M10 14h4"></path><path d="M10 18h4"></path></svg></span>
+            <span style="font-family:Rubik, sans-serif; font-weight:800; font-size:16px;">הנהלה</span>
+          </a>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px;">
+          <a href="{{ rd.href }}" style="display:flex; align-items:center; gap:8px; padding:15px 24px; border-radius:10px; color:#FFFFFF; font-family:Rubik, sans-serif; font-weight:800; font-size:16px; text-decoration:none; transition:background-color .3s; background-color: {{ rd.c }};">{{ rd.cta }}</a> <a href="/login" style="display:flex; align-items:center; gap:8px; padding:13px 22px; border-radius:10px; border:1.5px solid #1B2333; color:#1B2333; font-family:Rubik, sans-serif; font-weight:800; font-size:16px; text-decoration:none;" style-hover="background:#1B2333; color:#FFFFFF; text-decoration:none;">כבר רשום? התחבר</a>
+        </div>
+      </div>
+
+      <!-- phone -->
+      <div style="position:absolute; left:0; top:0; width:300px; height:620px; z-index:15; transform: {{ phoneTf }}; opacity: {{ phoneOp }};">
+        <div style="position:absolute; inset:0; border-radius:50px; background:#1B2333; box-shadow:0 30px 60px -20px rgba(11,17,32,.6); padding:12px; box-sizing:border-box;">
+          <div style="position:relative; width:276px; height:596px; border-radius:39px; overflow:hidden; background:#FBF8F3;">
+
+            <!-- home widget -->
+            <div style="position:absolute; top:58px; left:0; right:0; text-align:center;">
+              <div style="font-family:Rubik, sans-serif; font-weight:900; font-size:44px; line-height:1;">08:05</div>
+              <div style="margin-top:6px; font-weight:700; font-size:13px; color:#5B5548;">יום ראשון, 12 באוקטובר</div>
+            </div>
+
+            <!-- act 1 icons -->
+            <sc-for list="{{ icons1 }}" as="ic" hint-placeholder-count="0">
+              <div style="position:absolute; width:84px; display:flex; flex-direction:column; align-items:center; gap:6px; left: {{ ic.left }}; top: {{ ic.top }}; opacity: {{ ic.op }}; transform: {{ ic.tf }};">
+                <div style="width:62px; height:62px; border-radius:18px; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 20px -14px rgba(40,30,15,.45); background: {{ ic.c }};">
+                  <div style="background:#FFFFFF; width: {{ ic.gw }}; height: {{ ic.gh }}; border-radius: {{ ic.gr }};"></div>
+                </div>
+                <span style="font-size:12px; font-weight:800;">{{ ic.name }}</span>
+              </div>
+            </sc-for>
+
+            <!-- integrated message -->
+            <div style="position:absolute; left:14px; right:14px; top:134px; background:#FFFFFF; border-radius:18px; padding:14px; box-sizing:border-box; box-shadow:0 14px 30px -18px rgba(27,35,51,.8); display:flex; flex-direction:column; gap:9px; opacity: {{ cardOp }}; transform: {{ cardTf }};">
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <span style="font-family:Rubik, sans-serif; font-weight:800; font-size:15px;">הודעה ליואב</span>
+                <span style="padding:3px 8px; border-radius:999px; background:#EAF1FE; color:#2F5FB8; font-size:11px; font-weight:800;">טיוטה</span>
+              </div>
+              <div style="position:relative; height:104px; border-radius:12px; overflow:hidden; opacity: {{ ch0.op }}; transform: {{ ch0.tf }}; box-shadow: {{ qGlow }};">
+                <div style="position:absolute; inset:0; background:linear-gradient(180deg,#9FC4F0 0%,#CFE2F7 55%,#7FB27A 56%,#5E9A5A 100%); filter: {{ ch0.fl }};">
+                  <span style="position:absolute; top:16px; left:26px; width:22px; height:22px; border-radius:999px; background:#FFD34D;"></span>
+                  <span style="position:absolute; bottom:38px; right:40px; width:0; height:0; border-left:34px solid transparent; border-right:34px solid transparent; border-bottom:40px solid #4E7F9B;"></span>
+                </div>
+                <span style="position:absolute; bottom:8px; right:8px; display:flex; align-items:center; gap:5px; padding:4px 8px; border-radius:999px; background:#1B2333; color:#FFFFFF; font-size:11px; font-weight:800;"><span style="width:8px; height:8px; border-radius:999px; background:#FFFFFF;"></span>{{ ch0.badge }}</span>
+              </div>
+              <sc-for list="{{ chips }}" as="cp" hint-placeholder-count="0">
+                <div style="display:flex; align-items:center; gap:9px; background:#F7F3EC; border-radius:12px; padding:8px 10px; opacity: {{ cp.op }}; transform: {{ cp.tf }};">
+                  <span style="width:22px; height:22px; border-radius:7px; flex:none; background: {{ cp.c }};"></span>
+                  <span style="flex:1; font-size:13px; font-weight:800; line-height:1.2;">{{ cp.text }}</span>
+                  <span style="font-size:11px; font-weight:700; color:#7A7468; white-space:nowrap;">{{ cp.src }}</span>
+                </div>
+              </sc-for>
+              <div style="padding:11px; border-radius:12px; background:#1B2333; color:#FFFFFF; text-align:center; font-family:Rubik, sans-serif; font-weight:800; font-size:14px; opacity: {{ sendOp }};">שליחה</div>
+            </div>
+
+            <!-- act 2 school apps -->
+            <sc-for list="{{ icons2 }}" as="ic" hint-placeholder-count="0">
+              <div style="position:absolute; display:flex; align-items:center; justify-content:center; left: {{ ic.left }}; top: {{ ic.top }}; width: {{ ic.w }}; height:58px; opacity: {{ ic.op }}; transform: {{ ic.tf }};">
+                <div style="box-sizing:border-box; overflow:hidden; display:flex; width: {{ ic.bw }}; height: {{ ic.bh }}; border-radius: {{ ic.r }}; background-color: {{ ic.fill }}; padding: {{ ic.pad }}; box-shadow: {{ ic.sh }};">
+                  <div role="img" aria-label="{{ ic.name }}" style="flex:1; background-repeat:no-repeat; background-position:center; background-size: {{ ic.fit }}; background-image: {{ ic.bg }};"></div>
+                </div>
+                <sc-if value="{{ ic.badge }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; top:-6px; left:-4px; min-width:22px; height:22px; padding:0 5px; box-sizing:border-box; border-radius:999px; background:#E5484D; color:#FFFFFF; border:2px solid #FBF8F3; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center;">{{ ic.badge }}</span></sc-if>
+              </div>
+            </sc-for>
+
+            <!-- App2Class icon -->
+            <div style="position:absolute; left:94px; top:262px; width:88px; display:flex; flex-direction:column; align-items:center; gap:8px; opacity: {{ a2cOp }}; transform: {{ a2cTf }};">
+              <div style="width:88px; height:88px; border-radius:24px; background:#FFFFFF; box-shadow:0 14px 30px -18px rgba(27,35,51,.8); display:flex; align-items:center; justify-content:center;">
+                <img src="/logo.png" alt="" style="width:62px; height:62px; object-fit:contain;">
+              </div>
+              <span style="font-family:Rubik, sans-serif; font-size:13px; font-weight:800;">App2Class</span>
+            </div>
+
+            <!-- App2Class app -->
+            <div style="position:absolute; inset:0; background:#F4F6F9; padding:58px 16px 16px; box-sizing:border-box; transform-origin:50% 52%; display:flex; flex-direction:column; gap:12px; opacity: {{ appOp }}; transform: {{ appTf }};">
+              <div style="display:flex; align-items:center; justify-content:space-between; opacity: {{ r0.op }}; transform: {{ r0.tf }};">
+                <div>
+                  <div style="font-family:Rubik, sans-serif; font-weight:800; font-size:22px;">{{ rd.hello }}</div>
+                  <div style="font-size:11px; font-weight:600; color:#68707F;">{{ rd.sub }}</div>
+                </div>
+                <img src="/logo.png" alt="" style="width:32px; height:32px; object-fit:contain;">
+              </div>
+              <div style="color:#FFFFFF; border-radius:14px; padding:14px; transition:background-color .3s; background-color: {{ rd.c }}; opacity: {{ r1.op }}; transform: {{ r1.tf }};">
+                <div style="font-size:11px; font-weight:700; opacity:.85;">{{ rd.heroS }}</div>
+                <div style="font-family:Rubik, sans-serif; font-weight:800; font-size:17px;">{{ rd.heroB }}</div>
+              </div>
+              <div style="display:flex; gap:10px; background:#EAF1FE; border:1px solid #CFE0FC; border-radius:14px; padding:12px; opacity: {{ r2.op }}; transform: {{ r2.tf }};">
+                <span style="width:30px; height:30px; flex:none; border-radius:8px; background:#D6E5FD; display:flex; align-items:center; justify-content:center;"><svg width="17" height="17" sc-camel-view-box="0 0 24 24" fill="none" stroke="#1268E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"></path><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"></path></svg></span>
+                <div>
+                  <div style="font-family:Rubik, sans-serif; font-size:11px; font-weight:900; color:#1268E8; margin-bottom:2px;">{{ rd.insT }}</div>
+                  <div style="font-size:12px; font-weight:600; line-height:1.4;">{{ rd.ins }}</div>
+                </div>
+              </div>
+              <div style="background:#FDECEC; border:1px solid #F8CFCF; border-radius:14px; padding:14px 12px; text-align:center; opacity: {{ r3.op }}; transform: {{ r3.tf }};">
+                <div style="font-size:11px; font-weight:900; color:#E5484D;">{{ rd.alT }}</div>
+                <div style="font-family:Rubik, sans-serif; font-size:15px; font-weight:800; margin:3px 0 8px;">{{ rd.alB }}</div>
+                <span style="display:inline-block; padding:6px 16px; border-radius:9px; background:#E5484D; color:#FFFFFF; font-family:Rubik, sans-serif; font-size:16px; font-weight:800; white-space:nowrap;">{{ rd.alP }}</span>
+              </div>
+              <div style="background:#FFFFFF; border:1px solid #DDE1E8; border-radius:14px; padding:12px; display:flex; flex-direction:column; gap:7px; opacity: {{ r4.op }}; transform: {{ r4.tf }};">
+                <div style="font-family:Rubik, sans-serif; font-size:12px; font-weight:900;">{{ rd.listT }}</div>
+                <sc-for list="{{ rd.list }}" as="li" hint-placeholder-count="2">
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; padding:7px 9px; border-radius:9px; font-size:11px; font-weight:700; background-color: {{ li.bg }};"><span>{{ li.t }}</span><span style="color:#68707F;">{{ li.d }}</span></div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="position:absolute; top:10px; left:50%; width:92px; height:26px; margin-left:-46px; border-radius:999px; background:#1B2333; z-index:5;"></div>
+            <div style="position:absolute; inset:0; background:#FFFFFF; pointer-events:none; z-index:6; opacity: {{ flash }};"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- objects -->
+      <div style="position:absolute; left:0; top:0; width:260px; height:260px; display:flex; align-items:center; justify-content:center; transform: {{ o0.tf }}; opacity: {{ o0.op }}; z-index: {{ o0.z }};">
+        <div style="position:relative; width:230px; height:160px; border-radius:9px; overflow:hidden; display:flex; box-shadow:0 14px 30px -18px rgba(27,35,51,.8);">
+          <div style="flex:1; background:#EFE9DE;"></div><div style="flex:1; background:#E8E0D2;"></div><div style="flex:1; background:#EFE9DE;"></div>
+          <div style="position:absolute; left:-20px; top:74px; width:280px; height:13px; background:#FFFFFF; transform:rotate(-14deg);"></div>
+          <div style="position:absolute; left:92px; top:-20px; width:12px; height:210px; background:#FFFFFF; transform:rotate(18deg);"></div>
+          <div style="position:absolute; left:20px; top:18px; width:56px; height:44px; border-radius:22px; background:#CDEFD9;"></div>
+          <div style="position:absolute; right:22px; bottom:16px; width:60px; height:36px; border-radius:15px; background:#D6E6FB;"></div>
+          <div style="position:absolute; left:142px; top:34px; width:28px; height:28px; border-radius:999px; background:#E5484D; border:4px solid #FFFFFF; box-sizing:border-box;"></div>
+        </div>
+      </div>
+
+      <div style="position:absolute; left:0; top:0; width:260px; height:260px; display:flex; align-items:center; justify-content:center; transform: {{ o1.tf }}; opacity: {{ o1.op }}; z-index: {{ o1.z }};">
+        <div style="position:relative; width:100px; height:196px; border-radius:20px; background:#1B2333; padding:12px; box-sizing:border-box; box-shadow:0 14px 30px -18px rgba(27,35,51,.8);">
+          <div style="position:absolute; top:-26px; left:14px; width:10px; height:34px; border-radius:6px; background:#1B2333;"></div>
+          <div style="height:62px; border-radius:6px; background:#CFE8DF; display:flex; align-items:flex-end; padding:6px; box-sizing:border-box;"><div style="height:5px; width:60%; border-radius:9px; background:#5B8F7F;"></div></div>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin-top:12px;">
+            <span style="height:16px; border-radius:5px; background:#3A4356;"></span><span style="height:16px; border-radius:5px; background:#3A4356;"></span><span style="height:16px; border-radius:5px; background:#3A4356;"></span>
+            <span style="height:16px; border-radius:5px; background:#3A4356;"></span><span style="height:16px; border-radius:5px; background:#3A4356;"></span><span style="height:16px; border-radius:5px; background:#3A4356;"></span>
+            <span style="height:16px; border-radius:5px; background:#3A4356;"></span><span style="height:16px; border-radius:5px; background:#3A4356;"></span><span style="height:16px; border-radius:5px; background:#3A4356;"></span>
+            <span style="height:16px; border-radius:5px; background:#3A4356;"></span><span style="height:16px; border-radius:5px; background:#3A4356;"></span><span style="height:16px; border-radius:5px; background:#3A4356;"></span>
+          </div>
+        </div>
+      </div>
+
+      <div style="position:absolute; left:0; top:0; width:260px; height:260px; display:flex; align-items:center; justify-content:center; transform: {{ o2.tf }}; opacity: {{ o2.op }}; z-index: {{ o2.z }};">
+        <div style="width:196px; height:240px; border-radius:6px; background:#FFFFFF; padding:14px; box-sizing:border-box; box-shadow:0 14px 30px -18px rgba(27,35,51,.8); display:flex; flex-direction:column; gap:8px;">
+          <div style="font-family:Rubik, sans-serif; font-weight:900; font-size:22px; line-height:1; padding-bottom:7px; border-bottom:2px solid #1B2333; text-align:center;">העיתון</div>
+          <div style="height:62px; background:repeating-linear-gradient(135deg,#EFE9DE 0 6px,#E8E0D2 6px 12px); border-radius:4px;"></div>
+          <div style="height:8px; width:80%; border-radius:9px; background:#1B2333;"></div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 10px;">
+            <span style="height:5px; border-radius:9px; background:#E8E0D2;"></span><span style="height:5px; border-radius:9px; background:#E8E0D2;"></span>
+            <span style="height:5px; border-radius:9px; background:#E8E0D2;"></span><span style="height:5px; border-radius:9px; background:#E8E0D2;"></span>
+            <span style="height:5px; border-radius:9px; background:#E8E0D2;"></span><span style="height:5px; border-radius:9px; background:#E8E0D2;"></span>
+            <span style="height:5px; border-radius:9px; background:#E8E0D2;"></span><span style="height:5px; border-radius:9px; background:#E8E0D2;"></span>
+            <span style="height:5px; border-radius:9px; background:#E8E0D2;"></span><span style="height:5px; border-radius:9px; background:#E8E0D2;"></span>
+          </div>
+        </div>
+      </div>
+
+      <div style="position:absolute; left:0; top:0; width:260px; height:260px; display:flex; align-items:center; justify-content:center; transform: {{ o3.tf }}; opacity: {{ o3.op }}; z-index: {{ o3.z }};">
+        <div style="position:relative; display:flex; flex-direction:column; align-items:center; filter:drop-shadow(0 10px 12px rgba(27,35,51,.28));">
+          <div style="width:0; height:0; border-left:13px solid transparent; border-right:13px solid transparent; border-bottom:30px solid #E8E0D2;"></div>
+          <div style="width:26px; height:170px; background:#1268E8; border-radius:3px 3px 0 0;"></div>
+          <div style="width:26px; height:40px; background:#1B2333; border-radius:0 0 9px 9px;"></div>
+          <div style="position:absolute; bottom:12px; right:-8px; width:7px; height:74px; border-radius:4px; background:#1B2333;"></div>
+        </div>
+      </div>
+
+      <div style="position:absolute; left:0; top:0; width:260px; height:260px; display:flex; align-items:center; justify-content:center; transform: {{ o4.tf }}; opacity: {{ o4.op }}; z-index: {{ o4.z }};">
+        <div style="position:relative; width:220px; height:146px; border-radius:22px; background:#1B2333; box-shadow:0 14px 30px -18px rgba(27,35,51,.8); display:flex; align-items:center; justify-content:center;">
+          <div style="position:absolute; top:-18px; right:34px; width:66px; height:24px; border-radius:9px 9px 0 0; background:#1B2333;"></div>
+          <div style="position:absolute; top:16px; left:18px; width:28px; height:14px; border-radius:4px; background:#FBBE24;"></div>
+          <div style="position:absolute; top:16px; right:18px; width:12px; height:12px; border-radius:999px; background:#E5484D;"></div>
+          <div style="width:100px; height:100px; border-radius:999px; background:#3A4356; display:flex; align-items:center; justify-content:center;">
+            <div style="width:72px; height:72px; border-radius:999px; background:#0F1626; border:6px solid #2A3245; box-sizing:border-box; position:relative;">
+              <div style="position:absolute; top:12px; left:14px; width:12px; height:12px; border-radius:999px; background:#D6E6FB;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="position:absolute; left:0; top:0; width:260px; height:260px; display:flex; align-items:center; justify-content:center; transform: {{ o5.tf }}; opacity: {{ o5.op }}; z-index: {{ o5.z }};">
+        <div style="width:230px; height:146px; border-radius:15px; background:#14B8A6; padding:16px 18px; box-sizing:border-box; box-shadow:0 14px 30px -18px rgba(27,35,51,.8); display:flex; flex-direction:column; justify-content:space-between;">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <span style="font-family:Rubik, sans-serif; font-weight:900; font-size:24px; color:#1B2333;">רב-קו</span>
+            <span style="width:42px; height:32px; border-radius:7px; background:#FBBE24;"></span>
+          </div>
+          <div style="font-family:Rubik, sans-serif; font-weight:700; font-size:15px; letter-spacing:2px; color:#1B2333; direction:ltr; text-align:left;">2026 0412 7731</div>
+        </div>
+      </div>
+
+      <div style="position:absolute; left:0; top:0; width:260px; height:260px; display:flex; align-items:center; justify-content:center; transform: {{ o6.tf }}; opacity: {{ o6.op }}; z-index: {{ o6.z }};">
+        <div style="position:relative; width:230px; height:150px; border-radius:6px; background:#FFFFFF; overflow:hidden; box-shadow:0 14px 30px -18px rgba(27,35,51,.8);">
+          <div style="position:absolute; top:0; left:0; width:0; height:0; border-left:115px solid transparent; border-right:115px solid transparent; border-top:78px solid #EFE9DE;"></div>
+          <div style="position:absolute; top:14px; left:14px; width:32px; height:38px; border-radius:4px; background:#E5484D; border:3px dashed #FFFFFF; box-sizing:border-box;"></div>
+          <div style="position:absolute; bottom:22px; left:60px; right:60px; display:flex; flex-direction:column; gap:7px;">
+            <span style="height:6px; border-radius:9px; background:#1B2333;"></span>
+            <span style="height:5px; border-radius:9px; background:#E8E0D2;"></span>
+            <span style="height:5px; width:70%; border-radius:9px; background:#E8E0D2;"></span>
+          </div>
+        </div>
+      </div>
+
+
+      <div style="position:absolute; left:0; top:0; width:260px; height:260px; display:flex; align-items:center; justify-content:center; transform: {{ o7.tf }}; opacity: {{ o7.op }}; z-index: {{ o7.z }};">
+        <div style="position:relative; width:112px; height:190px; border-radius:20px; background:#EE5A8F; padding:12px; box-sizing:border-box; box-shadow:0 14px 30px -18px rgba(27,35,51,.8); display:flex; flex-direction:column; align-items:center; gap:14px;">
+          <div style="align-self:stretch; height:64px; border-radius:8px; background:#1B2333; padding:8px; box-sizing:border-box; display:flex; flex-direction:column; gap:5px;">
+            <span style="height:5px; width:70%; border-radius:9px; background:#FBF8F3;"></span>
+            <span style="height:4px; width:45%; border-radius:9px; background:#7A7468;"></span>
+            <span style="margin-top:auto; height:3px; border-radius:9px; background:#3A4356; overflow:hidden; display:flex;"><span style="width:40%; background:#EE5A8F;"></span></span>
+          </div>
+          <div style="width:78px; height:78px; border-radius:999px; background:#FBF8F3; display:flex; align-items:center; justify-content:center;">
+            <div style="width:28px; height:28px; border-radius:999px; background:#EE5A8F;"></div>
+          </div>
+          <div style="position:absolute; top:-30px; right:20px; width:4px; height:36px; border-radius:4px; background:#1B2333;"></div>
+          <div style="position:absolute; top:-40px; right:12px; width:18px; height:18px; border-radius:999px; background:#1B2333;"></div>
+        </div>
+      </div>
+
+      <!-- integration beat overlay -->
+      <div style="position:absolute; left:120px; right:120px; top:96px; text-align:center; z-index:30; opacity: {{ bHead.op }}; transform: {{ bHead.tf }};">
+        <h2 style="margin:0; font-family:Rubik, sans-serif; font-weight:900; font-size:46px; line-height:1.08; text-wrap:balance;">הטלפון לא הדביק את החפצים זה לזה.<br>הוא חיבר ביניהם.</h2>
+      </div>
+      <div style="position:absolute; left:120px; right:120px; top:96px; text-align:center; z-index:30; opacity: {{ bHead2.op }}; transform: {{ bHead2.tf }};">
+        <h2 style="margin:0; font-family:Rubik, sans-serif; font-weight:900; font-size:46px; line-height:1.08; text-wrap:balance;">וגם שיפר כל אחד מהם.</h2>
+        <p style="margin:12px auto 0; max-width:640px; font-size:19px; font-weight:600; line-height:1.5; color:#5B5548;">צילום חד יותר מהמצלמה, ניווט חי במקום מפה מקופלת.</p>
+      </div>
+      <sc-for list="{{ bTapes }}" as="tp" hint-placeholder-count="0">
+        <div style="position:absolute; z-index:26; left:150px; top:452px; width:420px; height:40px; transform-origin:50% 50%; filter:drop-shadow(0 5px 6px rgba(27,35,51,.35)); transform: {{ tp.tf }}; opacity: {{ tp.op }};">
+          <div style="width:100%; height:100%; background:linear-gradient(180deg,#D6D9DC 0%,#B9BEC3 45%,#C8CCD0 100%); clip-path:polygon(0 8%,2% 0,4% 14%,6% 2%,96% 0,98% 12%,100% 4%,99% 30%,100% 55%,98% 78%,100% 100%,95% 92%,5% 100%,3% 86%,0 96%,2% 70%,0 45%,1.5% 22%);"></div>
+        </div>
+      </sc-for>
+    </div>
+    <sc-if value="{{ mob }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute; top:14px; left:16px; right:16px; display:flex; align-items:center; gap:10px; z-index:50;">
+        <img src="/logo.png" alt="App2Class" style="width:26px; height:26px; object-fit:contain;">
+        <span style="font-family:Rubik, sans-serif; font-weight:800; font-size:15px;">App2Class</span>
+        <div style="position:relative; flex:1; height:3px; border-radius:999px; background:#E8E0D2; overflow:hidden;">
+          <div style="position:absolute; top:0; bottom:0; right:0; background:#1B2333; width: {{ progW }};"></div>
+        </div>
+      </div>
+      <div style="position:absolute; left:20px; right:20px; z-index:50; top: {{ mTextTop }}; bottom: {{ mTextBot }};">
+        <div style="position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; opacity: {{ m.hero }};">
+          <h1 style="margin:0; font-family:Rubik, sans-serif; font-weight:900; font-size:34px; line-height:1.05; text-wrap:balance;">פעם, כל צורך<br>היה חפץ.</h1>
+          <p style="margin:12px 0 0; font-size:17px; font-weight:600; line-height:1.5; color:#5B5548; text-wrap:pretty;">מפה, טלפון, עיתון, עט, מצלמה, רב-קו, מכתב ונגן MP3. ואז הם הפכו לטלפון אחד.</p>
+          <span style="margin-top:14px; font-family:Rubik, sans-serif; font-weight:700; font-size:13px; color:#7A7468;">גללו למטה ↓</span>
+        </div>
+        <sc-for list="{{ caps }}" as="c" hint-placeholder-count="0">
+          <div style="position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; opacity: {{ c.op }}; transform: {{ c.tf }};">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+              <span style="padding:4px 9px; border-radius:8px; font-family:Rubik, sans-serif; font-weight:800; font-size:12px; background: {{ c.tagBg }}; color: {{ c.tagC }};">{{ c.tag }}</span>
+              <span style="font-family:Rubik, sans-serif; font-weight:700; font-size:13px; color:#7A7468;">{{ c.eyebrow }}</span>
+            </div>
+            <h2 style="margin:0 0 8px; font-family:Rubik, sans-serif; font-weight:900; font-size:26px; line-height:1.08; text-wrap:balance;">{{ c.title }}</h2>
+            <p style="margin:0; font-size:15px; font-weight:600; line-height:1.45; color:#5B5548; text-wrap:pretty;">{{ c.body }}</p>
+          </div>
+        </sc-for>
+        <div style="position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; opacity: {{ m.bh }};">
+          <h2 style="margin:0; font-family:Rubik, sans-serif; font-weight:900; font-size:26px; line-height:1.1; text-wrap:balance;">הטלפון לא הדביק את החפצים זה לזה. הוא חיבר ביניהם.</h2>
+        </div>
+        <div style="position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; opacity: {{ m.bh2 }};">
+          <h2 style="margin:0 0 8px; font-family:Rubik, sans-serif; font-weight:900; font-size:26px; line-height:1.1;">וגם שיפר כל אחד מהם.</h2>
+          <p style="margin:0; font-size:15px; font-weight:600; line-height:1.45; color:#5B5548;">צילום חד יותר מהמצלמה, ניווט חי במקום מפה מקופלת.</p>
+        </div>
+      </div>
+      <!-- mobile: final panel -->
+      <div style="position:absolute; left:16px; right:16px; bottom:18px; z-index:60; display:flex; flex-direction:column; gap:10px; opacity: {{ mF.op }}; pointer-events: {{ mF.pe }}; transform: {{ mF.tf }};">
+        <h2 style="margin:0; font-family:Rubik, sans-serif; font-weight:900; font-size:28px; line-height:1.05; text-align:center;">הכל. במקום. אחד.</h2>
+        <div style="display:flex; gap:4px; padding:4px; border-radius:13px; background:#FFFFFF; border:1px solid #DDE1E8;">
+          <a href="#" sc-camel-on-click="{{ roleBtns.0.pick }}" style="flex:1; display:flex; align-items:center; justify-content:center; min-height:44px; border-radius:10px; font-family:Rubik, sans-serif; font-weight:800; font-size:13px; text-decoration:none; transition:background-color .25s, color .25s; background-color: {{ roleBtns.0.tbg }}; color: {{ roleBtns.0.tc }};">{{ roleBtns.0.label }}</a>
+          <a href="#" sc-camel-on-click="{{ roleBtns.1.pick }}" style="flex:1; display:flex; align-items:center; justify-content:center; min-height:44px; border-radius:10px; font-family:Rubik, sans-serif; font-weight:800; font-size:13px; text-decoration:none; transition:background-color .25s, color .25s; background-color: {{ roleBtns.1.tbg }}; color: {{ roleBtns.1.tc }};">{{ roleBtns.1.label }}</a>
+          <a href="#" sc-camel-on-click="{{ roleBtns.2.pick }}" style="flex:1; display:flex; align-items:center; justify-content:center; min-height:44px; border-radius:10px; font-family:Rubik, sans-serif; font-weight:800; font-size:13px; text-decoration:none; transition:background-color .25s, color .25s; background-color: {{ roleBtns.2.tbg }}; color: {{ roleBtns.2.tc }};">{{ roleBtns.2.label }}</a>
+          <a href="#" sc-camel-on-click="{{ roleBtns.3.pick }}" style="flex:1; display:flex; align-items:center; justify-content:center; min-height:44px; border-radius:10px; font-family:Rubik, sans-serif; font-weight:800; font-size:13px; text-decoration:none; transition:background-color .25s, color .25s; background-color: {{ roleBtns.3.tbg }}; color: {{ roleBtns.3.tc }};">{{ roleBtns.3.label }}</a>
+        </div>
+        <a href="{{ rd.href }}" style="display:flex; align-items:center; justify-content:center; min-height:50px; border-radius:13px; color:#FFFFFF; font-family:Rubik, sans-serif; font-weight:800; font-size:16px; text-decoration:none; transition:background-color .3s; background-color: {{ rd.c }};">{{ rd.cta }}</a>
+        <a href="/login" style="display:flex; align-items:center; justify-content:center; min-height:44px; color:#1B2333; font-family:Rubik, sans-serif; font-weight:800; font-size:15px; text-decoration:none;">כבר רשום? התחבר</a>
+      </div>
+    </sc-if>
+  </div>
+</div>

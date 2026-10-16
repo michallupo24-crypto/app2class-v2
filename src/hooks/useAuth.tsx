@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { AvatarConfig } from "@/components/avatar/AvatarStudio";
+import { avatarFromRow } from "@/components/avatar/avatarModel";
 
 export interface UserProfile {
   id: string;
@@ -78,19 +79,7 @@ export const useAuth = () => {
     const unreadChatCount = unreadCountData || 0;
 
     let avatar: AvatarConfig | null = null;
-    if (avatarRes.data) {
-      const faceToBody: Record<string, string> = {
-        round: "basic", oval: "basic", square: "wider", long: "taller",
-        basic: "basic", wider: "wider", taller: "taller",
-      };
-      avatar = {
-        body_type: faceToBody[avatarRes.data.face_shape] || "basic",
-        eye_color: avatarRes.data.eye_color || "brown",
-        skin: avatarRes.data.skin_color || "#FDDBB4",
-        hair_style: avatarRes.data.hair_style || "boy",
-        hair_color: avatarRes.data.hair_color || "#2C1A0E",
-      };
-    }
+    if (avatarRes.data) avatar = avatarFromRow(avatarRes.data);
 
     setProfile({
       id: user.id,

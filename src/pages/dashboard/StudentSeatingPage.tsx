@@ -48,7 +48,7 @@ const StudentSeatingPage = () => {
             <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
                 <Info className="h-12 w-12 text-muted-foreground opacity-20" />
                 <h2 className="text-xl font-heading font-bold">לא זוהתה כיתה מחוברת</h2>
-                <p className="text-muted-foreground">עליך להיות משויך לכיתה כדי לראות את סידור הישיבה.</p>
+                <p className="text-muted-foreground">סידור הישיבה יופיע כאן אחרי השיוך לכיתה.</p>
             </div>
         );
     }
@@ -57,11 +57,11 @@ const StudentSeatingPage = () => {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-heading font-bold flex items-center gap-3">
+                    <h1 className="font-heading text-[28px] font-black flex items-center gap-3">
                         <MapPin className="h-8 w-8 text-primary" />
                         סידור הישיבה שלי
                     </h1>
-                    <p className="text-muted-foreground font-body mt-1">כאן תוכל לראות איפה המקום שלך בכיתה ומי יושב מסביבך</p>
+                    <p className="text-muted-foreground font-body mt-1">כאן אפשר לראות איפה המקום שלך בכיתה ומי יושב מסביבך</p>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-lg text-primary font-bold">
                     <Users className="h-5 w-5" />

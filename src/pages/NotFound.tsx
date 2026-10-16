@@ -5,7 +5,7 @@ import { Home, ArrowRight } from "lucide-react";
 const NotFound = () => {
   const navigate = useNavigate();
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4" dir="rtl">
+    <div className="min-h-screen flex items-center justify-center p-4" dir="rtl">
       <div className="text-center space-y-6 max-w-sm">
         <div className="text-8xl font-heading font-bold text-muted-foreground/20 select-none">404</div>
         <div>

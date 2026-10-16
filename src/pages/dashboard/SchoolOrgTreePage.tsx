@@ -19,6 +19,7 @@ import AvatarPreview from "@/components/avatar/AvatarPreview";
 import { supabase } from "@/integrations/supabase/client";
 import type { UserProfile } from "@/hooks/useAuth";
 import type { AvatarConfig } from "@/components/avatar/AvatarStudio";
+import { avatarFromRow } from "@/components/avatar/avatarModel";
 
 interface PersonNode {
   id: string;
@@ -91,7 +92,7 @@ const SchoolOrgTreePage = () => {
       const [profilesRes, rolesRes, avatarsRes, classesRes, teacherClassesRes, parentStudentRes] = await Promise.all([
         supabase.from("profiles").select("id, full_name, email, class_id").eq("school_id", profile.schoolId),
         supabase.from("user_roles").select("user_id, role, subject, grade, homeroom_class_id"),
-        supabase.from("avatars").select("user_id, face_shape, eye_color, skin_color, hair_style, hair_color"),
+        supabase.from("avatars").select("*"),
         supabase.from("classes").select("id, grade, class_number").eq("school_id", profile.schoolId).order("grade").order("class_number"),
         supabase.from("teacher_classes").select("user_id, class_id"),
         supabase.from("parent_student").select("parent_id, student_id"),
@@ -107,13 +108,7 @@ const SchoolOrgTreePage = () => {
       // Build avatar map
       const avatarMap: Record<string, AvatarConfig> = {};
       for (const a of allAvatars) {
-        avatarMap[a.user_id] = {
-          body_type: a.face_shape || "basic",
-          eye_color: a.eye_color || "brown",
-          skin: a.skin_color || "#FDDBB4",
-          hair_style: a.hair_style || "boy",
-          hair_color: a.hair_color || "#2C1A0E",
-        };
+        avatarMap[a.user_id] = avatarFromRow(a)!;
       }
 
       // Build roles map

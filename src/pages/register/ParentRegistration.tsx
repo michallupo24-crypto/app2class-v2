@@ -12,6 +12,7 @@ import AvatarStudio, { defaultAvatarConfig, type AvatarConfig } from "@/componen
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { isValidIsraeliId } from "@/lib/israeliId";
+import { saveAvatar } from "@/components/avatar/avatarModel";
 
 const ParentRegistration = () => {
   const navigate = useNavigate();
@@ -141,23 +142,8 @@ const ParentRegistration = () => {
       }
 
       // Save avatar
-      const { error: avatarError } = await supabase.from("avatars").insert({
-        user_id: userId,
-        face_shape: avatar.body_type || "basic",
-        skin_color: avatar.skin || "#FDDBB4",
-        eye_shape: "round",
-        eye_color: avatar.eye_color || "brown",
-        hair_style: avatar.hair_style || "boy",
-        hair_color: avatar.hair_color || "#2C1A0E",
-        facial_hair: avatar.facialHair,
-        outfit: avatar.outfit,
-        outfit_color: avatar.outfitColor,
-        accessory: avatar.accessory,
-        expression: avatar.expression,
-        background: avatar.background,
-      });
+      await saveAvatar(supabase, userId, avatar);
 
-      if (avatarError) throw avatarError;
 
       // Approval
       const { error: approvalError } = await supabase.from("approvals").insert({
@@ -179,7 +165,7 @@ const ParentRegistration = () => {
 
   if (step === 3) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-background">
+      <div className="min-h-screen flex items-center justify-center px-4">
         <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-md">
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: "spring" }}>
             <CheckCircle2 className="w-24 h-24 text-success mx-auto mb-6" />

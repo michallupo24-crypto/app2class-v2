@@ -47,8 +47,8 @@ interface ClassInfo {
 
 const ROUND_LABELS: Record<string, string> = { class: "שלב כיתתי", grade: "שלב שכבתי", school: "שלב סופי (בית ספרי)", closed: "הסתיים" };
 const RESULT_LABELS: Record<string, { label: string; color: string }> = {
-  advanced: { label: "עלה/תה לשלב הבא", color: "bg-success/10 text-success border-success/30" },
-  tied: { label: "תיקו - ממתין להצבעה חוזרת", color: "bg-warning/10 text-warning border-warning/30" },
+  advanced: { label: "עלה/תה לשלב הבא", color: "bg-success-soft text-success" },
+  tied: { label: "תיקו - ממתין להצבעה חוזרת", color: "bg-warning-soft text-warning" },
   eliminated: { label: "לא עבר/ה", color: "bg-muted text-muted-foreground border-border" },
 };
 
@@ -377,7 +377,7 @@ const CouncilTournament = ({ profile }: { profile: UserProfile }) => {
           </CardHeader>
           <CardContent className="space-y-2">
             {pendingReview.map((c) => (
-              <div key={c.id} className="p-3 rounded-lg bg-muted/40 space-y-2">
+              <div key={c.id} className="p-3 rounded-row bg-soft space-y-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <p className="text-sm font-heading font-bold">{profiles[c.student_id]?.full_name || "מועמד/ת"}</p>
                   <div className="flex gap-1.5">
@@ -423,7 +423,7 @@ const CouncilTournament = ({ profile }: { profile: UserProfile }) => {
                   const resultInfo = RESULT_LABELS[c.round_result];
                   const votable = roundElection.status === "voting" && c.round_result !== "advanced" && c.round_result !== "eliminated" && isStudent && !myVotes.has(c.id) && votesUsed < activeCampaign.votes_per_student;
                   return (
-                    <div key={c.id} className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-muted/40">
+                    <div key={c.id} className="flex items-center justify-between gap-3 p-3 rounded-row bg-soft">
                       <div className="min-w-0">
                         <p className="text-sm font-heading font-medium flex items-center gap-1.5">
                           {c.round_result === "advanced" && roundElection.status === "closed" && <Trophy className="h-3.5 w-3.5 text-success" />}
@@ -433,12 +433,12 @@ const CouncilTournament = ({ profile }: { profile: UserProfile }) => {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {resultInfo && roundElection.status !== "voting" && (
-                          <Badge variant="outline" className={`text-[10px] ${resultInfo.color}`}>
+                          <Badge className={`sticker sticker-tilt-r ${resultInfo.color}`}>
                             {resultInfo.label}
                           </Badge>
                         )}
                         {c.round_result === "tied" && roundElection.status === "voting" && (
-                          <Badge variant="outline" className="text-[10px] bg-warning/10 text-warning border-warning/30">
+                          <Badge className="sticker sticker-tilt-r bg-warning-soft text-warning">
                             תיקו
                           </Badge>
                         )}

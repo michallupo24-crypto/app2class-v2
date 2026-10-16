@@ -2,22 +2,18 @@ import { useOutletContext } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  BookOpen, Target, Calendar, Brain, Clock, Sun, School,
-  GraduationCap, FileText, AlertCircle, MapPin, Flag, Sparkles, Loader2, Cake,
-  Megaphone, Trophy,
-} from "lucide-react";
-import AvatarPreview from "@/components/avatar/AvatarPreview";
-import CurrentLessonBanner from "@/components/dashboard/CurrentLessonBanner";
-import GamificationWidget from "@/components/gamification/GamificationWidget";
+import { Brain, Loader2, Sparkles, Cake, Sun, Moon } from "lucide-react";
 import ClassMessenger from "@/components/dashboard/ClassMessenger";
 import { supabase } from "@/integrations/supabase/client";
 import type { UserProfile } from "@/hooks/useAuth";
 import { useStudentSubjects, filterEventsBySubjects, personalizeEventTitle } from "@/hooks/useStudentSubjects";
 import { useGamification } from "@/hooks/useGamification";
+import { useStudentDay } from "@/hooks/useStudentDay";
+import { subjectColor } from "@/components/SubjectSticker";
+import {
+  HomeHeader, HeroCard, HomeSection, HomeColumns, LessonStrip, StatTiles, HomeRow, HomeEmpty, IconTile,
+  greeting, longHebrewDate, firstName, type StripLesson, type Tone,
+} from "@/components/home/HomeKit";
 
 
 type GradeEvent = {
@@ -37,6 +33,13 @@ type HolidayPeriod = {
   returnDate?: string;
 };
 
+type RecentGrade = {
+  id: string;
+  grade: number;
+  graded_at: string | null;
+  assignments: { title: string; subject: string | null; max_grade: number | null } | null;
+};
+
 const HOLIDAY_PERIODS: HolidayPeriod[] = [
   { title: "ראש השנה", start: "2025-09-22", end: "2025-09-25", returnDate: "2025-09-26" },
   { title: "יום כיפור", start: "2025-10-01", end: "2025-10-04", returnDate: "2025-10-05" },
@@ -50,15 +53,15 @@ const HOLIDAY_PERIODS: HolidayPeriod[] = [
   { title: "סיום שנה - על יסודי", start: "2026-06-19", end: "2026-06-19" },
 ];
 
-const EVENT_TYPE_CONFIG: Record<string, { color: string; icon: typeof BookOpen; label: string }> = {
-  exam: { color: "bg-destructive/10 border-destructive/20", icon: BookOpen, label: "מבחן" },
-  bagrut: { color: "bg-destructive/10 border-destructive/25", icon: GraduationCap, label: "בגרות" },
-  quiz: { color: "bg-secondary/15 border-secondary/30", icon: FileText, label: "בוחן" },
-  deadline: { color: "bg-primary/10 border-primary/20", icon: AlertCircle, label: "הגשה" },
-  trip: { color: "bg-accent/20 border-accent/30", icon: MapPin, label: "טיול" },
-  ceremony: { color: "bg-muted border-border", icon: Flag, label: "טקס" },
-  event: { color: "bg-secondary/15 border-secondary/30", icon: Sun, label: "אירוע" },
-  other: { color: "bg-muted border-border", icon: Calendar, label: "אחר" },
+const EVENT_TYPE_CONFIG: Record<string, { label: string; tone: Tone }> = {
+  exam: { label: "מבחן", tone: "alert" },
+  bagrut: { label: "בגרות", tone: "alert" },
+  quiz: { label: "בוחן", tone: "alert" },
+  deadline: { label: "הגשה", tone: "warning" },
+  trip: { label: "טיול", tone: "info" },
+  ceremony: { label: "טקס", tone: "neutral" },
+  event: { label: "אירוע", tone: "info" },
+  other: { label: "אחר", tone: "neutral" },
 };
 
 const parseDate = (iso: string) => new Date(`${iso}T12:00:00`);
@@ -81,7 +84,10 @@ const formatCountdown = (from: Date, event: GradeEvent) => {
 };
 
 const hebrewDayNames = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
-const shortDateFmt = new Intl.DateTimeFormat("he-IL", { day: "2-digit", month: "2-digit" });
+const shortDateFmt = new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "numeric" });
+
+// Hero color when the card isn't about a subject (holiday, day over, ...).
+const INK_HERO = "#2B3350";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -98,13 +104,13 @@ const StudentDashboard = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const [isBirthday, setIsBirthday] = useState(false);
   const [attendance, setAttendance] = useState<{ total: number; absent: number; late: number; pct: number } | null>(null);
+  const [recentGrades, setRecentGrades] = useState<RecentGrade[]>([]);
   const [studyPlan, setStudyPlan] = useState<string | null>(null);
   const [studyPlanLoading, setStudyPlanLoading] = useState(false);
   const { subjects: mySubjects, trackNames, hasMegamaA, hasMegamaB } = useStudentSubjects(profile.id, profile.schoolId);
+  const day = useStudentDay(profile.schoolId, profile.id);
 
-  const container = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
-  const item = { hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } };
-  const { recordActivity } = useGamification(profile.id);
+  const { badges, streak, recordActivity } = useGamification(profile.id);
 
   const loadStudyPlan = async (exam: GradeEvent) => {
     setStudyPlanLoading(true);
@@ -202,6 +208,18 @@ const StudentDashboard = () => {
       }
     })();
   }, [profile.id, profile.schoolId, mySubjects, hasMegamaA, hasMegamaB]);
+
+  // Latest graded submissions
+  useEffect(() => {
+    supabase
+      .from("submissions")
+      .select("id, grade, graded_at, assignments(title, subject, max_grade)")
+      .eq("student_id", profile.id)
+      .not("grade", "is", null)
+      .order("graded_at", { ascending: false })
+      .limit(3)
+      .then(({ data }) => setRecentGrades((data || []) as any));
+  }, [profile.id]);
 
   const todayTs = useMemo(() => startOfDay(now).getTime(), [now]);
   const today = useMemo(() => new Date(todayTs), [todayTs]);
@@ -339,286 +357,201 @@ ${birthdayText}
     return () => controller.abort();
   }, [thisWeekEvents, activeHoliday, holidayThisWeek, nextExam, studentGrade, isBirthday, trackNames]);
 
-  return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
-      {/* Birthday Banner */}
-      {isBirthday && (
-        <motion.div variants={item}>
-          <Card className="border-secondary/30 bg-secondary/10">
-            <CardContent className="py-5 flex items-center gap-4">
-              <Cake className="h-10 w-10 text-secondary shrink-0" />
-              <div>
-                <h2 className="text-xl font-heading font-bold">יום הולדת שמח!</h2>
-                <p className="text-sm text-muted-foreground font-body">כל הכבוד שהגעת לעוד שנה! מאחלים לך שנה מלאה בהצלחות!</p>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+  // Today's lessons as a strip, with free periods between the first and last lesson.
+  const strip = useMemo<StripLesson[]>(() => {
+    if (day.today.length === 0) return [];
+    const first = day.today[0].lesson_number;
+    const last = day.today[day.today.length - 1].lesson_number;
+    const t = `${String(day.now.getHours()).padStart(2, "0")}:${String(day.now.getMinutes()).padStart(2, "0")}`;
+    return day.bell
+      .filter((b) => b.lesson_number >= first && b.lesson_number <= last)
+      .map((b) => {
+        const lesson = day.today.find((l) => l.lesson_number === b.lesson_number);
+        const state = t >= b.end_time ? "past" : t >= b.start_time ? "now" : "upcoming";
+        return { subject: lesson?.subject ?? null, time: b.start_time, state };
+      });
+  }, [day.today, day.bell, day.now]);
+
+  const eventTitle = (e: GradeEvent) => personalizeEventTitle(e.title, e.subject, trackNames);
+  const eventMeta = (e: GradeEvent) => {
+    const d = parseDate(e.event_date);
+    const when = dayDiff(today, d) === 0 ? "היום" : `${hebrewDayNames[d.getDay()]} ${shortDateFmt.format(d)}`;
+    return [e.subject, when, e.start_time?.slice(0, 5)].filter(Boolean).join(" · ");
+  };
+  const eventTag = (e: GradeEvent) => EVENT_TYPE_CONFIG[e.event_type] || EVENT_TYPE_CONFIG.other;
+
+  const todayEvents = thisWeekEvents.filter((e) => dayDiff(today, parseDate(e.event_date)) === 0);
+  const laterThisWeek = thisWeekEvents.filter((e) => dayDiff(today, parseDate(e.event_date)) > 0 && e.id !== nextExam?.id);
+
+  // What matters right now.
+  const hero = (() => {
+    const lessonMeta = (l: { teacher_name: string | null; room: string | null }) =>
+      [l.teacher_name, l.room && `חדר ${l.room}`].filter(Boolean).join(" · ");
+    const live = (subject: string) => () => navigate(`/dashboard/subjects/${encodeURIComponent(subject)}?tab=live`);
+
+    if (activeHoliday) {
+      return { color: "#F0A21A", icon: <IconTile icon={Sun} color="#F2A007" size={92} />, tag: "חופשה", title: `חופשת ${activeHoliday.title}`,
+        meta: activeHoliday.returnDate ? `חוזרים ללימודים ב-${shortDateFmt.format(parseDate(activeHoliday.returnDate))}` : undefined };
+    }
+    if (day.phase === "lesson" && day.current) {
+      const l = day.current;
+      return { color: l.color || subjectColor(l.subject), subject: l.subject, tag: `עכשיו · שיעור ${l.lesson_number}`, title: l.subject,
+        meta: [lessonMeta(l), `${day.minutesLeft} דק׳ נותרו`].filter(Boolean).join(" · "), onClick: live(l.subject) };
+    }
+    if (day.phase === "break" && day.next) {
+      const l = day.next;
+      return { color: l.color || subjectColor(l.subject), subject: l.subject, tag: "בהפסקה", title: `הבא: ${l.subject}`,
+        meta: [`ב-${l.bellStart}`, lessonMeta(l)].filter(Boolean).join(" · "), onClick: live(l.subject) };
+    }
+    if (day.phase === "before" && day.next) {
+      const l = day.next;
+      return { color: l.color || subjectColor(l.subject), subject: l.subject, tag: `היום מתחיל ב-${l.bellStart}`, title: l.subject,
+        meta: [`שיעור ${l.lesson_number}`, lessonMeta(l)].filter(Boolean).join(" · ") };
+    }
+    if (nextExam) {
+      return { color: subjectColor(nextExam.subject || nextExam.title), subject: nextExam.subject || undefined, tag: "המבחן הקרוב",
+        title: eventTitle(nextExam), meta: formatCountdown(now, nextExam) };
+    }
+    return { color: INK_HERO, icon: <IconTile icon={Moon} color="#8E9BD6" size={92} />, tag: day.phase === "after" ? "היום הסתיים" : "אין לימודים היום", title: "יום טוב!",
+      meta: "אין מבחנים קרובים ביומן" };
+  })();
+
+  const presencePct = attendance ? Math.round(((attendance.total - attendance.absent) / attendance.total) * 100) : null;
+  // attendance.pct is the absence rate; 15% is the Ministry's red line.
+  const presenceTone: Tone = !attendance ? "neutral" : attendance.pct >= 15 ? "danger" : attendance.pct >= 10 ? "warning" : "success";
+
+  const subtitle = [longHebrewDate(now), day.className].filter(Boolean).join(" · ");
+
+  const main = (
+    <>
+      <HeroCard {...hero} />
+
+      {(aiLoading || aiInsight) && (
+        <HomeSection title="תובנת המנטור לשבוע">
+          <HomeRow
+            icon={<IconTile icon={Brain} color="#9257EC" />}
+            title={aiLoading ? "המנטור חושב על השבוע שלך..." : "מה כדאי לעשות השבוע"}
+            meta={aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : aiInsight}
+          />
+        </HomeSection>
       )}
 
-      {/* Welcome */}
-      <motion.div variants={item} className="flex items-center gap-4">
-        {profile.avatar && <AvatarPreview config={profile.avatar} size={72} />}
-        <div>
-          <h1 className="text-2xl md:text-3xl font-heading font-bold">שלום, {profile.fullName}</h1>
-          {profile.schoolName && (
-            <p className="text-sm text-muted-foreground font-body mt-0.5">{profile.schoolName}</p>
-          )}
-        </div>
-      </motion.div>
+      <HomeSection title="להיום">
+        {todayEvents.length === 0 ? (
+          <HomeEmpty>{activeHoliday ? "חופש! אין משימות להיום" : "אין הגשות או מבחנים היום. אפשר לנשום"}</HomeEmpty>
+        ) : (
+          todayEvents.map((e, i) => (
+            <HomeRow key={e.id} index={i} subject={e.subject || undefined} title={eventTitle(e)} meta={eventMeta(e)} tag={eventTag(e)} />
+          ))
+        )}
+      </HomeSection>
 
-      {/* Main Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Right Content Area (Main) */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Current lesson banner */}
-          {!activeHoliday && (
-            <motion.div variants={item}>
-              <CurrentLessonBanner profile={profile} />
-            </motion.div>
-          )}
-
-          {/* AI Insight */}
-          {(aiLoading || aiInsight) && (
-            <motion.div variants={item}>
-              <Card className="border-primary/20 bg-primary/5">
-                <CardContent className="py-4 flex items-start gap-4">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                     <Brain className="h-5 w-5 text-primary shrink-0" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-heading font-black text-sm text-primary mb-1 uppercase tracking-tighter">תובנת מנטור לשבוע</p>
-                    {aiLoading ? (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground mr-1">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span className="font-medium">המנטור מחשב מסלול...</span>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-foreground/80 font-medium leading-relaxed">{aiInsight}</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {/* This week events */}
-          <motion.div variants={item}>
-            <Card className="bg-card border border-border overflow-hidden">
-              <CardHeader className="pb-2 border-b border-border bg-muted/30">
-                <CardTitle className="text-sm font-heading font-black flex items-center gap-2 text-foreground">
-                  <Clock className="h-5 w-5 text-primary" />
-                  מה קורה השבוע
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                {thisWeekEvents.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">
-                    אין אירועים מתוכננים השבוע
-                  </p>
-                ) : (
-                  <ScrollArea className="max-h-[300px]">
-                    <div className="space-y-1.5">
-                      {thisWeekEvents.map((event) => {
-                        const cfg = EVENT_TYPE_CONFIG[event.event_type] || EVENT_TYPE_CONFIG.other;
-                        const eventDate = parseDate(event.event_date);
-                        return (
-                          <div key={event.id} className={`flex items-center gap-3 py-2 px-3 rounded-lg border ${cfg.color}`}>
-                            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-background/50 text-lg">
-                              {personalizeEventTitle(event.title, event.subject, trackNames).includes("מבחן") ? "📝" : "📅"}
-                            </div>
-                            <div className="flex-1 min-w-0 text-right">
-                              <p className="text-sm font-bold truncate">{personalizeEventTitle(event.title, event.subject, trackNames)}</p>
-                              <p className="text-[10px] text-muted-foreground">{hebrewDayNames[eventDate.getDay()]} {shortDateFmt.format(eventDate)}</p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Class Messenger */}
-          {myClassId && (
-            <motion.div variants={item}>
-              <ClassMessenger classId={myClassId} userId={profile.id} isTeacher={false} />
-            </motion.div>
-          )}
-        </div>
-
-        {/* Left Sidebar Area (Stats & Gamification) */}
-        <div className="space-y-6">
-          {/* Gamification Widget */}
-          <motion.div variants={item}>
-            <GamificationWidget userId={profile.id} />
-          </motion.div>
-
-          {/* Quick Access */}
-          <motion.div variants={item}>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { icon: Trophy, label: "הישגים", path: "/dashboard/badges", color: "text-warning", bg: "bg-warning/10" },
-                { icon: MapPin, label: "המקום שלי", path: "/dashboard/student-seating", color: "text-destructive", bg: "bg-destructive/10" },
-                { icon: BookOpen, label: "מקצועות", path: "/dashboard/subjects", color: "text-info", bg: "bg-info/10" },
-                { icon: Target, label: "משימות", path: "/dashboard/tasks", color: "text-accent", bg: "bg-accent/10" },
-                { icon: Brain, label: "C.H.E.E.S.E.", path: "/dashboard/ai-tutor", color: "text-primary", bg: "bg-primary/10" },
-              ].map((quickItem, i) => (
-                <Card
-                  key={i}
-                  className={`cursor-pointer transition-colors border border-border hover:border-primary/50 ${quickItem.bg}`}
-                  onClick={() => navigate(quickItem.path)}
-                >
-                  <CardContent className="p-4 text-center">
-                    <quickItem.icon className={`h-6 w-6 mx-auto mb-1 ${quickItem.color}`} />
-                    <p className="text-[11px] font-black">{quickItem.label}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Next Exam Sidebar */}
-          {nextExam && (
-            <motion.div variants={item}>
-               <Card className="bg-destructive/10 border-destructive/20 overflow-hidden relative">
-                  <div className="absolute top-0 right-0 p-1 opacity-10"><BookOpen className="h-12 w-12" /></div>
-                  <CardContent className="p-4 text-center">
-                    <p className="text-[10px] font-black text-destructive uppercase tracking-widest mb-1">המבחן הקרוב</p>
-                    <h3 className="font-heading font-black text-sm mb-2">{personalizeEventTitle(nextExam.title, nextExam.subject, trackNames)}</h3>
-                    <Badge className="bg-destructive text-white border-none text-xl py-2 px-4 shadow-lg">{formatCountdown(now, nextExam)}</Badge>
-                    {!studyPlan && (
-                      <button
-                        onClick={() => loadStudyPlan(nextExam)}
-                        disabled={studyPlanLoading}
-                        className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs font-heading font-bold text-primary hover:underline disabled:opacity-60"
-                      >
-                        {studyPlanLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                        בנה לי תוכנית לימודים
-                      </button>
-                    )}
-                    {studyPlan && (
-                      <div className="mt-3 text-right text-xs font-body bg-background/70 rounded-lg p-3 whitespace-pre-line max-h-48 overflow-y-auto">
-                        {studyPlan}
-                      </div>
-                    )}
-                  </CardContent>
-               </Card>
-            </motion.div>
-          )}
-
-          {/* Attendance Sidebar Widget */}
-          {attendance && (
-            <motion.div variants={item}>
-               <Card className={`border-${attendance.pct >= 15 ? 'destructive' : attendance.pct >= 10 ? 'warning' : 'primary'}/20`}>
-                  <CardContent className="p-4 flex items-center justify-between">
-                    <div>
-                      {/* This is an absence rate (15% is the Ministry of Education's
-                          red-line threshold, matching the thresholds below) - not a
-                          presence/attendance rate like ParentDashboardPage shows for
-                          the same underlying data. Label it unambiguously as such. */}
-                      <p className="text-xs font-bold text-muted-foreground mb-1">אחוז חיסורים</p>
-                      <div className="flex gap-2 text-sm font-heading">
-                        <span className="text-destructive font-bold">{attendance.absent} חיסורים</span>
-                        <span className="text-warning">{attendance.late} איחורים</span>
-                      </div>
-                    </div>
-                    <div className={`w-12 h-12 rounded-full border-4 flex items-center justify-center font-bold font-heading text-sm shadow-inner ${
-                      attendance.pct >= 15 ? "border-destructive text-destructive bg-destructive/10" : 
-                      attendance.pct >= 10 ? "border-warning text-warning bg-warning/10" : 
-                      "border-success text-success bg-success/10"
-                    }`}>
-                      {attendance.pct}%
-                    </div>
-                  </CardContent>
-               </Card>
-            </motion.div>
-          )}
-        </div>
-      </div>
-
-      {/* This week events */}
-      <motion.div variants={item}>
-        <Card className="bg-card border border-border overflow-hidden">
-          <CardHeader className="pb-2 border-b border-border bg-muted/30">
-            <CardTitle className="text-sm font-heading font-black flex items-center gap-2 text-foreground">
-              <Clock className="h-5 w-5 text-primary" />
-              מה קורה השבוע
-              {holidayThisWeek && !activeHoliday && (
-                <Badge variant="outline" className="text-[10px] bg-info/10 text-info border-info/20 mr-2">
-                  חופשת {holidayThisWeek.title}
-                </Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {thisWeekEvents.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                {activeHoliday ? "חופשה! 🎉 אין אירועים השבוע." : "אין אירועים מתוכננים השבוע"}
-              </p>
-            ) : (
-              <ScrollArea className="max-h-[220px]">
-                <div className="space-y-1.5">
-                  {thisWeekEvents.map((event) => {
-                    const cfg = EVENT_TYPE_CONFIG[event.event_type] || EVENT_TYPE_CONFIG.other;
-                    const Icon = cfg.icon;
-                    const eventDate = parseDate(event.event_date);
-                    const dayName = hebrewDayNames[eventDate.getDay()];
-                    const isToday = dayDiff(today, startOfDay(eventDate)) === 0;
-                    const isPast = startOfDay(eventDate) < today;
-                    return (
-                      <div
-                        key={event.id}
-                        className={`flex items-center gap-3 py-2 px-3 rounded-lg border transition-colors ${
-                          isToday ? "ring-2 ring-primary/30 " : ""
-                        }${isPast ? "opacity-50 " : ""}${cfg.color}`}
-                      >
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-background/50">
-                          <Icon className="h-3.5 w-3.5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-body truncate">{personalizeEventTitle(event.title, event.subject, trackNames)}</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            יום {dayName} {shortDateFmt.format(eventDate)}
-                            {event.subject && ` • ${event.subject}`}
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="text-[9px] px-1.5 h-4 shrink-0">
-                          {isToday ? "היום!" : isPast ? "עבר" : cfg.label}
-                        </Badge>
-                      </div>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
-            )}
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Quick Access */}
-      <motion.div variants={item}>
-        <h2 className="font-heading font-bold text-lg mb-3">גישה מהירה</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { icon: BookOpen, label: "המקצועות שלי", path: "/dashboard/subjects", color: "text-primary" },
-            { icon: Calendar, label: "לוח שנה", path: "/dashboard/calendar", color: "text-info" },
-            { icon: Target, label: "משימות", path: "/dashboard/tasks", color: "text-warning" },
-            { icon: Brain, label: "עוזר AI", path: "/dashboard/ai-tutor", color: "text-accent" },
-          ].map((quickItem, i) => (
-            <Card key={i} className="cursor-pointer hover:shadow-md transition-all hover:-translate-y-0.5"
-              onClick={() => navigate(quickItem.path)}>
-              <CardContent className="py-5 text-center">
-                <quickItem.icon className={`h-8 w-8 mx-auto mb-2 ${quickItem.color}`} />
-                <p className="text-sm font-heading font-medium">{quickItem.label}</p>
-              </CardContent>
-            </Card>
+      {laterThisWeek.length > 0 && (
+        <HomeSection title={holidayThisWeek && !activeHoliday ? `השבוע · חופשת ${holidayThisWeek.title}` : "בהמשך השבוע"}>
+          {laterThisWeek.map((e, i) => (
+            <HomeRow key={e.id} index={i} subject={e.subject || undefined} title={eventTitle(e)} meta={eventMeta(e)} tag={eventTag(e)} />
           ))}
+        </HomeSection>
+      )}
+
+      <HomeSection title="ציונים אחרונים">
+        {recentGrades.length === 0 ? (
+          <HomeEmpty>עדיין אין ציונים. הם יופיעו כאן מיד אחרי הבדיקה</HomeEmpty>
+        ) : (
+          recentGrades.map((g, i) => {
+            const max = g.assignments?.max_grade || 100;
+            const good = (g.grade / max) * 100 >= 80;
+            return (
+              <HomeRow
+                key={g.id}
+                index={i}
+                subject={g.assignments?.subject || undefined}
+                title={g.assignments?.title || "מטלה"}
+                meta={[g.assignments?.subject, g.graded_at && shortDateFmt.format(new Date(g.graded_at))].filter(Boolean).join(" · ")}
+                tag={{ label: max === 100 ? String(g.grade) : `${g.grade}/${max}`, tone: good ? "success" : "warning" }}
+                onClick={() => navigate("/dashboard/grades")}
+              />
+            );
+          })
+        )}
+      </HomeSection>
+
+      {myClassId && (
+        <HomeSection title="הודעות מהכיתה">
+          <ClassMessenger classId={myClassId} userId={profile.id} isTeacher={false} />
+        </HomeSection>
+      )}
+    </>
+  );
+
+  const side = (
+    <>
+      {strip.length > 0 && (
+        <HomeSection
+          title="היום במערכת"
+          action={<button type="button" onClick={() => navigate("/dashboard/timetable")} className="font-body text-[13px] font-extrabold text-link">מערכת מלאה ←</button>}
+        >
+          <LessonStrip lessons={strip} onClick={() => navigate("/dashboard/timetable")} />
+        </HomeSection>
+      )}
+
+      <HomeSection title="המבחן הקרוב">
+        {nextExam ? (
+          <HomeRow
+            subject={nextExam.subject || undefined}
+            title={eventTitle(nextExam)}
+            meta={[eventMeta(nextExam), formatCountdown(now, nextExam)].join(" · ")}
+            tag={eventTag(nextExam)}
+          >
+            {!studyPlan ? (
+              <button
+                type="button"
+                onClick={() => loadStudyPlan(nextExam)}
+                disabled={studyPlanLoading}
+                className="mt-1 flex items-center gap-1.5 self-start font-body text-[13px] font-extrabold text-link disabled:opacity-60"
+              >
+                {studyPlanLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                בנה/י לי תוכנית לימודים
+              </button>
+            ) : (
+              <div className="mt-1.5 max-h-48 overflow-y-auto whitespace-pre-line rounded-row bg-soft p-3 font-body text-[13px] font-semibold text-text-secondary">
+                {studyPlan}
+              </div>
+            )}
+          </HomeRow>
+        ) : (
+          <HomeEmpty>אין מבחנים קרובים ביומן</HomeEmpty>
+        )}
+      </HomeSection>
+
+      <HomeSection title="החודש שלי">
+        <StatTiles
+          size="sm"
+          items={[
+            { value: presencePct !== null ? `${presencePct}%` : "—", label: "נוכחות", tone: presenceTone },
+            { value: streak?.current_streak ?? 0, label: "ימים ברצף", tone: "warning" },
+            { value: badges.length, label: "תגים", tone: "info" },
+          ]}
+        />
+      </HomeSection>
+    </>
+  );
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
+      <HomeHeader title={`${greeting(now)}, ${firstName(profile.fullName)}`} subtitle={subtitle} />
+
+      {isBirthday && (
+        <div className="flex items-center gap-3 self-start rounded-[16px] border-[3px] border-white bg-warning-soft px-4 py-3 text-warning shadow-sticker -rotate-1 dark:border-card">
+          <Cake className="h-6 w-6 shrink-0" />
+          <div>
+            <p className="font-heading text-base font-black">יום הולדת שמח!</p>
+            <p className="font-body text-[13px] font-bold">מאחלים לך שנה מלאה בהצלחות</p>
+          </div>
         </div>
-      </motion.div>
+      )}
+
+      <HomeColumns main={main} side={side} />
     </motion.div>
   );
 };

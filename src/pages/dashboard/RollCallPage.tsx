@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSmartSeat } from "@/hooks/useSmartSeat";
 import { ClassroomGrid } from "@/components/smartseat/ClassroomGrid";
+import { avatarFromRow } from "@/components/avatar/avatarModel";
 
 interface StudentCard {
   id: string;
@@ -214,9 +215,7 @@ const RollCallPage = () => {
       const { data: profiles } = await supabase.from("profiles").select("id, full_name, date_of_birth").eq("class_id", selectedClass).eq("is_approved", true);
       if (!profiles) { setStudents([]); setLoading(false); return; }
       const { data: avatars } = await supabase.from("avatars").select("*").in("user_id", profiles.map(p => p.id));
-      const avatarMap = new Map((avatars || []).map(a => [a.user_id, {
-        body_type: a.face_shape || "basic", eye_color: a.eye_color || "brown", skin: a.skin_color || "#FDDBB4", hair_style: a.hair_style || "boy", hair_color: a.hair_color || "#2C1A0E",
-      }]));
+      const avatarMap = new Map((avatars || []).map(a => [a.user_id, avatarFromRow(a)!]));
 
       const today = new Date();
       setStudents(profiles.map(p => {

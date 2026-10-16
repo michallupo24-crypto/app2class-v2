@@ -55,7 +55,7 @@ const LandingPage = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-background">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8">
       {/* Logo */}
       <motion.div
         initial={{ opacity: 0, y: -12 }}
@@ -70,7 +70,7 @@ const LandingPage = () => {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="text-4xl md:text-5xl font-heading font-bold text-foreground mb-2"
+        className="text-4xl md:text-5xl font-heading font-black text-foreground mb-2"
       >
         App2Class
       </motion.h1>
@@ -79,7 +79,7 @@ const LandingPage = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.35 }}
-        className="text-muted-foreground text-lg mb-10"
+        className="text-muted-foreground text-lg font-semibold mb-10"
       >
         מערכת ניהול בית ספרית חכמה
       </motion.p>
@@ -91,19 +91,19 @@ const LandingPage = () => {
         animate="show"
         className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 w-full max-w-3xl mb-10"
       >
-        {roles.map((role) => (
+        {roles.map((role, i) => (
           <motion.button
             key={role.id}
             variants={item}
             whileTap={{ scale: 0.98 }}
             onClick={() => navigate(role.path)}
-            className="group flex flex-col items-center gap-3 p-6 rounded-lg bg-card border border-border hover:border-primary/50 transition-colors cursor-pointer"
+            className="group flex flex-col items-center gap-3 p-6 rounded-card bg-card shadow-card hover:-translate-y-0.5 hover:shadow-raised transition-all cursor-pointer"
           >
-            <div className={`w-14 h-14 rounded-lg ${role.color} flex items-center justify-center`}>
+            <div className={`w-14 h-14 rounded-[18px] border-[3px] border-white shadow-sticker ${role.color} flex items-center justify-center dark:border-card ${i % 2 ? "rotate-[5deg]" : "-rotate-[5deg]"}`}>
               <role.icon className="w-7 h-7 text-primary-foreground" />
             </div>
-            <span className="font-heading font-bold text-lg text-foreground">{role.label}</span>
-            <span className="text-xs text-muted-foreground text-center leading-tight">{role.description}</span>
+            <span className="font-heading font-black text-lg text-foreground">{role.label}</span>
+            <span className="text-[13px] font-semibold text-muted-foreground text-center leading-tight">{role.description}</span>
           </motion.button>
         ))}
       </motion.div>
@@ -115,17 +115,19 @@ const LandingPage = () => {
         transition={{ delay: 0.7 }}
       >
         <Button
-          variant="outline"
           size="lg"
           onClick={() => navigate("/login")}
-          className="gap-2 font-heading text-base"
+          className="gap-2 text-base"
         >
           <LogIn className="w-5 h-5" />
-          כבר רשום? התחבר
+          כבר רשומ/ה? התחבר/י
         </Button>
       </motion.div>
 
       <div className="mt-8 flex gap-4 text-xs text-muted-foreground">
+        <button onClick={() => navigate("/about")} className="hover:text-foreground underline underline-offset-2">
+          מה זה App2Class?
+        </button>
         <button onClick={() => navigate("/terms")} className="hover:text-foreground underline underline-offset-2">
           תנאי שימוש
         </button>

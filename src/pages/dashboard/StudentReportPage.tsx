@@ -183,7 +183,7 @@ const StudentReportPage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8 dir-rtl text-right">
+    <div className="min-h-screen p-4 md:p-8 dir-rtl text-right">
       {/* Tool Bar - Hidden on Print */}
       <div className="max-w-4xl mx-auto mb-8 flex items-center justify-between print:hidden">
          <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2 text-muted-foreground">

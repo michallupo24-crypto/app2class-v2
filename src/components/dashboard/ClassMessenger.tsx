@@ -17,6 +17,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
+import { avatarFromRow } from "@/components/avatar/avatarModel";
 
 interface ClassMessage {
   id: string;
@@ -28,11 +29,6 @@ interface ClassMessage {
   author_name: string;
   author_avatar: any;
 }
-
-const FACE_TO_BODY: Record<string, string> = {
-  round: "basic", oval: "basic", square: "wider", long: "taller",
-  basic: "basic", wider: "wider", taller: "taller",
-};
 
 const ClassMessenger = ({ classId, userId, isTeacher }: { classId: string; userId: string; isTeacher: boolean }) => {
   const [messages, setMessages] = useState<ClassMessage[]>([]);
@@ -63,7 +59,7 @@ const ClassMessenger = ({ classId, userId, isTeacher }: { classId: string; userI
         const [{ data: profs }, { data: avatars }] = await Promise.all([
           supabase.from("profiles").select("id, full_name").in("id", authorIds),
           // avatars.user_id -> auth.users, no FK to profiles for PostgREST to embed - fetch separately
-          supabase.from("avatars").select("user_id, face_shape, eye_color, skin_color, hair_style, hair_color").in("user_id", authorIds),
+          supabase.from("avatars").select("*").in("user_id", authorIds),
         ]);
         for (const p of profs || []) nameById.set(p.id, p.full_name);
         for (const a of avatars || []) avatarById.set(a.user_id, a);
@@ -79,13 +75,7 @@ const ClassMessenger = ({ classId, userId, isTeacher }: { classId: string; userI
           is_pinned: p.is_pinned,
           created_at: p.created_at,
           author_name: nameById.get(p.author_id) || "מורה",
-          author_avatar: av ? {
-            body_type: FACE_TO_BODY[av.face_shape] || "basic",
-            eye_color: av.eye_color || "brown",
-            skin: av.skin_color || "#FDDBB4",
-            hair_style: av.hair_style || "boy",
-            hair_color: av.hair_color || "#2C1A0E",
-          } : null,
+          author_avatar: avatarFromRow(av),
         };
       }));
     } catch (e) {
