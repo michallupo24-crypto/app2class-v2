@@ -18,43 +18,27 @@ const SchedulePage = () => {
   );
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-4">
       {/* Teacher attendance widget */}
       {isTeacher && <TeacherAttendanceWidget profile={profile} />}
 
       {/* Header with tabs */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-heading font-bold flex items-center gap-2">
-            <Calendar className="h-7 w-7 text-primary" />
-            לוח זמנים
-          </h1>
-          <p className="text-sm text-muted-foreground font-body mt-1">
-            מערכת שעות, לוח מבחנים וחופשות
-          </p>
-        </div>
+      <div className="flex flex-col gap-1.5 px-1">
+        <h1 className="font-heading text-[27px] font-black leading-[1.05] text-foreground">מערכת שעות</h1>
+        <p className="font-body text-sm font-semibold text-muted-foreground">השבוע שלך, לוח המבחנים והחופשות</p>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="w-full h-auto p-1 bg-muted/50">
-          <TabsTrigger
-            value="daily"
-            className="flex-1 gap-1.5 py-2.5 font-heading text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm"
-          >
+        <TabsList>
+          <TabsTrigger value="daily" className="gap-1.5">
             <Calendar className="h-4 w-4" />
-            יומי
+            שבועי
           </TabsTrigger>
-          <TabsTrigger
-            value="monthly"
-            className="flex-1 gap-1.5 py-2.5 font-heading text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm"
-          >
+          <TabsTrigger value="monthly" className="gap-1.5">
             <CalendarDays className="h-4 w-4" />
             חודשי
           </TabsTrigger>
-          <TabsTrigger
-            value="yearly"
-            className="flex-1 gap-1.5 py-2.5 font-heading text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm"
-          >
+          <TabsTrigger value="yearly" className="gap-1.5">
             <CalendarRange className="h-4 w-4" />
             שנתי
           </TabsTrigger>
