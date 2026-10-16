@@ -29,6 +29,7 @@ import type { AvatarConfig } from "@/components/avatar/AvatarStudio";
 import { extractDocumentText, isExtractableDocument, isImageFile } from "@/lib/fileExtraction";
 import { requestImageOcr } from "@/lib/fileOcr";
 import { avatarFromRow } from "@/components/avatar/avatarModel";
+import { SubjectTile, subjectStickerId } from "@/components/SubjectSticker";
 
 /* ─── Types ───────────────────────────────────────────── */
 type ConversationType = 
@@ -1546,14 +1547,14 @@ const ChatPage = () => {
   };
 
   const typeColor = (type: string) => {
-    if (type === "group") return "bg-info/15 text-info";
-    if (type === "class_subject") return "bg-accent/15 text-accent";
-    if (type === "class_homeroom") return "bg-success/15 text-success";
-    if (type === "counseling") return "bg-destructive/15 text-destructive";
-    if (type === "parent_teacher") return "bg-warning/15 text-warning";
-    if (type === "class_parent_group") return "bg-secondary/40 text-secondary-foreground";
-    if (type === "grade_parent_group") return "bg-primary/15 text-primary";
-    return "bg-muted text-muted-foreground";
+    if (type === "group") return "bg-[#F0A21A] text-white";
+    if (type === "class_subject") return "bg-[#3B7BF2] text-white";
+    if (type === "class_homeroom") return "bg-[#F2668B] text-white";
+    if (type === "counseling") return "bg-[#137A96] text-white";
+    if (type === "parent_teacher") return "bg-[#D98B0A] text-white";
+    if (type === "class_parent_group") return "bg-[#1E9E62] text-white";
+    if (type === "grade_parent_group") return "bg-[#4F70C9] text-white";
+    return "bg-[#5A6B88] text-white";
   };
 
   /* ── Render conversation row ──────────────────────────── */
@@ -1562,46 +1563,50 @@ const ChatPage = () => {
     return (
       <button
         onClick={() => selectConvo(c.id)}
-        className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-right border-b border-border/40 last:border-0
-          ${isSelected ? "bg-primary/8 border-l-2 border-l-primary" : ""}`}
+        className={`w-full flex items-center gap-[11px] px-2.5 py-[9px] rounded-row transition-colors text-right
+          ${isSelected ? "bg-card shadow-[0_0_0_2px_hsl(var(--foreground)),0_8px_16px_-10px_rgba(27,35,51,0.45)]" : "hover:bg-card/70"}`}
       >
         {/* Avatar / icon */}
         <div className="shrink-0 relative">
           {c.type === "private" && c.otherAvatar ? (
             <AvatarPreview config={c.otherAvatar} size={42} />
           ) : (
-            <div className={`w-[42px] h-[42px] rounded-lg flex items-center justify-center ${typeColor(c.type)}`}>
-              {typeIcon(c.type)}
-            </div>
-          )}
-          {c.unreadCount > 0 && (
-            <span className="absolute -top-1 -left-1 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
-              {c.unreadCount > 9 ? "9+" : c.unreadCount}
-            </span>
+            c.type === "class_subject" && subjectStickerId(c.otherName) ? (
+              <div className="-rotate-[5deg]"><SubjectTile subject={c.otherName} size={40} /></div>
+            ) : (
+              <div className={`w-10 h-10 rounded-[13px] border-[2.5px] border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] flex items-center justify-center -rotate-[5deg] dark:border-card ${typeColor(c.type)}`}>
+                {typeIcon(c.type)}
+              </div>
+            )
           )}
         </div>
 
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-1">
-            <p className={`font-heading text-sm truncate ${c.unreadCount > 0 ? "font-bold" : "font-medium"}`}>
+            <p className="font-heading text-sm font-extrabold leading-tight text-foreground truncate">
               {c.otherName}
             </p>
             {c.lastMessage && (
-              <span className="text-[10px] text-muted-foreground shrink-0">
+              <span className="font-body text-[11px] font-semibold text-hint shrink-0">
                 {formatListTime(c.lastMessage.created_at)}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="mt-[5px] flex items-center gap-1">
             {!c.is_accepted && <Lock className="h-3 w-3 text-muted-foreground shrink-0" />}
-            <p className={`text-xs truncate ${c.unreadCount > 0 ? "text-foreground" : "text-muted-foreground"}`}>
+            <p className={`flex-1 font-body text-[12.5px] font-semibold truncate ${c.unreadCount > 0 ? "text-foreground" : "text-muted-foreground"}`}>
               {c.lastMessage
                 ? c.lastMessage.is_deleted
                   ? "ההודעה נמחקה"
                   : c.lastMessage.is_flagged ? "⚠️ " + c.lastMessage.content : c.lastMessage.content
                 : c.otherRoleLabel || "אין הודעות"}
             </p>
+            {c.unreadCount > 0 && (
+              <span className="shrink-0 min-w-[18px] h-[18px] px-[5px] rounded-full bg-link text-white font-heading text-[10.5px] font-black flex items-center justify-center">
+                {c.unreadCount > 9 ? "9+" : c.unreadCount}
+              </span>
+            )}
           </div>
         </div>
       </button>
@@ -1620,7 +1625,7 @@ const ChatPage = () => {
                 <ArrowRight className="h-4 w-4" />
               </Button>
             )}
-            <h1 className="text-2xl font-heading font-bold">שיחות</h1>
+            <h1 className="font-heading text-[26px] font-black">שיחות</h1>
             {totalUnread > 0 && <Badge variant="destructive" className="text-xs">{totalUnread}</Badge>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -1655,7 +1660,7 @@ const ChatPage = () => {
         </details>
       </div>
 
-      <div className="flex flex-1 min-h-0 rounded-lg border border-border overflow-hidden bg-card">
+      <div className="flex flex-1 min-h-0 rounded-card overflow-hidden bg-card/60 shadow-card">
 
         {/* ── Left panel: conversation list ────────────────── */}
         <div className={`w-full md:w-80 lg:w-96 border-l border-border flex flex-col ${mobileShowChat ? "hidden md:flex" : "flex"}`}>
@@ -1668,7 +1673,7 @@ const ChatPage = () => {
                 placeholder={
                   showNewChat ? "שם פרטי או משפחה באותו בית ספר..." : "חיפוש ברשימת השיחות..."
                 }
-                className="pr-9 h-9 text-sm bg-muted/40 border-0 focus-visible:ring-1"
+                className="pr-9 h-10 text-[13.5px] bg-[#F4EFE7] border-0 rounded-xl focus-visible:ring-1 dark:bg-muted"
                 value={showNewChat ? searchQuery : listFilter}
                 onChange={(e) => (showNewChat ? setSearchQuery(e.target.value) : setListFilter(e.target.value))}
               />
@@ -1742,7 +1747,7 @@ const ChatPage = () => {
                 >
                   <div className="flex items-center justify-between w-full gap-2">
                     <span className="font-heading text-xs font-semibold truncate">{r.conversationTitle}</span>
-                    <span className="text-[10px] text-muted-foreground shrink-0">{formatListTime(r.created_at)}</span>
+                    <span className="font-body text-[11px] font-semibold text-hint shrink-0">{formatListTime(r.created_at)}</span>
                   </div>
                   <p className="text-xs text-muted-foreground truncate w-full">
                     <span className="font-medium text-foreground/80">{r.senderName}: </span>{r.content}
@@ -1799,8 +1804,8 @@ const ChatPage = () => {
               </div>
             ) : (
               groupedConversationSections.map((sec) => (
-                <div key={sec.title}>
-                  <div className="px-4 py-2 text-[10px] font-heading font-semibold uppercase tracking-wide text-muted-foreground bg-muted/25 border-b border-border/40">
+                <div key={sec.title} className="flex flex-col gap-[3px] px-2.5 pt-3.5">
+                  <div className="px-2 pb-1 font-body text-[11.5px] font-extrabold text-text-secondary">
                     {sec.title}
                   </div>
                   {sec.items.map((c) => (
@@ -2105,7 +2110,7 @@ const ChatPage = () => {
                     <div key={m.id} className="flex items-center gap-2 text-xs bg-muted/40 rounded-lg px-2.5 py-1.5">
                       <CalendarClock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       <span className="flex-1 min-w-0 truncate">{m.content}</span>
-                      <span className="text-[10px] text-muted-foreground shrink-0">
+                      <span className="font-body text-[11px] font-semibold text-hint shrink-0">
                         {new Date(m.send_at).toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" })}
                       </span>
                       <button type="button" onClick={() => cancelScheduledMessage(m.id)} title="ביטול תזמון" className="shrink-0 text-muted-foreground hover:text-destructive">
@@ -2161,7 +2166,7 @@ const ChatPage = () => {
                         </button>
                       </div>
                     )}
-                    <form onSubmit={e => { e.preventDefault(); sendMessage(); }} className="flex gap-2 items-end relative">
+                    <form onSubmit={e => { e.preventDefault(); sendMessage(); }} className="flex gap-2 items-end relative rounded-[18px] bg-card p-2 shadow-[0_8px_18px_-12px_rgba(40,30,15,0.45)]">
                       {mentionQuery !== null && mentionCandidates.length > 0 && (
                         <div className="absolute bottom-full mb-1 right-0 w-56 max-h-40 overflow-y-auto rounded-lg border border-border bg-popover shadow-md z-10">
                           {mentionCandidates.map((p) => (
@@ -2205,7 +2210,7 @@ const ChatPage = () => {
                         placeholder={quietHours ? "שעות שקטות — כתוב הודעה..." : "כתוב הודעה..."}
                         disabled={sending}
                         rows={1}
-                        className="flex-1 resize-none text-sm min-h-[38px] max-h-24 py-2 bg-muted/40 border-muted"
+                        className="flex-1 resize-none font-body text-[14.5px] font-semibold min-h-[38px] max-h-24 py-2 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
                       <Popover open={scheduleOpen} onOpenChange={setScheduleOpen}>
                         <PopoverTrigger asChild>
