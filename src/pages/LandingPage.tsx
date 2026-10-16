@@ -125,6 +125,9 @@ const LandingPage = () => {
       </motion.div>
 
       <div className="mt-8 flex gap-4 text-xs text-muted-foreground">
+        <button onClick={() => navigate("/about")} className="hover:text-foreground underline underline-offset-2">
+          מה זה App2Class?
+        </button>
         <button onClick={() => navigate("/terms")} className="hover:text-foreground underline underline-offset-2">
           תנאי שימוש
         </button>
