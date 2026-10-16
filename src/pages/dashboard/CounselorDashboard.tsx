@@ -1,9 +1,7 @@
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { HeartPulse, AlertTriangle, ClipboardList, MessageCircle, Calendar, Send } from "lucide-react";
-import AvatarPreview from "@/components/avatar/AvatarPreview";
+import { ClipboardList, MessageCircle, Calendar } from "lucide-react";
+import { HomeHeader, HeroCard, HomeSection, HomeColumns, StatTiles, HomeRow, HomeEmpty, IconTile, greeting, longHebrewDate, firstName } from "@/components/home/HomeKit";
 import type { UserProfile } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,9 +26,6 @@ const CounselorDashboard = () => {
   const [stats, setStats] = useState<Stats>({ activeCases: 0, riskFlagged: 0, recommendationsThisMonth: 0 });
   const [flagged, setFlagged] = useState<FlaggedStudent[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const container = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
-  const item = { hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } };
 
   useEffect(() => {
     const load = async () => {
@@ -178,104 +173,67 @@ const CounselorDashboard = () => {
     navigate("/dashboard/counselor-cases");
   };
 
+  const main = (
+    <>
+      <HeroCard
+        color="#137A96"
+        subject="פסיכולוגיה"
+        tag={flagged.length > 0 ? "שווה לבדוק היום" : "תיקי מעקב"}
+        title={loading ? "מנתח/ת נתונים..." : flagged.length > 0 ? `${flagged.length} תלמידים עם כמה סימנים יחד` : `${stats.activeCases} תיקים פתוחים`}
+        meta={flagged.length > 0 ? "נוכחות, ריכוז וציונים שירדו יחד. הסימון אינו אבחנה" : "לא זוהו תלמידים עם ירידה בכמה תחומים יחד"}
+        action={{ label: "לתיקי המעקב", onClick: () => navigate("/dashboard/counselor-cases") }}
+      />
+
+      <HomeSection title="שווה לבדוק">
+        {loading ? (
+          <HomeEmpty>בודק/ת נוכחות, ריכוז וציונים מהשבועות האחרונים...</HomeEmpty>
+        ) : flagged.length === 0 ? (
+          <HomeEmpty>אין כרגע תלמידים עם שני סימנים או יותר. זה מתעדכן כל יום</HomeEmpty>
+        ) : (
+          flagged.map((f, i) => (
+            <HomeRow
+              key={f.id}
+              index={i}
+              person={f.full_name}
+              title={f.full_name}
+              meta={f.signals.join(" · ")}
+              action={{ label: "פתיחת תיק", onClick: () => openCase(f.id) }}
+            />
+          ))
+        )}
+      </HomeSection>
+    </>
+  );
+
+  const side = (
+    <>
+      <HomeSection title="תיקי מעקב">
+        <StatTiles
+          size="sm"
+          items={[
+            { value: stats.activeCases, label: "פתוחים", tone: "info" },
+            { value: stats.riskFlagged, label: "סומנו לבדיקה", tone: stats.riskFlagged ? "warning" : "success" },
+            { value: stats.recommendationsThisMonth, label: "המלצות החודש", tone: "success" },
+          ]}
+        />
+      </HomeSection>
+
+      <HomeSection title="כלים">
+        {[
+          { icon: ClipboardList, label: "ניהול תיקים", meta: "תיקי טיפול מאובטחים", path: "/dashboard/counselor-cases", color: "#1592B3" },
+          { icon: MessageCircle, label: "שיחות", meta: "עם תלמידים, הורים וצוות", path: "/dashboard/chat", color: "#4F70C9" },
+          { icon: Calendar, label: "לוח זמנים", meta: "מערכת ולוח השנה", path: "/dashboard/schedule", color: "#9257EC" },
+        ].map((a, i) => (
+          <HomeRow key={a.path} index={i} icon={<IconTile icon={a.icon} color={a.color} />} title={a.label} meta={a.meta} onClick={() => navigate(a.path)} />
+        ))}
+      </HomeSection>
+    </>
+  );
+
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
-      <motion.div variants={item} className="flex items-center gap-4">
-        {profile.avatar && <AvatarPreview config={profile.avatar} size={72} />}
-        <div>
-          <h1 className="text-2xl md:text-3xl font-heading font-bold">שלום, {profile.fullName}</h1>
-          <div className="flex items-center gap-2 mt-1">
-            <Badge variant="secondary" className="font-heading">יועץ/ת</Badge>
-            {profile.schoolName && <span className="text-sm text-muted-foreground font-body">{profile.schoolName}</span>}
-          </div>
-        </div>
-      </motion.div>
-
-      <motion.div variants={item} className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <Card>
-          <CardContent className="py-4 text-center">
-            <ClipboardList className="h-7 w-7 mx-auto mb-2 text-primary" />
-            <p className="text-2xl font-heading font-bold">{stats.activeCases}</p>
-            <p className="text-xs text-muted-foreground font-body">תיקי מעקב פעילים</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="py-4 text-center">
-            <AlertTriangle className={`h-7 w-7 mx-auto mb-2 ${stats.riskFlagged > 0 ? "text-destructive" : "text-muted-foreground"}`} />
-            <p className="text-2xl font-heading font-bold">{stats.riskFlagged}</p>
-            <p className="text-xs text-muted-foreground font-body">תלמידים בסיכון (AI)</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="py-4 text-center">
-            <Send className="h-7 w-7 mx-auto mb-2 text-info" />
-            <p className="text-2xl font-heading font-bold">{stats.recommendationsThisMonth}</p>
-            <p className="text-xs text-muted-foreground font-body">המלצות שנשלחו החודש</p>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      <motion.div variants={item}>
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-heading text-lg flex items-center gap-2">
-              <HeartPulse className="h-5 w-5 text-destructive" /> זיהוי סיכון (AI)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <p className="text-sm text-muted-foreground animate-pulse">מנתח נתוני נוכחות, ריכוז וציונים...</p>
-            ) : flagged.length === 0 ? (
-              <p className="text-sm text-muted-foreground">לא זוהו תלמידים עם צניחה רב-מערכתית כרגע</p>
-            ) : (
-              <div className="space-y-2">
-                {flagged.map((f) => (
-                  <div
-                    key={f.id}
-                    className="flex items-center justify-between gap-3 p-3 rounded-lg bg-destructive/5 border border-destructive/20"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-heading font-medium text-sm">{f.full_name}</p>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {f.signals.map((s) => (
-                          <span key={s} className="text-[10px] px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => openCase(f.id)}
-                      className="shrink-0 text-xs font-heading font-medium px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
-                    >
-                      פתח תיק מעקב
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      <motion.div variants={item}>
-        <h2 className="font-heading font-bold text-lg mb-3">פעולות מהירות</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {[
-            { icon: ClipboardList, label: "ניהול תיקים", path: "/dashboard/counselor-cases", color: "text-primary", desc: "תיקי טיפול מאובטחים" },
-            { icon: MessageCircle, label: "שיחות", path: "/dashboard/chat", color: "text-info", desc: "תקשורת מאובטחת" },
-            { icon: Calendar, label: "לוח זמנים", path: "/dashboard/schedule", color: "text-accent", desc: "לוח שנה בית ספרי" },
-          ].map((action, i) => (
-            <Card key={i} className="cursor-pointer hover:shadow-md transition-all hover:-translate-y-0.5" onClick={() => navigate(action.path)}>
-              <CardContent className="py-5 text-center">
-                <action.icon className={`h-8 w-8 mx-auto mb-2 ${action.color}`} />
-                <p className="text-sm font-heading font-bold">{action.label}</p>
-                <p className="text-[10px] text-muted-foreground">{action.desc}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </motion.div>
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
+      <HomeHeader title={`${greeting()}, ${firstName(profile.fullName)}`} subtitle={[longHebrewDate(), "יועץ/ת", profile.schoolName].filter(Boolean).join(" · ")} />
+      <HomeColumns main={main} side={side} />
     </motion.div>
   );
 };
