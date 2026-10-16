@@ -412,7 +412,7 @@ ${birthdayText}
       return { color: subjectColor(nextExam.subject || nextExam.title), subject: nextExam.subject || undefined, tag: "המבחן הקרוב",
         title: eventTitle(nextExam), meta: formatCountdown(now, nextExam) };
     }
-    return { color: INK_HERO, subject: "שעת חינוך", tag: day.phase === "after" ? "סיימת להיום" : "אין לימודים היום", title: "יום טוב!",
+    return { color: INK_HERO, subject: "שעת חינוך", tag: day.phase === "after" ? "היום הסתיים" : "אין לימודים היום", title: "יום טוב!",
       meta: "אין מבחנים קרובים ביומן" };
   })();
 
@@ -456,7 +456,7 @@ ${birthdayText}
 
       <HomeSection title="ציונים אחרונים">
         {recentGrades.length === 0 ? (
-          <HomeEmpty>עדיין אין ציונים. הם יופיעו כאן ברגע שהמורה יבדוק</HomeEmpty>
+          <HomeEmpty>עדיין אין ציונים. הם יופיעו כאן מיד אחרי הבדיקה</HomeEmpty>
         ) : (
           recentGrades.map((g, i) => {
             const max = g.assignments?.max_grade || 100;
@@ -511,7 +511,7 @@ ${birthdayText}
                 className="mt-1 flex items-center gap-1.5 self-start font-body text-[13px] font-extrabold text-link disabled:opacity-60"
               >
                 {studyPlanLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                בנה לי תוכנית לימודים
+                בנה/י לי תוכנית לימודים
               </button>
             ) : (
               <div className="mt-1.5 max-h-48 overflow-y-auto whitespace-pre-line rounded-row bg-soft p-3 font-body text-[13px] font-semibold text-text-secondary">

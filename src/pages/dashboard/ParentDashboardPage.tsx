@@ -233,7 +233,7 @@ const ParentDashboardPage = () => {
   if (loading) return <div className="h-screen flex items-center justify-center text-muted-foreground">טוען...</div>;
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8 pb-24 text-right" dir="rtl">
+    <div className="min-h-screen p-4 md:p-8 pb-24 text-right" dir="rtl">
       <div className="max-w-6xl mx-auto space-y-10">
 
         {/* HEADER */}

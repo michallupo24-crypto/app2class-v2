@@ -246,7 +246,7 @@ const StudentGradesPage = () => {
   if (loading) return <div className="h-screen flex items-center justify-center bg-background font-black text-primary animate-pulse">Loading Academic Records...</div>;
 
   return (
-    <div className="min-h-screen bg-background font-body p-4 md:p-12 pb-40">
+    <div className="min-h-screen font-body p-4 md:p-12 pb-40">
       <motion.div variants={container} initial="hidden" animate="show" className="max-w-6xl mx-auto space-y-12">
 
         {/* HEADER */}

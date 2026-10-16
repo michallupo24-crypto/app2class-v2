@@ -19,7 +19,7 @@ const DashboardLayout = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background" dir="rtl">
+      <div className="min-h-screen flex items-center justify-center" dir="rtl">
         <div className="text-center space-y-4">
           <div className="relative w-16 h-16 mx-auto">
             <div className="w-16 h-16 border-4 border-primary/20 rounded-full" />
@@ -46,7 +46,7 @@ const DashboardLayout = () => {
 
   if (!profile.isApproved) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4" dir="rtl">
+      <div className="min-h-screen flex items-center justify-center px-4" dir="rtl">
         <div className="text-center space-y-4 max-w-sm">
           <div className="mx-auto h-16 w-16 rounded-full bg-warning/10 flex items-center justify-center">
             <Clock className="h-8 w-8 text-warning" />

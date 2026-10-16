@@ -90,16 +90,16 @@ export function HeroCard({ color, subject, icon, tag, title, meta, action, onCli
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => (e.key === "Enter" || e.key === " ") && onClick() : undefined}
       className={cn(
-        "relative mx-1 mt-5 flex flex-col gap-3.5 rounded-[28px] border-[6px] border-white px-6 pb-5 pt-6 text-white dark:border-card md:-rotate-[0.8deg]",
+        "relative mx-1 mt-4 flex flex-col gap-3.5 rounded-[28px] border-[6px] border-white px-[26px] pb-[22px] pt-6 text-white dark:border-card md:-rotate-[0.8deg]",
         onClick && "cursor-pointer transition-transform hover:rotate-0"
       )}
       style={{ background: color, boxShadow: `0 18px 30px -16px ${color}` }}
     >
-      <div className="absolute -top-8 left-5 h-[76px] w-[76px] rotate-[7deg] md:h-[92px] md:w-[92px]">
+      <div className="absolute -top-[30px] left-[22px] h-[76px] w-[76px] rotate-[7deg] md:h-[92px] md:w-[92px]">
         {icon ?? (subject ? <SubjectTile subject={subject} size={92} className="h-full w-full" /> : null)}
       </div>
-      <div className="flex flex-col gap-2 pl-[84px] md:pl-[100px]">
-        <span className="self-start rounded-full bg-white/20 px-3 py-1.5 font-body text-[13px] font-extrabold">{tag}</span>
+      <div className="flex flex-col gap-[9px] pl-[84px] md:pl-[100px]">
+        <span className="self-start rounded-full bg-white/20 px-[11px] py-1.5 font-body text-[13px] font-extrabold">{tag}</span>
         <div className="font-heading text-[28px] font-black leading-[1.05] md:text-[36px]">{title}</div>
         {meta && <div className="font-body text-[15px] font-semibold leading-snug text-white/90 md:text-base">{meta}</div>}
       </div>
@@ -108,7 +108,7 @@ export function HeroCard({ color, subject, icon, tag, title, meta, action, onCli
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); action.onClick(); }}
-          className="self-start rotate-[1.2deg] rounded-[13px] bg-white px-4 py-3 font-body text-[14.5px] font-extrabold"
+          className="self-start rotate-[1.2deg] rounded-[13px] bg-white px-4 py-[11px] font-body text-[14.5px] font-extrabold"
           style={{ color }}
         >
           {action.label}
@@ -134,8 +134,8 @@ export function HomeSection({ title, action, children, className }: { title: str
 export function HomeColumns({ main, side }: { main: ReactNode; side: ReactNode }) {
   return (
     <div className="grid items-start gap-x-7 gap-y-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-      <div className="flex min-w-0 flex-col gap-6">{main}</div>
-      <div className="flex min-w-0 flex-col gap-6 lg:pt-4">{side}</div>
+      <div className="flex min-w-0 flex-col gap-[26px]">{main}</div>
+      <div className="flex min-w-0 flex-col gap-[26px] lg:pt-4">{side}</div>
     </div>
   );
 }
@@ -284,7 +284,7 @@ export function HomeRow({ subject, person, icon, title, meta, tag, action, onCli
       )}
       {person && !subject && <PersonBadge name={person} tilt={tilt} />}
       {icon && !subject && !person && <div className="shrink-0">{icon}</div>}
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
+      <div className="flex min-w-0 flex-1 flex-col gap-[5px]">
         <div className="font-heading text-[15.5px] font-extrabold leading-tight text-foreground">{title}</div>
         {meta && <div className="font-body text-[13px] font-semibold leading-snug text-muted-foreground">{meta}</div>}
         {children}
@@ -294,7 +294,7 @@ export function HomeRow({ subject, person, icon, title, meta, tag, action, onCli
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); action.onClick(); }}
-          className="shrink-0 rounded-xl bg-primary px-3.5 py-2.5 font-body text-[13px] font-extrabold text-primary-foreground"
+          className="shrink-0 rounded-xl bg-primary px-3.5 py-[9px] font-body text-[13px] font-extrabold text-primary-foreground"
         >
           {action.label}
         </button>
