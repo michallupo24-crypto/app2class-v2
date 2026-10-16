@@ -1944,7 +1944,7 @@ const ChatPage = () => {
                         <div key={msg.id}>
                           {showDate && (
                             <div className="flex items-center justify-center my-3">
-                              <span className="text-[10px] text-muted-foreground bg-muted px-3 py-0.5 rounded-full">
+                              <span className="font-body text-[11.5px] font-extrabold text-muted-foreground bg-card px-[11px] py-[5px] rounded-full shadow-[0_2px_6px_-4px_rgba(40,30,15,0.4)]">
                                 {new Date(msg.created_at).toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" })}
                               </span>
                             </div>
@@ -1957,7 +1957,7 @@ const ChatPage = () => {
                                     <AvatarPreview config={msg.sender_avatar} size={32} />
                                   ) : (
                                     <div
-                                      className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-heading font-semibold text-muted-foreground border border-border/60"
+                                      className="w-8 h-8 rounded-full bg-info-soft flex items-center justify-center text-xs font-heading font-black text-info border-2 border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] dark:border-card"
                                       title={msg.sender_name}
                                     >
                                       {(msg.sender_name || "?").trim().charAt(0) || "?"}
@@ -1970,7 +1970,7 @@ const ChatPage = () => {
                             )}
                             <div className={`max-w-[72%] ${isMe ? "items-end" : "items-start"} flex flex-col`}>
                               {showPeerHeader && (
-                                <p className="text-[11px] font-medium text-foreground/90 mb-0.5 px-1 leading-tight">
+                                <p className="font-body text-xs font-extrabold text-link mb-1 px-1 leading-tight">
                                   {msg.sender_name}
                                 </p>
                               )}
@@ -1995,18 +1995,18 @@ const ChatPage = () => {
                                     )}
                                   </div>
                                 )}
-                                <div className={`rounded-lg px-3.5 py-2 text-sm leading-relaxed min-w-0
+                                <div className={`rounded-[18px] px-[13px] py-2.5 font-body text-[14.5px] font-semibold leading-[1.45] min-w-0 shadow-[0_4px_10px_-8px_rgba(40,30,15,0.45)]
                                   ${isMe
-                                    ? "bg-primary text-primary-foreground rounded-tl-lg rounded-tr-sm"
-                                    : "bg-muted rounded-tr-lg rounded-tl-sm"}
+                                    ? "bg-[#2F64D0] text-white rounded-br-md"
+                                    : "bg-card text-foreground rounded-bl-md"}
                                   ${msg.is_flagged ? "ring-1 ring-warning" : ""}`}>
                                   {msg.is_deleted ? (
                                     <span className="italic opacity-60">ההודעה נמחקה</span>
                                   ) : (
                                     <>
                                       {replySource && (
-                                        <div className={`rounded-lg px-2 py-1 mb-1.5 text-xs border-r-2 ${isMe ? "bg-black/10 border-primary-foreground/40" : "bg-background/60 border-primary/50"}`}>
-                                          <p className="font-medium opacity-80 truncate">{replySource.sender_name}</p>
+                                        <div className={`rounded-[9px] px-[9px] py-1.5 mb-1.5 text-xs border-r-[3px] ${isMe ? "bg-white/15 border-white" : "bg-soft border-[#EE5A8F] text-text-secondary"}`}>
+                                          <p className="font-extrabold truncate">{replySource.sender_name}</p>
                                           <p className="opacity-70 truncate">{replySource.is_deleted ? "ההודעה נמחקה" : replySource.content}</p>
                                         </div>
                                       )}
