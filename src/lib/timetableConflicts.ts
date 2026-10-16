@@ -15,6 +15,11 @@ export interface ConstraintLite {
 export interface SlotConflict {
   kind: "teacher_double_booked" | "room_double_booked" | "teacher_constraint";
   message: string;
+  // teacher_double_booked only: the slot(s) already occupying that teacher at
+  // this exact day/lesson, so the UI can offer to relocate THEM (or merge
+  // them with the new placement into one shared lesson) instead of only
+  // offering to relocate the new placement itself.
+  blockingSlots?: GeneratedSlot[];
 }
 
 const CONSTRAINT_TYPE_LABEL: Record<string, string> = {
@@ -35,11 +40,17 @@ export function checkSlotConflict(
   constraints: ConstraintLite[]
 ): SlotConflict | null {
   if (candidate.teacher_id) {
-    const doubleBooked = otherSlots.some(
-      s => s.teacher_id === candidate.teacher_id && s.day_of_week === candidate.day_of_week && s.lesson_number === candidate.lesson_number
+    // Two rows sharing a non-null group_name are the SAME shared lesson
+    // (a merged/track slot both classes attend together, see the "merge"
+    // conflict-resolution action) - not a real double-booking.
+    const blockingSlots = otherSlots.filter(
+      s => s.teacher_id === candidate.teacher_id
+        && s.day_of_week === candidate.day_of_week
+        && s.lesson_number === candidate.lesson_number
+        && !(candidate.group_name && s.group_name === candidate.group_name)
     );
-    if (doubleBooked) {
-      return { kind: "teacher_double_booked", message: "המורה כבר משובץ/ת לכיתה אחרת באותה שעה בדיוק" };
+    if (blockingSlots.length > 0) {
+      return { kind: "teacher_double_booked", message: "המורה כבר משובץ/ת לכיתה אחרת באותה שעה בדיוק", blockingSlots };
     }
 
     const violated = constraints.find(
@@ -61,7 +72,10 @@ export function checkSlotConflict(
 
   if (candidate.room) {
     const roomTaken = otherSlots.some(
-      s => s.room === candidate.room && s.day_of_week === candidate.day_of_week && s.lesson_number === candidate.lesson_number
+      s => s.room === candidate.room
+        && s.day_of_week === candidate.day_of_week
+        && s.lesson_number === candidate.lesson_number
+        && !(candidate.group_name && s.group_name === candidate.group_name)
     );
     if (roomTaken) {
       return { kind: "room_double_booked", message: "החדר תפוס על ידי כיתה אחרת באותה שעה בדיוק" };

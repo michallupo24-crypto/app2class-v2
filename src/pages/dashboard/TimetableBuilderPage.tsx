@@ -173,6 +173,16 @@ const TimetableBuilderPage = () => {
       supabase.from("teacher_constraints").select("*").eq("school_id", schoolId).eq("status", "approved"),
     ]);
 
+    if (constraintsRes.error) {
+      // Failing loudly here matters: if this fetch silently returned [],
+      // no hard constraint would ever block anything below, and the
+      // coordinator would have no idea the "אילוצים" tab's data never
+      // even loaded for this generation run.
+      toast({ title: "שגיאה בטעינת אילוצי מורים", description: constraintsRes.error.message, variant: "destructive" });
+      setGenerating(false);
+      return;
+    }
+
     if (!reqRes.data?.length) {
       toast({ title: "לא הוגדרה תכנית שעות", description: "יש להשלים את הטאב 'תכנית שעות ואישור' קודם", variant: "destructive" });
       setGenerating(false);
@@ -206,15 +216,30 @@ const TimetableBuilderPage = () => {
     const endTimeByLesson = new Map<number, string>(nonBreakBell.map((b: any) => [b.lesson_number, b.end_time?.slice(0, 5)]));
 
     const profilesById = new Map((profilesRes.data || []).map((p: any) => [p.id, p.full_name]));
-    const subjectByTeacher = new Map((roleRes.data || []).map((r: any) => [r.user_id, r.subject]));
-    const teachers: EligibleTeacher[] = (tcRes.data || [])
-      .map((tc: any) => {
-        const subject = subjectByTeacher.get(tc.user_id);
-        const teacherName = profilesById.get(tc.user_id);
-        if (!subject || !teacherName) return null;
-        return { class_id: tc.class_id, subject, teacher_id: tc.user_id, teacher_name: teacherName };
-      })
-      .filter((t): t is EligibleTeacher => t !== null);
+    // A teacher who teaches more than one subject has one professional_teacher
+    // user_roles ROW PER SUBJECT (STAFF_ROLES marks it requiresSubject, a
+    // single field per role assignment) - collapsing this into a single
+    // user_id -> subject Map would silently keep only the last subject seen
+    // for that teacher and drop them as an eligible candidate for every
+    // other subject they actually teach, even where teacher_classes already
+    // links them to that exact class. Build a one-to-many map instead, and
+    // emit one EligibleTeacher entry per (class, subject) the teacher is
+    // both qualified for AND assigned to.
+    const subjectsByTeacher = new Map<string, string[]>();
+    for (const r of (roleRes.data || []) as any[]) {
+      if (!r.subject) continue;
+      if (!subjectsByTeacher.has(r.user_id)) subjectsByTeacher.set(r.user_id, []);
+      subjectsByTeacher.get(r.user_id)!.push(r.subject);
+    }
+    const teachers: EligibleTeacher[] = [];
+    for (const tc of (tcRes.data || []) as any[]) {
+      const teacherName = profilesById.get(tc.user_id);
+      const subjects = subjectsByTeacher.get(tc.user_id);
+      if (!teacherName || !subjects) continue;
+      for (const subject of subjects) {
+        teachers.push({ class_id: tc.class_id, subject, teacher_id: tc.user_id, teacher_name: teacherName });
+      }
+    }
 
     const roomList: RoomInfo[] = roomsRes.data || [];
     setRooms(roomList);

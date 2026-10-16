@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { History, X, RotateCcw, Share2, Trash2, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { UserProfile } from "@/hooks/useAuth";
@@ -28,17 +29,19 @@ interface Props {
 // VersionHistoryModal.tsx, adapted to timetable_versions (a normal table,
 // not a jsonb column on a parent row) with share/delete added alongside restore.
 const TimetableVersionHistoryModal = ({ schoolId, profile, onRestore, onClose }: Props) => {
+  const { toast } = useToast();
   const [versions, setVersions] = useState<VersionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [sharingId, setSharingId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("timetable_versions")
       .select("*")
       .eq("school_id", schoolId)
       .order("created_at", { ascending: false });
+    if (error) toast({ title: "שגיאה בטעינת גרסאות", description: error.message, variant: "destructive" });
     setVersions((data || []) as unknown as VersionRow[]);
     setLoading(false);
   };
@@ -50,7 +53,11 @@ const TimetableVersionHistoryModal = ({ schoolId, profile, onRestore, onClose }:
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("timetable_versions").delete().eq("id", id);
-    if (!error) setVersions(vs => vs.filter(v => v.id !== id));
+    if (error) {
+      toast({ title: "שגיאה במחיקת הגרסה", description: error.message, variant: "destructive" });
+      return;
+    }
+    setVersions(vs => vs.filter(v => v.id !== id));
   };
 
   return (

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Share2, X, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import type { UserProfile } from "@/hooks/useAuth";
 
 interface ClassOption {
@@ -19,6 +20,7 @@ interface Props {
 // Same pattern as PresentationShareModal.tsx (class-scoped, toggle-to-share)
 // adapted for a saved timetable_versions row instead of a presentation.
 const TimetableShareModal = ({ versionId, schoolId, profile, onClose }: Props) => {
+  const { toast } = useToast();
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [sharedClassIds, setSharedClassIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -29,6 +31,8 @@ const TimetableShareModal = ({ versionId, schoolId, profile, onClose }: Props) =
       supabase.from("classes").select("id, grade, class_number").eq("school_id", schoolId),
       supabase.from("timetable_version_shares").select("class_id").eq("version_id", versionId),
     ]).then(([classesRes, sharesRes]) => {
+      if (classesRes.error) toast({ title: "שגיאה בטעינת כיתות", description: classesRes.error.message, variant: "destructive" });
+      if (sharesRes.error) toast({ title: "שגיאה בטעינת שיתופים קיימים", description: sharesRes.error.message, variant: "destructive" });
       const opts: ClassOption[] = (classesRes.data || [])
         .map((c: any) => ({ classId: c.id, grade: c.grade, classNumber: c.class_number }))
         .sort((a: ClassOption, b: ClassOption) => a.grade.localeCompare(b.grade) || a.classNumber - b.classNumber);
@@ -36,6 +40,7 @@ const TimetableShareModal = ({ versionId, schoolId, profile, onClose }: Props) =
       setSharedClassIds(new Set((sharesRes.data || []).map((r: any) => r.class_id)));
       setLoading(false);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolId, versionId]);
 
   const toggleClass = async (classId: string) => {
@@ -46,12 +51,20 @@ const TimetableShareModal = ({ versionId, schoolId, profile, onClose }: Props) =
         .delete()
         .eq("version_id", versionId)
         .eq("class_id", classId);
-      if (!error) setSharedClassIds((prev) => { const next = new Set(prev); next.delete(classId); return next; });
+      if (error) {
+        toast({ title: "שגיאה בביטול השיתוף", description: error.message, variant: "destructive" });
+      } else {
+        setSharedClassIds((prev) => { const next = new Set(prev); next.delete(classId); return next; });
+      }
     } else {
       const { error } = await supabase
         .from("timetable_version_shares")
         .insert({ version_id: versionId, class_id: classId, shared_by: profile.id });
-      if (!error) setSharedClassIds((prev) => new Set(prev).add(classId));
+      if (error) {
+        toast({ title: "שגיאה בשיתוף עם הכיתה", description: error.message, variant: "destructive" });
+      } else {
+        setSharedClassIds((prev) => new Set(prev).add(classId));
+      }
     }
     setBusyClassId(null);
   };

@@ -68,6 +68,7 @@ const TeacherConstraintsManager = ({ schoolId, profile }: TeacherConstraintsMana
   const [constraints, setConstraints] = useState<ConstraintRow[]>([]);
   const [teachers, setTeachers] = useState<TeacherOption[]>([]);
   const [teachersById, setTeachersById] = useState<Map<string, string>>(new Map());
+  const [lessonNumbers, setLessonNumbers] = useState<number[]>([1, 2, 3, 4, 5, 6]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
 
@@ -83,19 +84,32 @@ const TeacherConstraintsManager = ({ schoolId, profile }: TeacherConstraintsMana
 
   const loadData = async () => {
     setLoading(true);
-    const [constraintsRes, rolesRes] = await Promise.all([
+    const [constraintsRes, rolesRes, bellRes] = await Promise.all([
       supabase.from("teacher_constraints").select("*").eq("school_id", schoolId).order("created_at", { ascending: false }),
       supabase.from("user_roles").select("user_id").eq("role", "professional_teacher"),
+      supabase.from("bell_schedule").select("lesson_number, is_break").eq("school_id", schoolId).order("lesson_number"),
     ]);
+    if (constraintsRes.error) toast({ title: "שגיאה בטעינת אילוצים", description: constraintsRes.error.message, variant: "destructive" });
+    if (rolesRes.error) toast({ title: "שגיאה בטעינת רשימת מורים", description: rolesRes.error.message, variant: "destructive" });
+
     const teacherIds = Array.from(new Set((rolesRes.data || []).map((r: any) => r.user_id)));
-    const { data: profilesData } = teacherIds.length
+    const { data: profilesData, error: profilesError } = teacherIds.length
       ? await supabase.from("profiles").select("id, full_name").eq("school_id", schoolId).in("id", teacherIds)
-      : { data: [] as any[] };
+      : { data: [] as any[], error: null };
+    if (profilesError) toast({ title: "שגיאה בטעינת פרטי מורים", description: profilesError.message, variant: "destructive" });
+
     const opts: TeacherOption[] = (profilesData || []).map((p: any) => ({ id: p.id, full_name: p.full_name })).sort((a, b) => a.full_name.localeCompare(b.full_name));
     setTeachers(opts);
     setTeachersById(new Map(opts.map(t => [t.id, t.full_name])));
     setConstraints((constraintsRes.data || []) as ConstraintRow[]);
     if (!formTeacher && opts[0]) setFormTeacher(opts[0].id);
+
+    const nonBreakLessons = (bellRes.data || []).filter((b: any) => !b.is_break).map((b: any) => b.lesson_number);
+    if (nonBreakLessons.length) {
+      setLessonNumbers(nonBreakLessons);
+      setFormLesson(prev => (nonBreakLessons.includes(parseInt(prev)) ? prev : String(nonBreakLessons[0])));
+    }
+
     setLoading(false);
   };
 
@@ -236,60 +250,101 @@ const TeacherConstraintsManager = ({ schoolId, profile }: TeacherConstraintsMana
             ))
           )}
 
+          {teachers.length === 0 && (
+            <p className="text-xs text-amber-600 bg-amber-500/10 rounded-lg p-2">
+              לא נמצא/ו מורה/ות בבית הספר עם תפקיד "מורה מקצועי/ת" — יש לשייך תפקיד זה למורים בעמוד ניהול הצוות לפני שאפשר להוסיף אילוצים.
+            </p>
+          )}
+
           {adding ? (
-            <div className="border border-dashed border-border rounded-lg p-3 space-y-2">
-              <div className="flex flex-wrap gap-2 items-end">
-                <Select value={formTeacher} onValueChange={setFormTeacher}>
-                  <SelectTrigger className="w-40 h-8"><SelectValue placeholder="מורה" /></SelectTrigger>
-                  <SelectContent>
-                    {teachers.map(t => <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Select value={formType} onValueChange={(v) => setFormType(v as ConstraintType)}>
-                  <SelectTrigger className="w-48 h-8"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(TYPE_LABELS) as ConstraintType[]).filter(t => t !== "continue_with_class").map(t => (
-                      <SelectItem key={t} value={t}>{TYPE_LABELS[t]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="border border-border rounded-lg p-3 space-y-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">מורה</label>
+                  <Select value={formTeacher} onValueChange={setFormTeacher}>
+                    <SelectTrigger className="h-8"><SelectValue placeholder="בחרו מורה" /></SelectTrigger>
+                    <SelectContent>
+                      {teachers.map(t => <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1 col-span-2 sm:col-span-1">
+                  <label className="text-xs text-muted-foreground">סוג אילוץ</label>
+                  <Select value={formType} onValueChange={(v) => setFormType(v as ConstraintType)}>
+                    <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(TYPE_LABELS) as ConstraintType[]).filter(t => t !== "continue_with_class").map(t => (
+                        <SelectItem key={t} value={t}>{TYPE_LABELS[t]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">רמת חומרה</label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer h-8">
+                    <Switch checked={formHard} onCheckedChange={setFormHard} />
+                    {formHard ? "קשיח (חוסם)" : "רך (העדפה)"}
+                  </label>
+                </div>
 
                 {(formType === "unavailable_slot" || formType === "staff_meeting") && (
                   <>
-                    <Select value={formDay} onValueChange={setFormDay}>
-                      <SelectTrigger className="w-24 h-8"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {days.map(d => <SelectItem key={d} value={String(d)}>{HEBREW_DAYS[d]}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Input type="number" className="w-20 h-8" value={formLesson} onChange={(e) => setFormLesson(e.target.value)} placeholder="שיעור" />
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">יום</label>
+                      <Select value={formDay} onValueChange={setFormDay}>
+                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {days.map(d => <SelectItem key={d} value={String(d)}>{HEBREW_DAYS[d]}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">שיעור</label>
+                      <Select value={formLesson} onValueChange={setFormLesson}>
+                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {lessonNumbers.map(l => <SelectItem key={l} value={String(l)}>שיעור {l}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </>
                 )}
 
                 {formType === "date_range_unavailable" && (
                   <>
-                    <Input type="date" className="w-36 h-8" value={formStart} onChange={(e) => setFormStart(e.target.value)} />
-                    <Input type="date" className="w-36 h-8" value={formEnd} onChange={(e) => setFormEnd(e.target.value)} />
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">מתאריך</label>
+                      <Input type="date" className="h-8" value={formStart} onChange={(e) => setFormStart(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">עד תאריך</label>
+                      <Input type="date" className="h-8" value={formEnd} onChange={(e) => setFormEnd(e.target.value)} />
+                    </div>
                   </>
                 )}
 
                 {formType === "max_daily_hours" && (
-                  <Input type="number" className="w-20 h-8" value={formMax} onChange={(e) => setFormMax(e.target.value)} placeholder="שעות" />
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">מקסימום שעות ביום</label>
+                    <Input type="number" className="h-8" value={formMax} onChange={(e) => setFormMax(e.target.value)} />
+                  </div>
                 )}
-
-                <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                  <Switch checked={formHard} onCheckedChange={setFormHard} />
-                  קשיח
-                </label>
               </div>
-              <Input placeholder="הערה (רשות)" className="h-8" value={formNote} onChange={(e) => setFormNote(e.target.value)} />
-              <div className="flex gap-2">
-                <Button size="sm" onClick={handleAdd} className="gap-1 h-8"><Plus className="h-3.5 w-3.5" /> הוסף אילוץ</Button>
+
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">הערה (רשות)</label>
+                <Input className="h-8" value={formNote} onChange={(e) => setFormNote(e.target.value)} placeholder='למשל: "ישיבת צוות מקצוע מתמטיקה"' />
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <Button size="sm" onClick={handleAdd} className="gap-1 h-8" disabled={!formTeacher}>
+                  <Plus className="h-3.5 w-3.5" /> הוסף אילוץ
+                </Button>
                 <Button size="sm" variant="ghost" className="h-8" onClick={() => setAdding(false)}>ביטול</Button>
               </div>
             </div>
           ) : (
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setAdding(true)}>
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setAdding(true)} disabled={teachers.length === 0}>
               <Plus className="h-3.5 w-3.5" /> הוסף אילוץ מורה
             </Button>
           )}

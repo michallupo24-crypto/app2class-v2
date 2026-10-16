@@ -59,7 +59,14 @@ const GeneratedTimetablePreview = ({
   const { toast } = useToast();
   const [selectedClassId, setSelectedClassId] = useState(classes[0]?.id || "");
   const [editingCell, setEditingCell] = useState<{ day: number; lesson: number } | null>(null);
-  const [pendingConflict, setPendingConflict] = useState<{ candidate: GeneratedSlot; reason: SlotConflict; alternatives: AlternativeSlot[] } | null>(null);
+  const [pendingConflict, setPendingConflict] = useState<{
+    candidate: GeneratedSlot;
+    reason: SlotConflict;
+    candidateAlternatives: AlternativeSlot[];
+    // Alternative slots for relocating the FIRST blocking slot instead (only
+    // meaningful for teacher_double_booked - see reason.blockingSlots).
+    blockingAlternatives: AlternativeSlot[];
+  } | null>(null);
   const [exporting, setExporting] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -100,10 +107,23 @@ const GeneratedTimetablePreview = ({
 
     const conflict = checkSlotConflict(candidate, otherSlots, teacherConstraints);
     if (conflict) {
-      const alternatives = findAlternativeSlots(
-        selectedClassId, subject, teacherId, room, otherSlots, teacherConstraints, days, periods.map(p => p.lesson_number)
+      const lessonNumbers = periods.map(p => p.lesson_number);
+      const candidateAlternatives = findAlternativeSlots(
+        selectedClassId, subject, teacherId, room, otherSlots, teacherConstraints, days, lessonNumbers
       );
-      setPendingConflict({ candidate, reason: conflict, alternatives });
+      // For a teacher double-booking, also compute where the EXISTING
+      // occupant could move to instead - pretending the new candidate is
+      // already sitting in its target slot, so a suggested move for the
+      // blocker never re-lands it back on top of the new placement.
+      let blockingAlternatives: AlternativeSlot[] = [];
+      const blocking = conflict.blockingSlots?.[0];
+      if (blocking) {
+        const otherSlotsForBlocking = [...otherSlots.filter(s => s !== blocking), candidate];
+        blockingAlternatives = findAlternativeSlots(
+          blocking.class_id, blocking.subject, blocking.teacher_id, blocking.room, otherSlotsForBlocking, teacherConstraints, days, lessonNumbers
+        );
+      }
+      setPendingConflict({ candidate, reason: conflict, candidateAlternatives, blockingAlternatives });
       return;
     }
 
@@ -119,6 +139,46 @@ const GeneratedTimetablePreview = ({
       s => !(s.class_id === selectedClassId && s.day_of_week === editingCell.day && s.lesson_number === editingCell.lesson)
     );
     onSlotsChange([...otherSlots, { ...pendingConflict.candidate, day_of_week: alt.day, lesson_number: alt.lesson }]);
+    setPendingConflict(null);
+    setEditingCell(null);
+  };
+
+  // Keeps the new placement exactly where the coordinator put it, and moves
+  // the slot that was already blocking that teacher out of the way instead.
+  const applyMoveBlocking = (alt: AlternativeSlot) => {
+    if (!pendingConflict || !editingCell || !selectedClassId) return;
+    const blocking = pendingConflict.reason.blockingSlots?.[0];
+    if (!blocking) return;
+    const otherSlots = slots.filter(
+      s => s !== blocking && !(s.class_id === selectedClassId && s.day_of_week === editingCell.day && s.lesson_number === editingCell.lesson)
+    );
+    const movedBlocking: GeneratedSlot = { ...blocking, day_of_week: alt.day, lesson_number: alt.lesson };
+    onSlotsChange([...otherSlots, movedBlocking, pendingConflict.candidate]);
+    setPendingConflict(null);
+    setEditingCell(null);
+  };
+
+  // Only offered when the blocking slot's subject matches the new one's -
+  // combines both classes into one shared lesson (same slot, one teacher,
+  // one room) instead of relocating either side. Mirrors how a track/
+  // ability-group block already represents "several classes, one lesson"
+  // (see tryPlaceTrackBlock/tryPlaceGradeWide in timetableGenerator.ts) -
+  // this is the same idea, applied ad-hoc to two specific classes.
+  const applyMerge = () => {
+    if (!pendingConflict || !editingCell || !selectedClassId) return;
+    const blocking = pendingConflict.reason.blockingSlots?.[0];
+    if (!blocking) return;
+    const { candidate } = pendingConflict;
+    const groupName = `שיעור משותף — ${candidate.subject}`;
+    const teacherId = candidate.teacher_id ?? blocking.teacher_id;
+    const teacherName = candidate.teacher_name ?? blocking.teacher_name;
+    const room = candidate.room ?? blocking.room;
+    const otherSlots = slots.filter(
+      s => s !== blocking && !(s.class_id === selectedClassId && s.day_of_week === editingCell.day && s.lesson_number === editingCell.lesson)
+    );
+    const mergedExisting: GeneratedSlot = { ...blocking, teacher_id: teacherId, teacher_name: teacherName, room, group_name: groupName };
+    const mergedCandidate: GeneratedSlot = { ...candidate, teacher_id: teacherId, teacher_name: teacherName, room, group_name: groupName };
+    onSlotsChange([...otherSlots, mergedExisting, mergedCandidate]);
     setPendingConflict(null);
     setEditingCell(null);
   };
@@ -292,9 +352,16 @@ const GeneratedTimetablePreview = ({
       {pendingConflict && (
         <ConflictResolutionDialog
           conflict={pendingConflict.reason}
-          alternatives={pendingConflict.alternatives}
+          candidateAlternatives={pendingConflict.candidateAlternatives}
+          blockingAlternatives={pendingConflict.blockingAlternatives}
+          canMerge={
+            !!pendingConflict.reason.blockingSlots?.[0]
+            && pendingConflict.reason.blockingSlots[0].subject === pendingConflict.candidate.subject
+          }
           onCancel={() => setPendingConflict(null)}
-          onChooseAlternative={applyConflictAlternative}
+          onMoveCandidate={applyConflictAlternative}
+          onMoveBlocking={applyMoveBlocking}
+          onMerge={applyMerge}
         />
       )}
 
