@@ -69,10 +69,10 @@ const DashboardLayout = () => {
       >
         דלג לתוכן הראשי
       </a>
-      <div className="min-h-screen flex w-full bg-background" dir="rtl">
+      <div className="min-h-screen flex w-full" dir="rtl">
         {/* Sidebar */}
-        <div className="hidden md:flex flex-col border-l border-border/50">
-          <div className="h-14 flex items-center justify-center border-b border-border/50 bg-background/95 backdrop-blur-sm">
+        <div className="hidden md:flex flex-col border-l border-border">
+          <div className="h-14 flex items-center justify-center border-b border-border bg-card/80 backdrop-blur-sm">
             <SidebarTrigger />
           </div>
           <AppSidebar profile={profile} onLogout={logout} />
@@ -81,17 +81,17 @@ const DashboardLayout = () => {
         <div className="flex-1 flex flex-col min-w-0">
 
           {/* Top Bar */}
-          <header className="h-14 border-b border-border/50 bg-background/95 backdrop-blur-sm flex items-center justify-between px-4 sticky top-0 z-20">
+          <header className="h-14 border-b border-border bg-background/85 backdrop-blur-sm flex items-center justify-between px-4 sticky top-0 z-20">
             <div className="flex items-center gap-3">
               <img
                 src="/logo.png"
-                alt="מערכת למידה"
+                alt="App2Class"
                 className="h-8 w-8 object-contain cursor-pointer"
                 onClick={() => navigate("/dashboard")}
                 onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
               />
-              <span className="font-heading font-bold text-lg hidden sm:block cursor-pointer" onClick={() => navigate("/dashboard")}>
-                מערכת למידה
+              <span className="font-heading font-black text-lg hidden sm:block cursor-pointer" onClick={() => navigate("/dashboard")}>
+                App2Class
               </span>
             </div>
 

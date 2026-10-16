@@ -5,104 +5,139 @@
 @tailwind utilities;
 
 @layer base {
+  /* "Notebook" design language (see the Design Language mockup): warm dotted
+     paper, white floating cards, one dark ink for actions, and colour reserved
+     for meaning - every status is a light background + dark ink pair. */
   :root {
-    --background: 220 20% 97%;
-    --foreground: 220 30% 15%;
+    --background: 38 50% 97%;      /* paper #FBF8F3 */
+    --foreground: 220 31% 15%;     /* ink #1B2333 */
+    --dots: 38 32% 87%;            /* dot grid #E8E0D2 */
 
     --card: 0 0% 100%;
-    --card-foreground: 220 30% 15%;
+    --card-foreground: 220 31% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 30% 15%;
+    --popover-foreground: 220 31% 15%;
 
-    --primary: 217 91% 50%;
+    /* One ink for every primary action */
+    --primary: 220 31% 15%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 43 96% 56%;
-    --secondary-foreground: 220 30% 15%;
+    /* The single inviting call-to-action (students only) */
+    --secondary: 46 100% 65%;      /* #FFD54A */
+    --secondary-foreground: 40 100% 18%;
 
-    --muted: 220 14% 92%;
-    --muted-foreground: 220 10% 46%;
+    --muted: 39 35% 90%;           /* sand #EFE9DE - tabs, secondary fields */
+    --muted-foreground: 40 8% 44%; /* tertiary text #7A7468 */
+    --soft: 38 41% 95%;            /* rows inside a card #F7F3EC */
+    --text-secondary: 41 12% 32%;  /* body text #5B5548 */
+    --hint: 37 9% 56%;             /* metadata #9A9285 */
+    --link: 216 86% 49%;           /* #1268E8, links only */
 
-    --accent: 280 67% 55%;
+    /* Decorative highlight - avatars, subjects, tags. Never buttons. */
+    --accent: 264 80% 63%;         /* #9257EC */
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 4 76% 40%;      /* #B42318 */
     --destructive-foreground: 0 0% 100%;
+    --destructive-soft: 0 87% 94%; /* #FDE2E2 */
 
-    --border: 220 13% 88%;
-    --input: 220 13% 88%;
-    --ring: 217 91% 50%;
+    --border: 39 35% 87%;          /* line #EAE2D3 */
+    --input: 38 30% 84%;           /* #E3DACB */
+    --ring: 220 31% 15%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;             /* 12px buttons & fields; cards use rounded-card */
 
-    /* Custom gamified colors */
-    --success: 142 71% 45%;
+    /* Status pairs: DEFAULT is the dark ink, -soft the light background */
+    --success: 155 74% 26%;        /* #11734A */
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 220 30% 15%;
-    --info: 199 89% 48%;
+    --success-soft: 148 51% 93%;   /* #E3F6EC */
+    --warning: 40 100% 24%;        /* #7A5200 */
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 45 100% 88%;   /* #FFF0C2 */
+    --info: 219 59% 45%;           /* #2F5FB8 */
     --info-foreground: 0 0% 100%;
+    --info-soft: 219 91% 96%;      /* #EAF1FE */
 
-    /* Role colors */
-    --student: 217 91% 50%;
-    --parent: 142 71% 45%;
-    --staff: 280 67% 55%;
+    /* Role colors (from the highlight palette) */
+    --student: 216 86% 49%;
+    --parent: 151 67% 42%;
+    --staff: 264 80% 63%;
     --management: 43 96% 56%;
-    --admin: 0 84% 60%;
+    --admin: 358 75% 59%;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 38 50% 97%;
+    --sidebar-foreground: 41 12% 32%;
+    --sidebar-primary: 220 31% 15%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 39 35% 90%;
+    --sidebar-accent-foreground: 220 31% 15%;
+    --sidebar-border: 39 35% 87%;
+    --sidebar-ring: 220 31% 15%;
+
+    --shadow-card: 0 8px 20px -14px rgba(40, 30, 15, 0.45);
+    --shadow-raised: 0 14px 30px -18px rgba(27, 35, 51, 0.8);
+    --shadow-window: 0 30px 60px -20px rgba(11, 17, 32, 0.6);
+    --shadow-sticker: 0 2px 6px -3px rgba(40, 30, 15, 0.35);
   }
 
+  /* The mockups are light-only; dark keeps the same structure on ink paper. */
   .dark {
-    --background: 220 30% 8%;
-    --foreground: 220 10% 95%;
-    --card: 220 30% 12%;
-    --card-foreground: 220 10% 95%;
-    --popover: 220 30% 12%;
-    --popover-foreground: 220 10% 95%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 43 96% 56%;
-    --secondary-foreground: 220 30% 15%;
-    --muted: 220 20% 18%;
-    --muted-foreground: 220 10% 65%;
-    --accent: 280 67% 60%;
+    --background: 220 31% 9%;
+    --foreground: 38 50% 95%;
+    --dots: 220 25% 16%;
+    --card: 220 28% 13%;
+    --card-foreground: 38 50% 95%;
+    --popover: 220 28% 13%;
+    --popover-foreground: 38 50% 95%;
+    --primary: 38 50% 95%;
+    --primary-foreground: 220 31% 15%;
+    --secondary: 46 100% 65%;
+    --secondary-foreground: 40 100% 18%;
+    --muted: 220 22% 19%;
+    --muted-foreground: 38 12% 68%;
+    --soft: 220 25% 16%;
+    --text-secondary: 38 20% 80%;
+    --hint: 38 10% 58%;
+    --link: 216 90% 66%;
+    --accent: 264 80% 70%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 62% 30%;
+    --destructive: 0 75% 62%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 20% 20%;
-    --input: 220 20% 20%;
-    --ring: 217 91% 60%;
+    --destructive-soft: 0 45% 20%;
+    --border: 220 20% 22%;
+    --input: 220 20% 26%;
+    --ring: 38 50% 95%;
 
-    --success: 142 71% 45%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 220 30% 15%;
-    --info: 199 89% 48%;
-    --info-foreground: 0 0% 100%;
+    --success: 150 55% 58%;
+    --success-foreground: 220 31% 10%;
+    --success-soft: 155 40% 17%;
+    --warning: 44 95% 62%;
+    --warning-foreground: 220 31% 10%;
+    --warning-soft: 40 60% 17%;
+    --info: 219 85% 72%;
+    --info-foreground: 220 31% 10%;
+    --info-soft: 219 45% 20%;
 
-    --student: 217 91% 60%;
-    --parent: 142 71% 50%;
-    --staff: 280 67% 65%;
+    --student: 216 86% 62%;
+    --parent: 151 60% 50%;
+    --staff: 264 80% 72%;
     --management: 43 96% 60%;
-    --admin: 0 84% 65%;
+    --admin: 358 75% 66%;
 
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 220 31% 9%;
+    --sidebar-foreground: 38 20% 80%;
+    --sidebar-primary: 38 50% 95%;
+    --sidebar-primary-foreground: 220 31% 15%;
+    --sidebar-accent: 220 22% 19%;
+    --sidebar-accent-foreground: 38 50% 95%;
+    --sidebar-border: 220 20% 22%;
+    --sidebar-ring: 38 50% 95%;
+
+    --shadow-card: 0 8px 20px -14px rgba(0, 0, 0, 0.8);
+    --shadow-raised: 0 14px 30px -18px rgba(0, 0, 0, 0.9);
+    --shadow-window: 0 30px 60px -20px rgba(0, 0, 0, 0.9);
+    --shadow-sticker: 0 2px 6px -3px rgba(0, 0, 0, 0.6);
   }
 }
 
@@ -116,10 +151,24 @@
   }
 
   body {
-    @apply bg-background text-foreground font-body;
+    @apply text-foreground font-body font-semibold;
+    background-color: hsl(var(--background));
+    background-image: radial-gradient(hsl(var(--dots)) 1.1px, transparent 1.3px);
+    background-size: 18px 18px;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Rubik', sans-serif;
+    font-weight: 900;
   }
+}
+
+@layer components {
+  /* Status sticker: light background + dark ink, white rim, slight tilt. */
+  .sticker {
+    @apply inline-flex items-center gap-1 rounded-[9px] border-2 border-white px-2.5 py-1.5 font-body text-xs font-extrabold leading-none dark:border-card;
+    box-shadow: var(--shadow-sticker);
+  }
+  .sticker-tilt-l { transform: rotate(-2deg); }
+  .sticker-tilt-r { transform: rotate(2deg); }
 }

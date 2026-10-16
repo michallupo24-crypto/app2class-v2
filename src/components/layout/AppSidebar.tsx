@@ -233,13 +233,13 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
   const mainItems = getItems();
 
   return (
-    <Sidebar side="right" collapsible="icon" className="border-r-0 border-l border-border/50">
+    <Sidebar side="right" collapsible="icon" className="border-r-0 border-l border-border [&_[data-sidebar=sidebar]]:bg-card/80 [&_[data-sidebar=sidebar]]:backdrop-blur">
       <SidebarContent>
         {/* User Profile Section */}
         <SidebarGroup>
           <button
             type="button"
-            className={`w-full p-4 flex items-center gap-3 text-right hover:bg-muted/50 rounded-lg transition-colors ${collapsed ? "justify-center" : ""}`}
+            className={`w-full p-3 flex items-center gap-3 text-right bg-card hover:bg-soft rounded-row shadow-card transition-colors ${collapsed ? "justify-center" : ""}`}
             onClick={() => navigate("/dashboard/avatar-edit")}
             aria-label="ערוך אווטאר"
             title="ערוך אווטאר"
@@ -260,10 +260,10 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
             </div>
             {!collapsed && (
               <div className="min-w-0">
-                <p className="font-heading font-bold text-sm truncate">{profile.fullName}</p>
+                <p className="font-heading font-black text-sm truncate">{profile.fullName}</p>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {roles.slice(0, 2).map((r) => (
-                    <span key={r} className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-heading">
+                    <span key={r} className="text-[10px] bg-info-soft text-info px-2 py-0.5 rounded-full font-body font-extrabold">
                       {ROLE_LABELS[r] || r}
                     </span>
                   ))}
@@ -275,7 +275,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
 
         {/* Navigation */}
         <SidebarGroup>
-          <SidebarGroupLabel className="font-heading">תפריט ראשי</SidebarGroupLabel>
+          <SidebarGroupLabel className="font-body text-[11.5px] font-extrabold text-hint">תפריט ראשי</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => (
@@ -284,16 +284,16 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
                     <NavLink
                       to={item.url}
                       end={true}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors hover:bg-muted/50"
-                      activeClassName="bg-primary/10 text-primary font-medium shadow-sm border-r-2 border-primary"
+                      className="flex items-center gap-3 px-3 py-2 rounded-[11px] font-bold text-text-secondary transition-colors hover:bg-muted"
+                      activeClassName="!bg-primary !text-primary-foreground shadow-[0_6px_12px_-6px_rgba(27,35,51,0.5)]"
                     >
                       <item.icon className="h-4 w-4 shrink-0" />
                       {!collapsed && (
-                        <span className="font-body text-sm">{item.title}</span>
+                        <span className="font-body text-[13.5px]">{item.title}</span>
                       )}
                       {!collapsed && item.url === "/dashboard/chat" && (profile as any).unreadChatCount > 0 && (
                         <div className="mr-auto">
-                          <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-5">
+                          <Badge className="text-[10px] px-1.5 py-0 h-5 border-0 bg-destructive text-destructive-foreground">
                             {(profile as any).unreadChatCount}
                           </Badge>
                         </div>
@@ -313,8 +313,8 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
             <SidebarMenuButton asChild>
               <NavLink
                 to="/dashboard/support"
-                className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors hover:bg-muted/50"
-                activeClassName="bg-primary/10 text-primary font-medium"
+                className="flex items-center gap-3 px-3 py-2 rounded-[11px] font-bold text-text-secondary transition-colors hover:bg-muted"
+                activeClassName="!bg-primary !text-primary-foreground"
               >
                 <LifeBuoy className="h-4 w-4 shrink-0" />
                 {!collapsed && <span className="font-body text-sm">עזרה ותמיכה</span>}
@@ -322,7 +322,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={onLogout} className="text-destructive hover:bg-destructive/10">
+            <SidebarMenuButton onClick={onLogout} className="font-bold text-destructive hover:bg-destructive-soft hover:text-destructive">
               <LogOut className="h-4 w-4" />
               {!collapsed && <span className="font-body text-sm">התנתק</span>}
             </SidebarMenuButton>
