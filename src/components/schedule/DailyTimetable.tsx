@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Drawer as Sheet } from "vaul";
 import { supabase } from "@/integrations/supabase/client";
 import type { UserProfile } from "@/hooks/useAuth";
 import { HEBREW_DAYS } from "@/lib/constants";
 import { useSchoolDays } from "@/hooks/useSchoolDays";
 import { formatClassName } from "@/hooks/useStudentDay";
-import { SubjectTile, subjectColor } from "@/components/SubjectSticker";
+import { SubjectSticker, subjectColor, subjectStickerId } from "@/components/SubjectSticker";
 import { PillSwitch } from "@/components/home/HomeKit";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +48,11 @@ interface WeekEvent {
 
 interface DailyTimetableProps {
   profile: UserProfile;
+  /** Controlled day/week view; when set, the page renders the switch in its own header. */
+  view?: "day" | "week";
+  onViewChange?: (v: "day" | "week") => void;
+  /** Reports the header subtitle ("י׳-1 · 11–15 באוקטובר") so the page header can show it. */
+  onSubtitle?: (subtitle: string) => void;
 }
 
 // Event stickers on a lesson: exams in orange, submissions in yellow.
@@ -90,7 +95,13 @@ function MomentSticker({ kind }: { kind: "apple" | "cloud" | "moon" }) {
   );
 }
 
-const DailyTimetable = ({ profile }: DailyTimetableProps) => {
+// Lesson icon as in the Timetable v2 mockup: the subject's free-form sticker
+// (a letter badge in the subject color when there is no artwork).
+function LessonIcon({ subject, size, flat, tilt, className }: { subject: string; size: number; flat?: boolean; tilt?: boolean; className?: string }) {
+  return <SubjectSticker subject={subject} size={size} flat={flat} tilt={tilt} className={className} />;
+}
+
+const DailyTimetable = ({ profile, view: viewProp, onViewChange, onSubtitle }: DailyTimetableProps) => {
   const navigate = useNavigate();
   const SCHOOL_DAYS = useSchoolDays(profile.schoolId);
   const [slots, setSlots] = useState<TimetableSlot[]>([]);
@@ -102,7 +113,9 @@ const DailyTimetable = ({ profile }: DailyTimetableProps) => {
   const [studentTracks, setStudentTracks] = useState<StudentTrack[]>([]);
   const [studentClass, setStudentClass] = useState<{ id: string; grade: string; number: number } | null>(null);
   const [events, setEvents] = useState<WeekEvent[]>([]);
-  const [view, setView] = useState<"day" | "week">("day");
+  const [ownView, setOwnView] = useState<"day" | "week">("day");
+  const view = viewProp ?? ownView;
+  const setView = (v: "day" | "week") => (onViewChange ? onViewChange(v) : setOwnView(v));
   const [selected, setSelected] = useState<{ day: number; lesson: number } | null>(null);
   const [now, setNow] = useState(new Date());
   const [currentDay, setCurrentDay] = useState(() => {
@@ -310,6 +323,18 @@ const DailyTimetable = ({ profile }: DailyTimetableProps) => {
 
   const lessonBells = useMemo(() => bell.filter((b) => !b.is_break).sort((a, b) => a.start_time.localeCompare(b.start_time)), [bell]);
   const breakBells = useMemo(() => bell.filter((b) => b.is_break), [bell]);
+  // Week grid columns: one per lesson, plus a thin gap wherever a break follows (as in the mockup).
+  const weekCols = useMemo(() => {
+    const sorted = [...bell].sort((a, b) => a.start_time.localeCompare(b.start_time));
+    const cols: { kind: "lesson" | "gap"; key: string; bell?: BellSlot }[] = [];
+    sorted.forEach((b, i) => {
+      if (b.is_break) return;
+      cols.push({ kind: "lesson", key: `l${b.lesson_number}`, bell: b });
+      const next = sorted[i + 1];
+      if (next?.is_break && sorted.slice(i + 2).some((x) => !x.is_break)) cols.push({ kind: "gap", key: `g${b.lesson_number}` });
+    });
+    return cols;
+  }, [bell]);
 
   const getSlot = useCallback(
     (day: number, lessonNum: number) => pickSlot(slots.filter((s) => s.day_of_week === day && s.lesson_number === lessonNum)),
@@ -336,7 +361,9 @@ const DailyTimetable = ({ profile }: DailyTimetableProps) => {
   const slotMeta = (slot: TimetableSlot) =>
     [teacherOwnView ? classLabel(slot) : slot.teacher_name, slot.room && (/^\d/.test(slot.room) ? `חדר ${slot.room}` : slot.room), slot.group_name]
       .filter(Boolean).join(" · ");
-  const colorOf = (slot: TimetableSlot) => slot.color || subjectColor(slot.subject);
+  // Known subjects always use their palette color (as in the mockup): the timetable
+  // builder stores a generic gray in slot.color, which turned the hero card gray.
+  const colorOf = (slot: TimetableSlot) => (subjectStickerId(slot.subject) ? subjectColor(slot.subject) : slot.color || subjectColor(slot.subject));
 
   const nowTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
   const nowMin = timeToMinutes(nowTime);
@@ -373,7 +400,7 @@ const DailyTimetable = ({ profile }: DailyTimetableProps) => {
     if (nowTime < first.start_time) {
       const s = lessonName(first);
       const exams = today.map((b) => eventFor(todayDow, b.lesson_number)).filter((e): e is WeekEvent => !!e && isExamType(e.event_type));
-      return { bg: shade(colorOf(s), 0.84), icon: <SubjectTile subject={s.subject} size={76} className="h-full w-full" />, tag: "בוקר טוב", title: s.subject,
+      return { bg: shade(colorOf(s), 0.84), icon: <LessonIcon subject={s.subject} size={76} className="h-full w-full" />, tag: "בוקר טוב", title: s.subject,
         meta: ["השיעור הראשון", slotMeta(s)].filter(Boolean).join(" · "), big: timeToMinutes(first.start_time) - nowMin, bigLabel: "דק׳ להתחלה", prog: null,
         next: `היום ${today.length} שיעורים, עד ${last.end_time}${exams.length ? `. ${exams.map((e) => e.title).join(", ")}` : ""}.` };
     }
@@ -388,7 +415,7 @@ const DailyTimetable = ({ profile }: DailyTimetableProps) => {
     const cur = today.find((b) => nowTime >= b.start_time && nowTime < b.end_time);
     if (cur) {
       const s = lessonName(cur);
-      return { bg: shade(colorOf(s), 0.84), icon: <SubjectTile subject={s.subject} size={76} className="h-full w-full" />, tag: `עכשיו · שיעור ${cur.lesson_number}`,
+      return { bg: shade(colorOf(s), 0.84), icon: <LessonIcon subject={s.subject} size={76} className="h-full w-full" />, tag: `עכשיו · שיעור ${cur.lesson_number}`,
         title: s.subject, meta: slotMeta(s), big: timeToMinutes(cur.end_time) - nowMin, bigLabel: "דק׳ נותרו", prog: progress(cur), next: nextText(cur),
         onClick: () => navigate(`/dashboard/subjects/${encodeURIComponent(s.subject)}?tab=live`) };
     }
@@ -423,14 +450,16 @@ const DailyTimetable = ({ profile }: DailyTimetableProps) => {
     teacherOwnView ? "המערכת שלי" : eventClass ? formatClassName(eventClass.grade, eventClass.number) : null,
     `${dateOf(SCHOOL_DAYS[0] ?? 0).getDate()}–${dateOf(SCHOOL_DAYS[SCHOOL_DAYS.length - 1] ?? 4).getDate()} ${HEB_MONTHS[dateOf(SCHOOL_DAYS[SCHOOL_DAYS.length - 1] ?? 4).getMonth()]}`,
   ].filter(Boolean).join(" · ");
+  useEffect(() => { onSubtitle?.(subtitle); }, [subtitle, onSubtitle]);
 
   const sel = selected ? { ...selected, slot: getSlot(selected.day, selected.lesson), bell: lessonBells.find((b) => b.lesson_number === selected.lesson), ev: eventFor(selected.day, selected.lesson) } : null;
 
   return (
     <div className="flex flex-col gap-[18px]">
-      {/* Header: week range + day/week switch, and the staff view controls */}
+      {/* Header: week range + day/week switch (unless the page shows them), and the staff view controls */}
+      {(!viewProp || isTeacher || isCoordinator || isAdmin) && (
       <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-        <div className="font-body text-[13px] font-semibold text-muted-foreground">{subtitle}</div>
+        {!viewProp && <div className="font-body text-[13px] font-semibold text-muted-foreground">{subtitle}</div>}
         <div className="flex flex-wrap items-center gap-2">
           {(isTeacher || isCoordinator || isAdmin) && (
             <>
@@ -453,9 +482,10 @@ const DailyTimetable = ({ profile }: DailyTimetableProps) => {
               )}
             </>
           )}
-          <PillSwitch options={[{ value: "day", label: "יום" }, { value: "week", label: "שבוע" }]} value={view} onChange={setView} />
+          {!viewProp && <PillSwitch options={[{ value: "day", label: "יום" }, { value: "week", label: "שבוע" }]} value={view} onChange={setView} />}
         </div>
       </div>
+      )}
 
       {hero && (
         <div
@@ -576,9 +606,8 @@ const DailyTimetable = ({ profile }: DailyTimetableProps) => {
                         className="relative flex min-h-[66px] min-w-0 flex-1 items-center gap-3 rounded-[20px] bg-card px-3.5 py-3 text-right"
                         style={{ boxShadow: st === "now" ? `0 0 0 3px ${c}, 0 12px 22px -12px ${c}` : "0 6px 16px -10px rgba(40,30,15,.28)" }}
                       >
-                        <div style={{ transform: `rotate(${b.lesson_number % 2 ? -5 : 5}deg)` }}>
-                          <SubjectTile subject={slot.subject} size={44} />
-                        </div>
+                        {/* Each subject keeps its own tilt, as in the mockup */}
+                        <LessonIcon subject={slot.subject} size={44} tilt />
                         <div className="flex min-w-0 flex-1 flex-col gap-[5px]">
                           <div className="flex items-center gap-2">
                             <span className="font-heading text-base font-extrabold leading-tight text-foreground">{slot.subject}</span>
@@ -624,8 +653,10 @@ const DailyTimetable = ({ profile }: DailyTimetableProps) => {
           <div className="flex items-center gap-2.5 px-3">
             <div className="w-10 shrink-0" />
             <div className="flex flex-1 gap-1">
-              {lessonBells.map((b) => (
-                <div key={b.lesson_number} className="flex-1 text-center font-heading text-[11px] font-extrabold text-hint">{b.lesson_number}</div>
+              {weekCols.map((c) => c.kind === "gap" ? (
+                <div key={c.key} className="w-1 shrink-0" />
+              ) : (
+                <div key={c.key} className="flex-1 text-center font-heading text-[11px] font-extrabold text-hint">{c.bell!.lesson_number}</div>
               ))}
             </div>
           </div>
@@ -643,7 +674,9 @@ const DailyTimetable = ({ profile }: DailyTimetableProps) => {
                   <span className="font-heading text-lg font-black leading-none text-foreground">{dateOf(d).getDate()}</span>
                 </div>
                 <div className="flex min-w-0 flex-1 items-center gap-1">
-                  {lessonBells.map((b) => {
+                  {weekCols.map((c) => {
+                    if (c.kind === "gap") return <div key={c.key} className="w-1 shrink-0" />;
+                    const b = c.bell!;
                     const slot = getSlot(d, b.lesson_number);
                     const ev = slot ? eventFor(d, b.lesson_number) : undefined;
                     const st = stateOf(d, b);
@@ -654,7 +687,7 @@ const DailyTimetable = ({ profile }: DailyTimetableProps) => {
                           style={{ boxShadow: st === "now" && slot ? "0 0 0 2.5px hsl(var(--foreground))" : undefined }}
                           title={slot?.subject}
                         >
-                          {slot && <div className="absolute -inset-0.5"><SubjectTile subject={slot.subject} flat size={40} className="h-full w-full" /></div>}
+                          {slot && <div className="absolute -inset-0.5"><LessonIcon subject={slot.subject} flat size={40} className="h-full w-full" /></div>}
                           {ev && <span className="absolute -left-1 -top-1 h-[9px] w-[9px] rounded-full border-2 border-white" style={{ background: EVENT_STYLE[ev.event_type].dot }} />}
                         </div>
                       </div>
@@ -673,15 +706,18 @@ const DailyTimetable = ({ profile }: DailyTimetableProps) => {
         </div>
       )}
 
-      {/* Lesson details */}
-      <Dialog open={!!sel?.slot} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent className="max-w-md gap-4 bg-background">
+      {/* Lesson details: a bottom sheet with a drag handle, as in the mockup */}
+      <Sheet.Root open={!!sel?.slot} onOpenChange={(o) => !o && setSelected(null)}>
+        <Sheet.Portal>
+        <Sheet.Overlay className="fixed inset-0 z-50 bg-[rgba(27,24,18,0.42)]" />
+        <Sheet.Content dir="rtl" aria-describedby={undefined} className="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-w-lg flex-col gap-4 rounded-t-[30px] bg-background px-[22px] pb-[30px] pt-3 outline-none">
+          <div className="h-[5px] w-10 self-center rounded-[3px] bg-[#DCD3C3] dark:bg-border" />
           {sel?.slot && sel.bell && (
             <>
               <div className="flex items-center gap-3.5">
-                <div className="-rotate-[7deg]"><SubjectTile subject={sel.slot.subject} size={66} /></div>
+                <div className="-rotate-[7deg]"><LessonIcon subject={sel.slot.subject} size={66} /></div>
                 <div className="flex min-w-0 flex-col gap-1.5">
-                  <DialogTitle className="font-heading text-[25px] font-black leading-[1.05]">{sel.slot.subject}</DialogTitle>
+                  <Sheet.Title className="font-heading text-[25px] font-black leading-[1.05] text-foreground">{sel.slot.subject}</Sheet.Title>
                   <div className="font-body text-sm font-semibold text-muted-foreground">
                     יום {HEBREW_DAYS[sel.day]}, {dateOf(sel.day).getDate()} {HEB_MONTHS[dateOf(sel.day).getMonth()]} · שיעור {sel.bell.lesson_number}
                   </div>
@@ -721,8 +757,9 @@ const DailyTimetable = ({ profile }: DailyTimetableProps) => {
               </button>
             </>
           )}
-        </DialogContent>
-      </Dialog>
+        </Sheet.Content>
+        </Sheet.Portal>
+      </Sheet.Root>
     </div>
   );
 };

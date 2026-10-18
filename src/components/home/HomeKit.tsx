@@ -3,7 +3,7 @@
 // are a lesson strip, stat tiles, bars or a list of rows.
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { SubjectTile } from "@/components/SubjectSticker";
+import { SubjectSticker } from "@/components/SubjectSticker";
 
 const HEB_DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
 const HEB_MONTHS = ["בינואר", "בפברואר", "במרץ", "באפריל", "במאי", "ביוני", "ביולי", "באוגוסט", "בספטמבר", "באוקטובר", "בנובמבר", "בדצמבר"];
@@ -96,7 +96,7 @@ export function HeroCard({ color, subject, icon, tag, title, meta, action, onCli
       style={{ background: color, boxShadow: `0 18px 30px -16px ${color}` }}
     >
       <div className="absolute -top-[30px] left-[22px] h-[76px] w-[76px] rotate-[7deg] md:h-[92px] md:w-[92px]">
-        {icon ?? (subject ? <SubjectTile subject={subject} size={92} className="h-full w-full" /> : null)}
+        {icon ?? (subject ? <SubjectSticker subject={subject} size={92} className="h-full w-full" /> : null)}
       </div>
       <div className="flex flex-col gap-[9px] pl-[84px] md:pl-[100px]">
         <span className="self-start rounded-full bg-white/20 px-[11px] py-1.5 font-body text-[13px] font-extrabold">{tag}</span>
@@ -165,7 +165,7 @@ export function LessonStrip({ lessons, onClick }: { lessons: StripLesson[]; onCl
           >
             {l.subject && (
               <div className="absolute -inset-px">
-                <SubjectTile subject={l.subject} flat size={58} className="h-full w-full" />
+                <SubjectSticker subject={l.subject} flat size={58} className="h-full w-full" />
               </div>
             )}
           </div>
@@ -291,7 +291,7 @@ export function HomeRow({ subject, person, icon, title, meta, tag, action, onCli
     >
       {subject && (
         <div style={{ transform: `rotate(${tilt}deg)` }}>
-          <SubjectTile subject={subject} size={42} />
+          <SubjectSticker subject={subject} size={42} />
         </div>
       )}
       {person && !subject && <PersonBadge name={person} tilt={tilt} />}

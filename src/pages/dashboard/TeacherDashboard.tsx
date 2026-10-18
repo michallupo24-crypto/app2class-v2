@@ -27,7 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { fetchGradeLessonPace, type GradeLessonPaceRow } from "@/lib/lessonPace";
 import { useTeacherDay } from "@/hooks/useTeacherDay";
 import { formatClassName } from "@/hooks/useStudentDay";
-import { SubjectTile, subjectColor } from "@/components/SubjectSticker";
+import { SubjectSticker, subjectColor } from "@/components/SubjectSticker";
 import {
   HomeHeader, HeroCard, HomeSection, HomeColumns, StatTiles, BarList, HomeRow, HomeEmpty, PillSwitch, IconTile, PersonBadge, RowTag,
   greeting, longHebrewDate, firstName, type Tone,
@@ -527,7 +527,7 @@ const TeacherDashboard = () => {
               const tone: Tone = row.deficit >= 4 ? "alert" : row.deficit > 0 ? "warning" : "success";
               return (
                 <div key={row.subject} className="flex items-center gap-3 py-1">
-                  <SubjectTile subject={row.subject} size={30} flat />
+                  <SubjectSticker subject={row.subject} size={30} flat />
                   <span className="flex-1 font-heading text-sm font-extrabold text-foreground">{row.subject}</span>
                   <span className="font-body text-xs font-bold text-hint">שכבה: {gradeAvg}</span>
                   <RowTag label={row.deficit > 0 ? `פער ${row.deficit}` : "בזמן"} tone={tone} />

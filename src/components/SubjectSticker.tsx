@@ -113,11 +113,19 @@ interface SubjectStickerProps {
   size?: number;
   /** Small rotation, as in the mockup. Off by default for dense lists. */
   tilt?: boolean;
+  /** No drop shadow - for stickers sitting inside a strip or another card. */
+  flat?: boolean;
   className?: string;
 }
 
+/** True when the subject has free-form sticker artwork (otherwise SubjectSticker falls back to a letter badge). */
+export function hasSubjectSticker(subject: string): boolean {
+  const id = subjectStickerId(subject);
+  return !!(id && STICKERS[id]);
+}
+
 /** A subject's sticker: free-form shape, white sticker rim, soft shadow. */
-export function SubjectSticker({ subject, size = 40, tilt = false, className }: SubjectStickerProps) {
+export function SubjectSticker({ subject, size = 40, tilt = false, flat = false, className }: SubjectStickerProps) {
   const id = subjectStickerId(subject);
   const art = id ? STICKERS[id] : null;
 
@@ -193,7 +201,7 @@ export function SubjectSticker({ subject, size = 40, tilt = false, className }: 
         display: "block",
         overflow: "visible",
         flexShrink: 0,
-        filter: "drop-shadow(0 3px 3px rgba(27,35,51,.22))",
+        filter: flat ? undefined : "drop-shadow(0 3px 3px rgba(27,35,51,.22))",
         transform: tilt ? `rotate(${art.tilt}deg)` : undefined,
       }}
     >

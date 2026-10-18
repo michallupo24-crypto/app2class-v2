@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { Send, Loader2, Sparkles } from "lucide-react";
 import { HomeColumns, HomeSection, HomeEmpty, RowTag } from "@/components/home/HomeKit";
-import { SubjectTile } from "@/components/SubjectSticker";
+import { SubjectSticker } from "@/components/SubjectSticker";
 import { cn } from "@/lib/utils";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -426,7 +426,7 @@ const StudentRightsPage = () => {
                     <div key={dow} className="flex flex-col items-center gap-[7px] rounded-[16px] bg-white/15 px-1 pb-[9px] pt-2.5">
                       <span className="font-body text-xs font-extrabold text-white/85">{["א׳", "ב׳", "ג׳", "ד׳", "ה׳"][dow]}</span>
                       <div className={cn("h-10 w-10 rounded-xl", !ev && "border-[1.5px] border-dashed border-white/40")}>
-                        {ev && <SubjectTile subject={ev.subject} flat size={40} />}
+                        {ev && <SubjectSticker subject={ev.subject} flat size={40} />}
                       </div>
                       <span className="min-h-[11px] font-body text-[11px] font-extrabold leading-none">{ev?.kind || ""}</span>
                     </div>
