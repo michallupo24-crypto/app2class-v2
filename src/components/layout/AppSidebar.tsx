@@ -40,6 +40,8 @@ import {
 import { NavLink } from "@/components/NavLink";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
 import type { UserProfile } from "@/hooks/useAuth";
+import { useSchoolGuidelines } from "@/hooks/useSchoolGuidelines";
+import { disabledPages } from "@/lib/schoolSetup";
 import {
   Sidebar,
   SidebarContent,
@@ -77,6 +79,7 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
+  const guidelines = useSchoolGuidelines(profile.schoolId);
   const { state } = useSidebar();
   const navigate = useNavigate();
   const collapsed = state === "collapsed";
@@ -120,6 +123,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
   // Teacher navigation
   const teacherItems: { title: string; url: string; icon: any }[] = [
     { title: "דאשבורד", url: "/dashboard/teacher-home", icon: LayoutDashboard },
+    { title: "המקצועות שלי", url: "/dashboard/teaching", icon: BookOpen },
     { title: "שיעור חי", url: "/dashboard/live-lesson", icon: Activity },
     { title: "הקראת שמות", url: "/dashboard/roll-call", icon: ClipboardList },
     { title: "הצדקות היעדרות", url: "/dashboard/absence-justifications", icon: FileCheck2 },
@@ -213,6 +217,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
   if (isManagement || isAdmin) {
     adminItems.push({ title: "בניית מערכת שעות", url: "/dashboard/timetable-builder", icon: Wand2 });
     adminItems.push({ title: "ניהול תפקידי צוות", url: "/dashboard/team-roles", icon: UserCog });
+    adminItems.push({ title: "הגדרות בית הספר", url: "/dashboard/school-settings", icon: Settings });
     adminItems.push({ title: "מועצת תלמידים", url: "/dashboard/council", icon: Landmark });
     adminItems.push({ title: "עיתון בית הספר", url: "/dashboard/newspaper", icon: Newspaper });
     adminItems.push({ title: "מרכז תשלומים", url: "/dashboard/finance-hub", icon: Wallet });
@@ -230,40 +235,44 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
     return adminItems;
   };
 
-  const mainItems = getItems();
+  // Features the school turned off in its guidelines (management still sees them).
+  const hidden = isManagement || isAdmin ? new Set<string>() : disabledPages(guidelines);
+  const mainItems = getItems().filter((i) => !hidden.has(i.url.replace("/dashboard/", "")));
 
   return (
-    <Sidebar side="right" collapsible="icon" className="border-r-0 border-l border-border/50">
+    <Sidebar side="right" collapsible="icon" className="border-r-0 border-l border-border [&_[data-sidebar=sidebar]]:bg-card/80 [&_[data-sidebar=sidebar]]:backdrop-blur">
       <SidebarContent>
-        {/* User Profile Section */}
-        <SidebarGroup>
+        {/* Brand + user profile card */}
+        <SidebarGroup className="gap-2.5">
+          {!collapsed && (
+            <div className="flex items-center gap-2 px-1.5 pt-1">
+              <img src="/logo.png" alt="" className="h-[34px] w-[34px] object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+              <span className="font-heading text-[17px] font-black text-foreground">App2Class</span>
+            </div>
+          )}
           <button
             type="button"
-            className={`w-full p-4 flex items-center gap-3 text-right hover:bg-muted/50 rounded-lg transition-colors ${collapsed ? "justify-center" : ""}`}
+            className={`w-full p-2.5 flex items-center gap-2.5 text-right bg-card hover:bg-soft rounded-[16px] shadow-[0_4px_12px_-9px_rgba(40,30,15,0.4)] transition-colors ${collapsed ? "justify-center" : ""}`}
             onClick={() => navigate("/dashboard/avatar-edit")}
             aria-label="ערוך אווטאר"
             title="ערוך אווטאר"
           >
-            <div className="shrink-0">
-              {profile.avatar ? (
-                <AvatarPreview config={profile.avatar} size={collapsed ? 32 : 48} />
-              ) : (
-                <div
-                  className="bg-muted border border-border rounded-lg flex items-center justify-center"
-                  style={{ width: collapsed ? 32 : 48, height: collapsed ? 32 : 48 }}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" className="w-3/4 h-3/4 text-muted-foreground/40">
-                    <path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z" fill="currentColor"/>
-                  </svg>
-                </div>
-              )}
-            </div>
+            {profile.avatar ? (
+              <AvatarPreview config={profile.avatar} size={collapsed ? 32 : 42} />
+            ) : (
+              <div
+                className="shrink-0 rounded-full border-[2.5px] border-white bg-info-soft shadow-[0_2px_6px_rgba(40,30,15,0.25)] flex items-center justify-center dark:border-card"
+                style={{ width: collapsed ? 32 : 42, height: collapsed ? 32 : 42 }}
+              >
+                <span className="font-heading font-black text-info text-base">{profile.fullName.trim().charAt(0)}</span>
+              </div>
+            )}
             {!collapsed && (
               <div className="min-w-0">
-                <p className="font-heading font-bold text-sm truncate">{profile.fullName}</p>
-                <div className="flex flex-wrap gap-1 mt-1">
+                <p className="font-heading font-extrabold text-[13.5px] leading-none truncate">{profile.fullName}</p>
+                <div className="flex flex-wrap gap-1 mt-[5px]">
                   {roles.slice(0, 2).map((r) => (
-                    <span key={r} className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-heading">
+                    <span key={r} className="text-[10.5px] leading-none bg-[#E3EEFD] text-link px-[7px] py-[3px] rounded-full font-body font-extrabold">
                       {ROLE_LABELS[r] || r}
                     </span>
                   ))}
@@ -275,7 +284,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
 
         {/* Navigation */}
         <SidebarGroup>
-          <SidebarGroupLabel className="font-heading">תפריט ראשי</SidebarGroupLabel>
+          <SidebarGroupLabel className="font-body text-[11.5px] font-extrabold text-hint">תפריט ראשי</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => (
@@ -284,16 +293,16 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
                     <NavLink
                       to={item.url}
                       end={true}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors hover:bg-muted/50"
-                      activeClassName="bg-primary/10 text-primary font-medium shadow-sm border-r-2 border-primary"
+                      className="flex items-center gap-3 px-3 py-2 rounded-[11px] font-bold text-text-secondary transition-colors hover:bg-muted"
+                      activeClassName="!bg-primary !text-primary-foreground shadow-[0_6px_12px_-6px_rgba(27,35,51,0.5)]"
                     >
                       <item.icon className="h-4 w-4 shrink-0" />
                       {!collapsed && (
-                        <span className="font-body text-sm">{item.title}</span>
+                        <span className="font-body text-[13.5px]">{item.title}</span>
                       )}
                       {!collapsed && item.url === "/dashboard/chat" && (profile as any).unreadChatCount > 0 && (
                         <div className="mr-auto">
-                          <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-5">
+                          <Badge className="text-[10px] leading-none px-1.5 py-[3px] h-auto border-0 bg-[#E5484D] hover:bg-[#E5484D] text-white font-heading font-black">
                             {(profile as any).unreadChatCount}
                           </Badge>
                         </div>
@@ -313,8 +322,8 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
             <SidebarMenuButton asChild>
               <NavLink
                 to="/dashboard/support"
-                className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors hover:bg-muted/50"
-                activeClassName="bg-primary/10 text-primary font-medium"
+                className="flex items-center gap-3 px-3 py-2 rounded-[11px] font-bold text-text-secondary transition-colors hover:bg-muted"
+                activeClassName="!bg-primary !text-primary-foreground"
               >
                 <LifeBuoy className="h-4 w-4 shrink-0" />
                 {!collapsed && <span className="font-body text-sm">עזרה ותמיכה</span>}
@@ -322,7 +331,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={onLogout} className="text-destructive hover:bg-destructive/10">
+            <SidebarMenuButton onClick={onLogout} className="font-bold text-destructive hover:bg-destructive-soft hover:text-destructive">
               <LogOut className="h-4 w-4" />
               {!collapsed && <span className="font-body text-sm">התנתק</span>}
             </SidebarMenuButton>

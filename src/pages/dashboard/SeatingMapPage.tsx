@@ -117,10 +117,10 @@ const SeatingMapPage = () => {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="flex flex-col h-full bg-background rounded-lg overflow-hidden border relative"
+      className="flex flex-col h-full rounded-card overflow-hidden bg-card/50 shadow-card relative"
     >
-      <div className="flex items-center justify-between px-6 py-2 bg-muted/30 border-b">
-        <TopBar mode={ss.mode} setMode={ss.setMode} className={"flex-1 bg-transparent border-none"} />
+      <div className="flex flex-wrap items-center justify-between gap-2 pl-5">
+        <TopBar mode={ss.mode} setMode={ss.setMode} className={ss.config.className} />
         
         {ss.mode === 'edit' && (
             <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }}>
@@ -128,14 +128,14 @@ const SeatingMapPage = () => {
                     onClick={handleManualSave} 
                     disabled={isSaving}
                     variant={isSaving ? "outline" : "default"}
-                    className="gap-2 bg-primary hover:bg-primary-hover transition-colors active:scale-95"
+                    className="gap-2"
                 >
                     {isSaving ? (
                         <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                     ) : (
                         <Save className="h-4 w-4" />
                     )}
-                    שמור סידור
+                    שמירת הסידור
                 </Button>
             </motion.div>
         )}
@@ -174,7 +174,7 @@ const SeatingMapPage = () => {
       </AnimatePresence>
 
       <div className="flex flex-1 overflow-hidden">
-        <main className="flex-1 overflow-auto bg-muted/5 p-8">
+        <main className="flex-1 overflow-auto p-2">
           <ClassroomGrid
             config={ss.config}
             students={ss.students}

@@ -34,7 +34,13 @@ export default {
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
+          soft: "hsl(var(--destructive-soft))",
         },
+        soft: "hsl(var(--soft))",
+        "text-secondary": "hsl(var(--text-secondary))",
+        hint: "hsl(var(--hint))",
+        link: "hsl(var(--link))",
+        dots: "hsl(var(--dots))",
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
@@ -54,14 +60,17 @@ export default {
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
+          soft: "hsl(var(--success-soft))",
         },
         warning: {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
+          soft: "hsl(var(--warning-soft))",
         },
         info: {
           DEFAULT: "hsl(var(--info))",
           foreground: "hsl(var(--info-foreground))",
+          soft: "hsl(var(--info-soft))",
         },
         student: "hsl(var(--student))",
         parent: "hsl(var(--parent))",
@@ -83,6 +92,15 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        sticker: "9px",
+        row: "15px",
+        card: "22px",
+      },
+      boxShadow: {
+        card: "var(--shadow-card)",
+        raised: "var(--shadow-raised)",
+        window: "var(--shadow-window)",
+        sticker: "var(--shadow-sticker)",
       },
       keyframes: {
         "accordion-down": {

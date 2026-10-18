@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { FileCheck2, Check, X, Paperclip, Loader2 } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { openStoredFile } from "@/lib/privateFiles";
 import { useToast } from "@/hooks/use-toast";
 
 const REASON_LABELS: Record<string, string> = {
@@ -119,7 +120,7 @@ const AbsenceJustificationsPage = () => {
                   </p>
                   {r.details && <p className="text-sm font-body bg-muted/40 rounded-lg p-2">{r.details}</p>}
                   {r.attachment_url && (
-                    <a href={r.attachment_url} target="_blank" rel="noreferrer" className="text-xs text-primary flex items-center gap-1 hover:underline">
+                    <a href="#" onClick={(e) => { e.preventDefault(); openStoredFile(r.attachment_url!); }} className="text-xs text-primary flex items-center gap-1 hover:underline">
                       <Paperclip className="h-3.5 w-3.5" />צפייה באישור מצורף
                     </a>
                   )}

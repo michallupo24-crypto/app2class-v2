@@ -246,7 +246,7 @@ const StudentGradesPage = () => {
   if (loading) return <div className="h-screen flex items-center justify-center bg-background font-black text-primary animate-pulse">Loading Academic Records...</div>;
 
   return (
-    <div className="min-h-screen bg-background font-body p-4 md:p-12 pb-40">
+    <div className="min-h-screen font-body p-4 md:p-12 pb-40">
       <motion.div variants={container} initial="hidden" animate="show" className="max-w-6xl mx-auto space-y-12">
 
         {/* HEADER */}
@@ -313,7 +313,7 @@ const StudentGradesPage = () => {
                     <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">ביצועים אישיים מול ממוצע הכיתה (10 מטלות אחרונות)</p>
                  </div>
                  <div className="flex gap-6">
-                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-primary" /> <span className="text-[10px] font-black uppercase">הילד</span></div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-primary" /> <span className="text-[10px] font-black uppercase">{isParentView ? "הילד/ה" : "אני"}</span></div>
                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-muted-foreground/40" /> <span className="text-[10px] font-black uppercase">ממוצע כיתה</span></div>
                  </div>
               </div>

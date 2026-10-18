@@ -21,6 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
 import { computeWeightedAverage } from "@/lib/gradeMath";
+import StudentHistoryPanel from "@/components/StudentHistoryPanel";
 
 interface GradeEntry {
   subject: string;
@@ -50,13 +51,15 @@ const StudentReportPage = () => {
     setLoading(true);
     try {
       // 1. Fetch student info
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("*, classes(grade, class_number), avatars(*)")
-        .eq("id", studentId)
-        .single();
+      // avatars has no FK to profiles, so embedding it failed the whole query
+      // (profile came back null and the page crashed); fetch it separately.
+      const [{ data: profile }, { data: avatar }] = await Promise.all([
+        supabase.from("profiles").select("*, classes(grade, class_number)").eq("id", studentId).single(),
+        supabase.from("avatars").select("*").eq("user_id", studentId).maybeSingle(),
+      ]);
+      if (!profile) throw new Error("student not found");
 
-      setStudent(profile);
+      setStudent({ ...profile, avatars: avatar });
 
       // 2. Fetch all graded submissions
       const { data: submissions } = await supabase
@@ -106,14 +109,18 @@ const StudentReportPage = () => {
 
       // 5. Real homeroom educator name
       if (profile?.class_id) {
+        // Two queries: user_roles has no FK to profiles either.
         const { data: educatorRole } = await supabase
           .from("user_roles")
-          .select("profiles!inner(full_name)")
+          .select("user_id")
           .eq("role", "educator" as any)
           .eq("homeroom_class_id", profile.class_id)
           .limit(1)
           .maybeSingle();
-        setEducatorName((educatorRole?.profiles as any)?.full_name || null);
+        const { data: educator } = educatorRole
+          ? await supabase.from("profiles").select("full_name").eq("id", educatorRole.user_id).maybeSingle()
+          : { data: null };
+        setEducatorName(educator?.full_name || null);
       }
 
       // 6. Real, data-driven AI insight (no fabricated praise applied blindly)
@@ -182,8 +189,12 @@ const StudentReportPage = () => {
     </div>
   );
 
+  if (!student) return (
+    <div className="py-20 text-center font-body text-muted-foreground">לא נמצא/ה תלמיד/ה, או שאין הרשאה לצפות בדוח.</div>
+  );
+
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8 dir-rtl text-right">
+    <div className="min-h-screen p-4 md:p-8 dir-rtl text-right">
       {/* Tool Bar - Hidden on Print */}
       <div className="max-w-4xl mx-auto mb-8 flex items-center justify-between print:hidden">
          <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2 text-muted-foreground">
@@ -327,6 +338,8 @@ const StudentReportPage = () => {
             </div>
 
             {/* QR & Verifier */}
+            {studentId && <StudentHistoryPanel studentId={studentId} />}
+
             <div className="flex flex-col md:flex-row justify-between items-center pt-12 border-t border-border mt-20">
                <div>
                   <p className="text-xs text-muted-foreground font-bold mb-1">חתימת מחנך/ת הכיתה</p>

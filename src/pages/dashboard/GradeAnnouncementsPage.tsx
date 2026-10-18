@@ -63,7 +63,8 @@ const GradeAnnouncementsPage = () => {
     setLoading(false);
   };
 
-  useEffect(() => { if (profile.schoolId) loadAnnouncements(); }, [profile.schoolId]);
+  // No school (e.g. a system-wide admin): stop the spinner instead of loading forever.
+  useEffect(() => { if (profile.schoolId) loadAnnouncements(); else setLoading(false); }, [profile.schoolId]);
 
   const handleCreate = async (publish: boolean) => {
     if (!form.title || !form.content) {

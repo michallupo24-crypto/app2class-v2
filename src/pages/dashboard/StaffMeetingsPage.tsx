@@ -58,7 +58,8 @@ const StaffMeetingsPage = () => {
     setLoading(false);
   };
 
-  useEffect(() => { if (profile.schoolId) loadMeetings(); }, [profile.schoolId]);
+  // No school (e.g. a system-wide admin): stop the spinner instead of loading forever.
+  useEffect(() => { if (profile.schoolId) loadMeetings(); else setLoading(false); }, [profile.schoolId]);
 
   const handleCreate = async () => {
     if (!form.title || !form.meeting_date) {

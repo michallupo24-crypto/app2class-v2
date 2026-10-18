@@ -17,6 +17,7 @@ import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { fetchFileFromUrl, extractDocumentText, isExtractableDocument, isImageFile } from "@/lib/fileExtraction";
+import { openStoredFile, resolveFileUrl } from "@/lib/privateFiles";
 import { requestImageOcr } from "@/lib/fileOcr";
 import MisconceptionInsights from "@/components/task-studio/MisconceptionInsights";
 import {
@@ -282,7 +283,7 @@ const TeacherGradesPage = () => {
   const handleTranscribe = async (studentId: string, submissionId: string | null, fileUrl: string) => {
     setTranscribing((prev) => ({ ...prev, [studentId]: true }));
     try {
-      const file = await fetchFileFromUrl(fileUrl);
+      const file = await fetchFileFromUrl(await resolveFileUrl(fileUrl));
       const text = isImageFile(file)
         ? await requestImageOcr(file, "handwriting")
         : isExtractableDocument(file)
@@ -312,6 +313,13 @@ const TeacherGradesPage = () => {
   };
 
   const saveGrades = async () => {
+    // Bonuses can push a grade past the max, so this only asks; a typo like
+    // 10950 would otherwise be saved and wreck the class average.
+    const maxG = assignments.find((a) => a.id === selectedAssignment)?.maxGrade || 100;
+    const unusual = Object.entries(gradeEdits)
+      .filter(([, edit]) => { const g = parseInt(edit.grade); return !isNaN(g) && (g < 0 || g > maxG * 1.5); })
+      .map(([id, edit]) => `${studentGrades.find((s) => s.studentId === id)?.studentName ?? ""}: ${edit.grade}`);
+    if (unusual.length && !window.confirm(`הציונים הבאים חריגים:\n${unusual.join("\n")}\n\nלשמור בכל זאת?`)) return;
     setSaving(true);
     try {
       let failCount = 0;
@@ -535,7 +543,7 @@ const TeacherGradesPage = () => {
                               </Badge>
                             )}
                             {sg.fileUrl && !sg.gameResult && (
-                              <a href={sg.fileUrl} target="_blank" rel="noreferrer"
+                              <a href="#" onClick={(e) => { e.preventDefault(); openStoredFile(sg.fileUrl!); }}
                                 className="text-[10px] text-primary hover:underline flex items-center gap-1 shrink-0">
                                 <Paperclip className="h-3 w-3" />קובץ
                               </a>
@@ -673,7 +681,9 @@ const TeacherGradesPage = () => {
                     {sg.hasAppeal && <Badge variant="outline" className="text-[10px] text-warning border-warning/30 gap-1 shrink-0"><AlertTriangle className="h-2.5 w-2.5" />ערעור</Badge>}
                     <div className="relative w-20">
                       <Input type="number" placeholder="ציון" className="text-center font-bold" dir="ltr"
-                        min={0} max={maxG} value={currentGrade}
+                        min={0} value={currentGrade}
+                        // Select the prefilled (auto) grade so typing replaces it instead of appending.
+                        onFocus={(e) => e.currentTarget.select()}
                         onChange={(e) => handleGradeChange(sg.studentId, "grade", e.target.value)} />
                     </div>
                     {!isNaN(gradeNum) && gradeNum > 0 && (

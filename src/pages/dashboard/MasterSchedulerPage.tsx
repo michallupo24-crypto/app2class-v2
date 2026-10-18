@@ -11,6 +11,7 @@ import { Calendar, Plus, CheckCircle2, Clock, XCircle, AlertTriangle, CalendarDa
 import type { UserProfile } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { examConflictWarning } from "@/lib/examConflicts";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
@@ -78,7 +79,8 @@ const MasterSchedulerPage = () => {
     setLoading(false);
   };
 
-  useEffect(() => { if (profile.schoolId) loadEvents(); }, [profile.schoolId]);
+  // No school (e.g. a system-wide admin): stop the spinner instead of loading forever.
+  useEffect(() => { if (profile.schoolId) loadEvents(); else setLoading(false); }, [profile.schoolId]);
 
   // Check conflicts when date changes
   useEffect(() => {
@@ -87,30 +89,18 @@ const MasterSchedulerPage = () => {
       return;
     }
     const checkConflicts = async () => {
-      const weekStart = new Date(form.event_date);
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekEnd.getDate() + 6);
-
-      const { data } = await supabase
-        .from("grade_events")
-        .select("id, title, event_date")
-        .eq("school_id", profile.schoolId!)
-        .eq("event_type", "exam")
-        .in("status", ["proposed", "approved"])
-        .gte("event_date", weekStart.toISOString().split("T")[0])
-        .lte("event_date", weekEnd.toISOString().split("T")[0]);
-
-      if (data && data.length >= 3) {
-        setConflictWarning(`⚠️ כבר ${data.length} מבחנים בשבוע הזה! מומלץ להזיז ליום אחר.`);
-      } else if (data && data.some((e: any) => e.event_date === form.event_date)) {
-        setConflictWarning("⚠️ כבר קיים מבחן בתאריך הזה. שקול/י תאריך חלופי.");
-      } else {
-        setConflictWarning(null);
+      // Count only the same grade's exams - the old check counted the whole
+      // school, so one grade's exams blocked dates for every other grade.
+      let grade = form.grade;
+      if (!grade) {
+        const { data: coord } = await supabase.from("user_roles").select("grade")
+          .eq("user_id", profile.id).eq("role", "grade_coordinator").maybeSingle();
+        grade = coord?.grade || "";
       }
+      setConflictWarning(await examConflictWarning(profile.schoolId!, grade, form.event_date));
     };
     checkConflicts();
-  }, [form.event_date, form.event_type, profile.schoolId]);
+  }, [form.event_date, form.event_type, form.grade, profile.id, profile.schoolId]);
 
   const handleSubmit = async () => {
     if (!form.title || !form.event_date) {

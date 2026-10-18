@@ -6,6 +6,7 @@ import {
   School, HeartHandshake, UserRound, CalendarClock, XCircle,
   Bell, BellOff, Pencil, Trash2, CheckCheck, Reply, Paperclip,
   Settings, LogOut, UserMinus, FileText, Image as ImageIcon,
+  ChevronDown, GraduationCap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,11 +29,15 @@ import type { UserProfile } from "@/hooks/useAuth";
 import type { AvatarConfig } from "@/components/avatar/AvatarStudio";
 import { extractDocumentText, isExtractableDocument, isImageFile } from "@/lib/fileExtraction";
 import { requestImageOcr } from "@/lib/fileOcr";
+import { avatarFromRow } from "@/components/avatar/avatarModel";
+import { SubjectSticker, subjectStickerId } from "@/components/SubjectSticker";
+import { STICKER_GROUPS } from "@/lib/subjectStickers";
+import { useSchoolGuidelines } from "@/hooks/useSchoolGuidelines";
 
 /* ─── Types ───────────────────────────────────────────── */
 type ConversationType = 
   | "direct" | "class" | "grade" | "subject" | "announcement" | "parent_teacher" | "counseling" | "parent_class" | "parent_grade"
-  | "private" | "group" | "class_subject" | "class_homeroom" | "class_parent_group" | "grade_parent_group";
+  | "private" | "group" | "class_subject" | "class_homeroom" | "class_parent_group" | "grade_parent_group" | "staff_team";
 
 interface Conversation {
   id: string;
@@ -56,6 +61,18 @@ interface Conversation {
   participantCount: number;
   participantPreview: string;
   muted: boolean;
+  /** Set for system-managed groups (class / class x subject / staff team). */
+  autoKey: string | null;
+  /** Subject whose sticker is the group's logo. */
+  iconSubject: string | null;
+}
+
+interface ClassTeacher {
+  user_id: string;
+  full_name: string;
+  subjects: string[];
+  is_homeroom: boolean;
+  class_label: string;
 }
 
 interface Message {
@@ -95,6 +112,9 @@ const ROLE_LABELS: Record<string, string> = {
   professional_teacher: "מורה", subject_coordinator: "רכז/ת מקצוע",
   grade_coordinator: "רכז/ת שכבה", counselor: "יועץ/ת",
   management: "הנהלה", system_admin: "מנהל/ת מערכת",
+  // Roles the principal can grant later; without these the raw enum ("council_advisor") showed in chat headers.
+  council_advisor: "אחראית מועצה", exam_coordinator: "רכז/ת בגרויות ומבחנים", secretary: "מזכירות",
+  parent_committee_rep: "נציג/ת ועד הורים", super_admin: "מנהל/ת מערכת",
 };
 
 /** Staff who can publish availability to students/parents */
@@ -113,27 +133,12 @@ const CHANNEL_SECTIONS: { types: ConversationType[]; title: string }[] = [
   { types: ["class_parent_group", "grade_parent_group"], title: "קהילת הורים" },
   { types: ["counseling"], title: "מרחב ייעוץ" },
   { types: ["parent_teacher"], title: "הורה–מורה" },
+  { types: ["staff_team"], title: "צוותי הוראה" },
   { types: ["class_subject"], title: "מקצועות" },
   { types: ["class_homeroom"], title: "חדר הכיתה" },
   { types: ["group"], title: "קבוצות" },
   { types: ["private"], title: "אישי" },
 ];
-
-const FACE_TO_BODY: Record<string, string> = {
-  round: "basic", oval: "basic", square: "wider", long: "taller",
-  basic: "basic", wider: "wider", taller: "taller",
-};
-
-function avatarFromRow(av: any): AvatarConfig | null {
-  if (!av) return null;
-  return {
-    body_type: FACE_TO_BODY[av.face_shape] || "basic",
-    eye_color: av.eye_color || "brown",
-    skin: av.skin_color || "#FDDBB4",
-    hair_style: av.hair_style || "boy",
-    hair_color: av.hair_color || "#2C1A0E",
-  };
-}
 
 /** Supabase may return avatars as one row or an array */
 function firstAvatarFromProfile(avatars: unknown): any {
@@ -149,7 +154,7 @@ async function fetchAvatarsByUserIds(userIds: string[]) {
   if (!uniq.length) return map;
   const { data, error } = await supabase
     .from("avatars")
-    .select("user_id, face_shape, eye_color, skin_color, hair_style, hair_color")
+    .select("*")
     .in("user_id", uniq);
   if (error) {
     console.error("avatars (batch):", error);
@@ -252,7 +257,22 @@ const ChatPage = () => {
   const [groupAddQuery, setGroupAddQuery] = useState("");
   const [groupAddResults, setGroupAddResults] = useState<SearchUser[]>([]);
 
+  // Automatic class groups sit behind one "קבוצות כיתה" row.
+  const [classGroupsOpen, setClassGroupsOpen] = useState(false);
+  const [showClassTeachers, setShowClassTeachers] = useState(false);
+  const [classTeachers, setClassTeachers] = useState<ClassTeacher[] | null>(null);
+
   const canSetPresence = profile.roles.some((r) => STAFF_PRESENCE_ROLES.has(r));
+  const isStaff = profile.roles.some((r) => r !== "student" && r !== "parent");
+  // School guidelines: private messages to teachers and the automatic class groups can be turned off.
+  const guidelines = useSchoolGuidelines(profile.schoolId);
+  const isStudentUser = profile.roles.includes("student");
+  const isParentUser = profile.roles.includes("parent");
+  const mayMessageTeachers =
+    !guidelines ||
+    (isStudentUser ? guidelines.chat.studentTeacherMessaging : isParentUser ? guidelines.chat.parentTeacherMessaging : true);
+  const canSeeClassTeachers = (isStudentUser || isParentUser) && mayMessageTeachers;
+  const showClassGroups = !guidelines || guidelines.chat.classGroups;
 
   /* ── Quiet hours ─────────────────────────────────────── */
   useEffect(() => {
@@ -364,8 +384,16 @@ const ChatPage = () => {
   };
 
   /* ── Load conversations (batched, no N+1) ───────────── */
+  const syncedGroupsRef = useRef(false);
   const loadConversations = useCallback(async () => {
     setLoadingConvos(true);
+
+    // Create / refresh the automatic class, subject and staff-team groups once per visit.
+    if (!syncedGroupsRef.current) {
+      syncedGroupsRef.current = true;
+      const { error: syncErr } = await supabase.rpc("sync_school_chat_groups" as any, {});
+      if (syncErr) console.warn("sync_school_chat_groups:", syncErr.message);
+    }
 
     // 1. Get all conversation IDs I'm in
     const { data: myParts } = await supabase
@@ -518,6 +546,8 @@ const ChatPage = () => {
         participantCount: parts.length,
         participantPreview,
         muted: mutedMap.get(c.id) || false,
+        autoKey: c.auto_key ?? null,
+        iconSubject: c.icon_subject ?? null,
       };
     });
 
@@ -916,6 +946,11 @@ const ChatPage = () => {
 
   /* ── Start / find DM ─────────────────────────────────── */
   const startDM = async (user: SearchUser) => {
+    const peerIsStaff = !!user.roleLabel && !user.roleLabel.split(", ").every((l) => l === "תלמיד/ה" || l === "הורה");
+    if (!mayMessageTeachers && peerIsStaff) {
+      toast({ title: "לא ניתן לפנות למורים בפרטי", description: "לפי הנחיות בית הספר, הפנייה לצוות היא דרך קבוצות הכיתה." });
+      return;
+    }
     // Already open in this session's list - no round-trip needed.
     const existing = conversations.find(
       (c) => c.type === "private" && c.otherUserId === user.user_id,
@@ -1374,6 +1409,31 @@ const ChatPage = () => {
     setShowGroupInfo(true);
   };
 
+  const setGroupIcon = async (iconSubject: string) => {
+    if (!selectedId) return;
+    const { error } = await supabase.rpc("set_chat_group_icon" as any, {
+      p_conversation_id: selectedId,
+      p_icon_subject: iconSubject,
+    });
+    if (error) {
+      toast({ title: "שגיאה בשינוי הלוגו", description: error.message, variant: "destructive" });
+      return;
+    }
+    setConversations((prev) => prev.map((c) => (c.id === selectedId ? { ...c, iconSubject } : c)));
+  };
+
+  const openClassTeachers = async () => {
+    setShowClassTeachers(true);
+    if (classTeachers) return;
+    const { data, error } = await supabase.rpc("get_my_class_teachers" as any);
+    if (error) {
+      toast({ title: "שגיאה בטעינת מורי הכיתה", description: error.message, variant: "destructive" });
+      setClassTeachers([]);
+      return;
+    }
+    setClassTeachers((data as ClassTeacher[]) || []);
+  };
+
   const renameGroup = async () => {
     if (!selectedId || !groupInfoName.trim()) return;
     const title = groupInfoName.trim();
@@ -1514,11 +1574,25 @@ const ChatPage = () => {
     });
   }, [conversations, listFilter]);
 
+  const isClassAutoGroup = (c: Conversation) =>
+    !!c.autoKey && (c.autoKey.startsWith("class:") || c.autoKey.startsWith("subj:"));
+
+  // Homeroom group first, then the subjects alphabetically.
+  const classGroups = useMemo(
+    () =>
+      (showClassGroups ? filteredConversations.filter(isClassAutoGroup) : []).sort((a, b) =>
+        a.type !== b.type ? (a.type === "class_homeroom" ? -1 : 1) : a.otherName.localeCompare(b.otherName, "he"),
+      ),
+    [filteredConversations, showClassGroups],
+  );
+  const classGroupsUnread = classGroups.reduce((n, c) => n + (c.muted ? 0 : c.unreadCount), 0);
+
   const groupedConversationSections = useMemo(() => {
     const knownTypes = new Set(CHANNEL_SECTIONS.flatMap((s) => s.types));
+    const rest = filteredConversations.filter((c) => !isClassAutoGroup(c));
     const sections = CHANNEL_SECTIONS.map((sec) => ({
       title: sec.title,
-      items: filteredConversations
+      items: rest
         .filter((c) => sec.types.includes(c.type))
         .sort(
           (a, b) =>
@@ -1526,7 +1600,7 @@ const ChatPage = () => {
         ),
     })).filter((s) => s.items.length > 0);
 
-    const other = filteredConversations.filter((c) => !knownTypes.has(c.type));
+    const other = rest.filter((c) => !knownTypes.has(c.type));
     if (other.length > 0) {
       sections.push({
         title: "אחר",
@@ -1549,7 +1623,16 @@ const ChatPage = () => {
     return d.toLocaleDateString("he-IL", { day: "numeric", month: "short" });
   };
 
+  /** The group's logo: the teacher's pick, else the subject's own sticker. */
+  const groupLogoSubject = (c: Conversation | undefined): string | null => {
+    if (!c || c.type === "private") return null;
+    if (c.iconSubject && subjectStickerId(c.iconSubject)) return c.iconSubject;
+    if (c.type === "class_subject" && subjectStickerId(c.subject || c.otherName)) return c.subject || c.otherName;
+    return null;
+  };
+
   const typeIcon = (type: string) => {
+    if (type === "staff_team") return <GraduationCap className="h-4 w-4" />;
     if (type === "group") return <Users className="h-4 w-4" />;
     if (type === "class_subject") return <BookOpen className="h-4 w-4" />;
     if (type === "class_homeroom") return <School className="h-4 w-4" />;
@@ -1561,14 +1644,15 @@ const ChatPage = () => {
   };
 
   const typeColor = (type: string) => {
-    if (type === "group") return "bg-info/15 text-info";
-    if (type === "class_subject") return "bg-accent/15 text-accent";
-    if (type === "class_homeroom") return "bg-success/15 text-success";
-    if (type === "counseling") return "bg-destructive/15 text-destructive";
-    if (type === "parent_teacher") return "bg-warning/15 text-warning";
-    if (type === "class_parent_group") return "bg-secondary/40 text-secondary-foreground";
-    if (type === "grade_parent_group") return "bg-primary/15 text-primary";
-    return "bg-muted text-muted-foreground";
+    if (type === "staff_team") return "bg-[#7C5CD6] text-white";
+    if (type === "group") return "bg-[#F0A21A] text-white";
+    if (type === "class_subject") return "bg-[#3B7BF2] text-white";
+    if (type === "class_homeroom") return "bg-[#F2668B] text-white";
+    if (type === "counseling") return "bg-[#137A96] text-white";
+    if (type === "parent_teacher") return "bg-[#D98B0A] text-white";
+    if (type === "class_parent_group") return "bg-[#1E9E62] text-white";
+    if (type === "grade_parent_group") return "bg-[#4F70C9] text-white";
+    return "bg-[#5A6B88] text-white";
   };
 
   /* ── Render conversation row ──────────────────────────── */
@@ -1577,46 +1661,52 @@ const ChatPage = () => {
     return (
       <button
         onClick={() => selectConvo(c.id)}
-        className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-right border-b border-border/40 last:border-0
-          ${isSelected ? "bg-primary/8 border-l-2 border-l-primary" : ""}`}
+        className={`w-full flex items-center gap-[11px] px-2.5 py-[9px] rounded-row transition-colors text-right
+          ${isSelected ? "bg-card shadow-[0_0_0_2px_hsl(var(--foreground)),0_8px_16px_-10px_rgba(27,35,51,0.45)]" : "hover:bg-card/70"}`}
       >
         {/* Avatar / icon */}
         <div className="shrink-0 relative">
           {c.type === "private" && c.otherAvatar ? (
             <AvatarPreview config={c.otherAvatar} size={42} />
           ) : (
-            <div className={`w-[42px] h-[42px] rounded-lg flex items-center justify-center ${typeColor(c.type)}`}>
-              {typeIcon(c.type)}
-            </div>
-          )}
-          {c.unreadCount > 0 && (
-            <span className="absolute -top-1 -left-1 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
-              {c.unreadCount > 9 ? "9+" : c.unreadCount}
-            </span>
+            groupLogoSubject(c) ? (
+              <SubjectSticker subject={groupLogoSubject(c)!} size={40} tilt />
+            ) : (
+              <div className={`w-10 h-10 rounded-[13px] border-[2.5px] border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] flex items-center justify-center -rotate-[5deg] dark:border-card ${typeColor(c.type)}`}>
+                {typeIcon(c.type)}
+              </div>
+            )
           )}
         </div>
 
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-1">
-            <p className={`font-heading text-sm truncate ${c.unreadCount > 0 ? "font-bold" : "font-medium"}`}>
+            <p className="font-heading text-sm font-extrabold leading-tight text-foreground truncate">
               {c.otherName}
             </p>
             {c.lastMessage && (
-              <span className="text-[10px] text-muted-foreground shrink-0">
+              <span className="font-body text-[11px] font-semibold text-hint shrink-0">
                 {formatListTime(c.lastMessage.created_at)}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="mt-[5px] flex items-center gap-1">
             {!c.is_accepted && <Lock className="h-3 w-3 text-muted-foreground shrink-0" />}
-            <p className={`text-xs truncate ${c.unreadCount > 0 ? "text-foreground" : "text-muted-foreground"}`}>
+            <p className={`flex-1 font-body text-[12.5px] font-semibold truncate ${c.unreadCount > 0 ? "text-foreground" : "text-muted-foreground"}`}>
               {c.lastMessage
                 ? c.lastMessage.is_deleted
                   ? "ההודעה נמחקה"
                   : c.lastMessage.is_flagged ? "⚠️ " + c.lastMessage.content : c.lastMessage.content
-                : c.otherRoleLabel || "אין הודעות"}
+                : c.type !== "private" && c.participantCount > 0
+                  ? `${c.participantCount} משתתפים`
+                  : c.otherRoleLabel || "אין הודעות"}
             </p>
+            {c.unreadCount > 0 && (
+              <span className="shrink-0 min-w-[18px] h-[18px] px-[5px] rounded-full bg-link text-white font-heading text-[10.5px] font-black flex items-center justify-center">
+                {c.unreadCount > 9 ? "9+" : c.unreadCount}
+              </span>
+            )}
           </div>
         </div>
       </button>
@@ -1635,7 +1725,7 @@ const ChatPage = () => {
                 <ArrowRight className="h-4 w-4" />
               </Button>
             )}
-            <h1 className="text-2xl font-heading font-bold">שיחות</h1>
+            <h1 className="font-heading text-[26px] font-black">שיחות</h1>
             {totalUnread > 0 && <Badge variant="destructive" className="text-xs">{totalUnread}</Badge>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -1670,7 +1760,7 @@ const ChatPage = () => {
         </details>
       </div>
 
-      <div className="flex flex-1 min-h-0 rounded-lg border border-border overflow-hidden bg-card">
+      <div className="flex flex-1 min-h-0 rounded-card overflow-hidden bg-card/60 shadow-card">
 
         {/* ── Left panel: conversation list ────────────────── */}
         <div className={`w-full md:w-80 lg:w-96 border-l border-border flex flex-col ${mobileShowChat ? "hidden md:flex" : "flex"}`}>
@@ -1683,7 +1773,7 @@ const ChatPage = () => {
                 placeholder={
                   showNewChat ? "שם פרטי או משפחה באותו בית ספר..." : "חיפוש ברשימת השיחות..."
                 }
-                className="pr-9 h-9 text-sm bg-muted/40 border-0 focus-visible:ring-1"
+                className="pr-9 h-10 text-[13.5px] bg-[#F4EFE7] border-0 rounded-xl focus-visible:ring-1 dark:bg-muted"
                 value={showNewChat ? searchQuery : listFilter}
                 onChange={(e) => (showNewChat ? setSearchQuery(e.target.value) : setListFilter(e.target.value))}
               />
@@ -1757,7 +1847,7 @@ const ChatPage = () => {
                 >
                   <div className="flex items-center justify-between w-full gap-2">
                     <span className="font-heading text-xs font-semibold truncate">{r.conversationTitle}</span>
-                    <span className="text-[10px] text-muted-foreground shrink-0">{formatListTime(r.created_at)}</span>
+                    <span className="font-body text-[11px] font-semibold text-hint shrink-0">{formatListTime(r.created_at)}</span>
                   </div>
                   <p className="text-xs text-muted-foreground truncate w-full">
                     <span className="font-medium text-foreground/80">{r.senderName}: </span>{r.content}
@@ -1807,22 +1897,74 @@ const ChatPage = () => {
                 <p className="font-heading font-medium text-muted-foreground">אין שיחות עדיין</p>
                 <p className="text-xs text-muted-foreground mt-1">לחץ + כדי להתחיל שיחה חדשה</p>
               </div>
-            ) : groupedConversationSections.length === 0 ? (
+            ) : groupedConversationSections.length === 0 && classGroups.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
                 <Search className="h-10 w-10 text-muted-foreground/20 mb-2" />
                 <p className="text-sm text-muted-foreground">לא נמצאו שיחות לפי החיפוש</p>
               </div>
             ) : (
-              groupedConversationSections.map((sec) => (
-                <div key={sec.title}>
-                  <div className="px-4 py-2 text-[10px] font-heading font-semibold uppercase tracking-wide text-muted-foreground bg-muted/25 border-b border-border/40">
+              <>
+              {(classGroups.length > 0 || canSeeClassTeachers) && (
+                <div className="flex flex-col gap-[3px] px-2.5 pt-3.5">
+                  {classGroups.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setClassGroupsOpen((o) => !o)}
+                      aria-expanded={classGroupsOpen || !!listFilter.trim()}
+                      className="w-full flex items-center gap-[11px] px-2.5 py-[9px] rounded-row text-right hover:bg-card/70 transition-colors"
+                    >
+                      <div className="w-10 h-10 shrink-0 rounded-[13px] border-[2.5px] border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] flex items-center justify-center -rotate-[5deg] bg-[#F2668B] text-white dark:border-card">
+                        <School className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-heading text-sm font-extrabold leading-tight text-foreground">קבוצות כיתה</p>
+                        <p className="mt-[5px] font-body text-[12.5px] font-semibold text-muted-foreground truncate">
+                          {classGroups.length} קבוצות · הכיתה וכל המקצועות
+                        </p>
+                      </div>
+                      {classGroupsUnread > 0 && (
+                        <span className="shrink-0 min-w-[18px] h-[18px] px-[5px] rounded-full bg-link text-white font-heading text-[10.5px] font-black flex items-center justify-center">
+                          {classGroupsUnread > 9 ? "9+" : classGroupsUnread}
+                        </span>
+                      )}
+                      <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${classGroupsOpen || listFilter.trim() ? "rotate-180" : ""}`} />
+                    </button>
+                  )}
+                  {(classGroupsOpen || !!listFilter.trim()) && classGroups.length > 0 && (
+                    <div className="flex flex-col gap-[3px] border-r-2 border-border/60 mr-[30px] pr-1">
+                      {classGroups.map((c) => <ConvoRow key={c.id} c={c} />)}
+                    </div>
+                  )}
+                  {canSeeClassTeachers && (
+                    <button
+                      type="button"
+                      onClick={openClassTeachers}
+                      className="w-full flex items-center gap-[11px] px-2.5 py-[9px] rounded-row text-right hover:bg-card/70 transition-colors"
+                    >
+                      <div className="w-10 h-10 shrink-0 rounded-[13px] border-[2.5px] border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] flex items-center justify-center rotate-[4deg] bg-[#3B7BF2] text-white dark:border-card">
+                        <GraduationCap className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-heading text-sm font-extrabold leading-tight text-foreground">מורי הכיתה</p>
+                        <p className="mt-[5px] font-body text-[12.5px] font-semibold text-muted-foreground truncate">
+                          שליחת הודעה אישית למורה
+                        </p>
+                      </div>
+                    </button>
+                  )}
+                </div>
+              )}
+              {groupedConversationSections.map((sec) => (
+                <div key={sec.title} className="flex flex-col gap-[3px] px-2.5 pt-3.5">
+                  <div className="px-2 pb-1 font-body text-[11.5px] font-extrabold text-text-secondary">
                     {sec.title}
                   </div>
                   {sec.items.map((c) => (
                     <ConvoRow key={c.id} c={c} />
                   ))}
                 </div>
-              ))
+              ))}
+              </>
             )}
           </ScrollArea>
         </div>
@@ -1841,6 +1983,8 @@ const ChatPage = () => {
               <div className="px-4 py-3 border-b border-border flex items-center gap-3 shrink-0">
                 {selectedConvo?.type === "private" && selectedConvo.otherAvatar ? (
                   <AvatarPreview config={selectedConvo.otherAvatar} size={36} />
+                ) : groupLogoSubject(selectedConvo) ? (
+                  <SubjectSticker subject={groupLogoSubject(selectedConvo)!} size={36} />
                 ) : (
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${typeColor(selectedConvo?.type || "private")}`}>
                     {typeIcon(selectedConvo?.type || "private")}
@@ -1889,7 +2033,7 @@ const ChatPage = () => {
                       {selectedConvo.muted ? <BellOff className="h-3.5 w-3.5 text-muted-foreground" /> : <Bell className="h-3.5 w-3.5" />}
                     </Button>
                   )}
-                  {selectedConvo?.type === "group" && (
+                  {(selectedConvo?.type === "group" || selectedConvo?.autoKey) && (
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={openGroupInfo} title="פרטי קבוצה">
                       <Settings className="h-3.5 w-3.5" />
                     </Button>
@@ -1944,7 +2088,7 @@ const ChatPage = () => {
                         <div key={msg.id}>
                           {showDate && (
                             <div className="flex items-center justify-center my-3">
-                              <span className="text-[10px] text-muted-foreground bg-muted px-3 py-0.5 rounded-full">
+                              <span className="font-body text-[11.5px] font-extrabold text-muted-foreground bg-card px-[11px] py-[5px] rounded-full shadow-[0_2px_6px_-4px_rgba(40,30,15,0.4)]">
                                 {new Date(msg.created_at).toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" })}
                               </span>
                             </div>
@@ -1957,7 +2101,7 @@ const ChatPage = () => {
                                     <AvatarPreview config={msg.sender_avatar} size={32} />
                                   ) : (
                                     <div
-                                      className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-heading font-semibold text-muted-foreground border border-border/60"
+                                      className="w-8 h-8 rounded-full bg-info-soft flex items-center justify-center text-xs font-heading font-black text-info border-2 border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] dark:border-card"
                                       title={msg.sender_name}
                                     >
                                       {(msg.sender_name || "?").trim().charAt(0) || "?"}
@@ -1970,7 +2114,7 @@ const ChatPage = () => {
                             )}
                             <div className={`max-w-[72%] ${isMe ? "items-end" : "items-start"} flex flex-col`}>
                               {showPeerHeader && (
-                                <p className="text-[11px] font-medium text-foreground/90 mb-0.5 px-1 leading-tight">
+                                <p className="font-body text-xs font-extrabold text-link mb-1 px-1 leading-tight">
                                   {msg.sender_name}
                                 </p>
                               )}
@@ -1995,18 +2139,18 @@ const ChatPage = () => {
                                     )}
                                   </div>
                                 )}
-                                <div className={`rounded-lg px-3.5 py-2 text-sm leading-relaxed min-w-0
+                                <div className={`rounded-[18px] px-[13px] py-2.5 font-body text-[14.5px] font-semibold leading-[1.45] min-w-0 shadow-[0_4px_10px_-8px_rgba(40,30,15,0.45)]
                                   ${isMe
-                                    ? "bg-primary text-primary-foreground rounded-tl-lg rounded-tr-sm"
-                                    : "bg-muted rounded-tr-lg rounded-tl-sm"}
+                                    ? "bg-[#2F64D0] text-white rounded-br-md"
+                                    : "bg-card text-foreground rounded-bl-md"}
                                   ${msg.is_flagged ? "ring-1 ring-warning" : ""}`}>
                                   {msg.is_deleted ? (
                                     <span className="italic opacity-60">ההודעה נמחקה</span>
                                   ) : (
                                     <>
                                       {replySource && (
-                                        <div className={`rounded-lg px-2 py-1 mb-1.5 text-xs border-r-2 ${isMe ? "bg-black/10 border-primary-foreground/40" : "bg-background/60 border-primary/50"}`}>
-                                          <p className="font-medium opacity-80 truncate">{replySource.sender_name}</p>
+                                        <div className={`rounded-[9px] px-[9px] py-1.5 mb-1.5 text-xs border-r-[3px] ${isMe ? "bg-white/15 border-white" : "bg-soft border-[#EE5A8F] text-text-secondary"}`}>
+                                          <p className="font-extrabold truncate">{replySource.sender_name}</p>
                                           <p className="opacity-70 truncate">{replySource.is_deleted ? "ההודעה נמחקה" : replySource.content}</p>
                                         </div>
                                       )}
@@ -2120,7 +2264,7 @@ const ChatPage = () => {
                     <div key={m.id} className="flex items-center gap-2 text-xs bg-muted/40 rounded-lg px-2.5 py-1.5">
                       <CalendarClock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       <span className="flex-1 min-w-0 truncate">{m.content}</span>
-                      <span className="text-[10px] text-muted-foreground shrink-0">
+                      <span className="font-body text-[11px] font-semibold text-hint shrink-0">
                         {new Date(m.send_at).toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" })}
                       </span>
                       <button type="button" onClick={() => cancelScheduledMessage(m.id)} title="ביטול תזמון" className="shrink-0 text-muted-foreground hover:text-destructive">
@@ -2176,7 +2320,7 @@ const ChatPage = () => {
                         </button>
                       </div>
                     )}
-                    <form onSubmit={e => { e.preventDefault(); sendMessage(); }} className="flex gap-2 items-end relative">
+                    <form onSubmit={e => { e.preventDefault(); sendMessage(); }} className="flex gap-2 items-end relative rounded-[18px] bg-card p-2 shadow-[0_8px_18px_-12px_rgba(40,30,15,0.45)]">
                       {mentionQuery !== null && mentionCandidates.length > 0 && (
                         <div className="absolute bottom-full mb-1 right-0 w-56 max-h-40 overflow-y-auto rounded-lg border border-border bg-popover shadow-md z-10">
                           {mentionCandidates.map((p) => (
@@ -2220,7 +2364,7 @@ const ChatPage = () => {
                         placeholder={quietHours ? "שעות שקטות — כתוב הודעה..." : "כתוב הודעה..."}
                         disabled={sending}
                         rows={1}
-                        className="flex-1 resize-none text-sm min-h-[38px] max-h-24 py-2 bg-muted/40 border-muted"
+                        className="flex-1 resize-none font-body text-[14.5px] font-semibold min-h-[38px] max-h-24 py-2 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
                       <Popover open={scheduleOpen} onOpenChange={setScheduleOpen}>
                         <PopoverTrigger asChild>
@@ -2351,7 +2495,7 @@ const ChatPage = () => {
             <DialogTitle className="font-heading">פרטי קבוצה</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="flex gap-2">
+            {!selectedConvo?.autoKey && <div className="flex gap-2">
               <Input
                 value={groupInfoName}
                 onChange={(e) => setGroupInfoName(e.target.value)}
@@ -2365,7 +2509,7 @@ const ChatPage = () => {
               >
                 שמור שם
               </Button>
-            </div>
+            </div>}
 
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">
@@ -2385,7 +2529,38 @@ const ChatPage = () => {
               </div>
             </div>
 
-            {selectedConvo?.created_by === profile.id && (
+            {isStaff && selectedConvo && selectedConvo.type !== "private" && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">לוגו הקבוצה</p>
+                <div className="max-h-44 overflow-y-auto rounded-lg border border-border p-2 space-y-2">
+                  {STICKER_GROUPS.map(([group, items]) => (
+                    <div key={group}>
+                      <p className="text-[10px] font-semibold text-muted-foreground mb-1">{group}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {items.map(([id, name]) => {
+                          const on = groupLogoSubject(selectedConvo) === name || selectedConvo.iconSubject === name;
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              title={name}
+                              aria-label={name}
+                              aria-pressed={on}
+                              onClick={() => setGroupIcon(name)}
+                              className={`rounded-xl p-0.5 transition ${on ? "ring-2 ring-primary" : "hover:bg-muted"}`}
+                            >
+                              <SubjectSticker subject={name} size={30} flat />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedConvo?.created_by === profile.id && !selectedConvo?.autoKey && (
               <div>
                 <div className="relative">
                   <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -2414,10 +2589,59 @@ const ChatPage = () => {
               </div>
             )}
 
-            <Button variant="outline" className="w-full gap-1.5 text-destructive border-destructive/30" onClick={leaveGroup}>
-              <LogOut className="h-3.5 w-3.5" />צא/י מהקבוצה
-            </Button>
+            {selectedConvo?.autoKey ? (
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                קבוצה אוטומטית: החברים מתעדכנים לפי שיבוץ הכיתות והמקצועות. אפשר להשתיק אותה, אבל לא לצאת ממנה.
+              </p>
+            ) : (
+              <Button variant="outline" className="w-full gap-1.5 text-destructive border-destructive/30" onClick={leaveGroup}>
+                <LogOut className="h-3.5 w-3.5" />צא/י מהקבוצה
+              </Button>
+            )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Class teachers: message any of them directly */}
+      <Dialog open={showClassTeachers} onOpenChange={setShowClassTeachers}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-heading">מורי הכיתה</DialogTitle>
+          </DialogHeader>
+          {classTeachers === null ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">טוען…</p>
+          ) : classTeachers.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">עדיין לא שובצו מורים לכיתה</p>
+          ) : (
+            <div className="max-h-[60vh] overflow-y-auto -mx-2">
+              {classTeachers.map((t) => (
+                <button
+                  key={t.user_id}
+                  type="button"
+                  onClick={() => {
+                    setShowClassTeachers(false);
+                    startDM({ user_id: t.user_id, full_name: t.full_name, avatar: null, roleLabel: t.is_homeroom ? "מחנך/ת" : "מורה" });
+                  }}
+                  className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-muted/60 text-right"
+                >
+                  {t.subjects[0] ? (
+                    <SubjectSticker subject={t.subjects[0]} size={34} flat />
+                  ) : (
+                    <div className="w-[34px] h-[34px] rounded-xl bg-[#F2668B] text-white flex items-center justify-center">
+                      <School className="h-4 w-4" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-heading text-sm font-bold truncate">{t.full_name}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {[t.is_homeroom ? `מחנך/ת ${t.class_label}` : null, ...t.subjects].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                  <MessageCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                </button>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

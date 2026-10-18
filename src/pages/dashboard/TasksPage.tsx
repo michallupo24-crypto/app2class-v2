@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadPrivateFile, openStoredFile } from "@/lib/privateFiles";
 import { useToast } from "@/hooks/use-toast";
 import { extractDocumentText, isExtractableDocument, isImageFile } from "@/lib/fileExtraction";
 import { requestImageOcr } from "@/lib/fileOcr";
@@ -255,13 +256,7 @@ const TasksPage = () => {
       if (selectedFile) {
         setUploading(true);
         const ext = selectedFile.name.split(".").pop();
-        const path = `submissions/${profile.id}/${submitTask.assignmentId}_${Date.now()}.${ext}`;
-        const { error: uploadErr } = await supabase.storage
-          .from("lesson-files")
-          .upload(path, selectedFile, { upsert: true });
-        if (uploadErr) throw uploadErr;
-        const { data: urlData } = supabase.storage.from("lesson-files").getPublicUrl(path);
-        fileUrl = urlData.publicUrl;
+        fileUrl = await uploadPrivateFile("submissions", profile.id, `${submitTask.assignmentId}_${Date.now()}.${ext}`, selectedFile);
         setUploading(false);
       }
 
@@ -535,7 +530,7 @@ const TasksPage = () => {
 
                       {/* Submitted file indicator */}
                       {task.fileUrl && task.status !== "pending" && (
-                        <a href={task.fileUrl} target="_blank" rel="noreferrer"
+                        <a href="#" onClick={(e) => { e.preventDefault(); openStoredFile(task.fileUrl!); }}
                           className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
                           <Paperclip className="h-3 w-3" />צפה בקובץ שהגשת
                         </a>

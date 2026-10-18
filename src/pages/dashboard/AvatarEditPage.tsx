@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import AvatarStudio, { defaultAvatarConfig, type AvatarConfig } from "@/components/avatar/AvatarStudio";
 import type { UserProfile } from "@/hooks/useAuth";
+import { saveAvatar } from "@/components/avatar/avatarModel";
 
 const AvatarEditPage = () => {
   const { profile, refresh } = useOutletContext<{ profile: UserProfile; refresh: () => Promise<void> }>();
@@ -16,41 +17,10 @@ const AvatarEditPage = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Check if avatar exists
-      const { data: existing } = await supabase
-        .from("avatars")
-        .select("id")
-        .eq("user_id", profile.id)
-        .single();
-
-      const avatarData = {
-        face_shape: avatar.body_type || "basic",
-        skin_color: avatar.skin || "#FDDBB4",
-        eye_color: avatar.eye_color || "brown",
-        hair_style: avatar.hair_style || "boy",
-        hair_color: avatar.hair_color || "#2C1A0E",
-        facial_hair: avatar.facialHair || "none",
-        outfit: avatar.outfit || "casual",
-        outfit_color: avatar.outfitColor || "#3B82F6",
-        accessory: avatar.accessory || "none",
-        expression: avatar.expression || "happy",
-        background: avatar.background || "#E0F2FE",
-      };
-
-      if (existing) {
-        const { error } = await supabase.from("avatars").update(avatarData).eq("user_id", profile.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("avatars").insert({
-          user_id: profile.id,
-          ...avatarData,
-          eye_shape: "round",
-        });
-        if (error) throw error;
-      }
+      await saveAvatar(supabase, profile.id, avatar);
 
       await refresh();
-      toast({ title: "האווטאר עודכן בהצלחה! 🎨" });
+      toast({ title: "האווטאר נשמר", description: "הוא יופיע עכשיו בכל המערכת" });
     } catch (error: any) {
       toast({ title: "שגיאה", description: error.message, variant: "destructive" });
     } finally {
@@ -59,20 +29,23 @@ const AvatarEditPage = () => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-heading font-bold">עריכת אווטאר 🎨</h1>
-        <Button onClick={() => window.history.back()} variant="ghost" size="sm">
-          <ArrowRight className="h-4 w-4 ml-1" />
-          חזרה
-        </Button>
+    <div className="mx-auto flex max-w-5xl flex-col gap-5">
+      <div className="flex flex-wrap items-end justify-between gap-4 px-1">
+        <div className="flex flex-col gap-1.5">
+          <h1 className="font-heading text-[28px] font-black leading-tight text-foreground">עורך אווטאר</h1>
+          <p className="font-body text-sm font-semibold text-muted-foreground">כך יראו אותך בצ'אט, במפת הכיתה ובתפריט הצד</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={() => window.history.back()} variant="outline" className="gap-1.5">
+            <ArrowRight className="h-4 w-4" />
+            חזרה
+          </Button>
+          <Button onClick={handleSave} disabled={saving} className="px-6">
+            {saving ? "שומר..." : "שמירה"}
+          </Button>
+        </div>
       </div>
       <AvatarStudio config={avatar} onChange={setAvatar} />
-      <div className="flex justify-center">
-        <Button onClick={handleSave} disabled={saving} size="lg" className="px-12">
-          {saving ? "שומר..." : "שמור שינויים"}
-        </Button>
-      </div>
     </div>
   );
 };

@@ -19,8 +19,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Landmark, Plus, Vote, Trophy, UserPlus, ChevronLeft, Trash2, Search, Crown, Newspaper as NewspaperIcon, X, Check, Undo2, ClipboardList, Pencil, Megaphone } from "lucide-react";
+import { Plus, Vote, Trophy, UserPlus, ChevronLeft, Trash2, Search, Crown, Newspaper as NewspaperIcon, X, Check, Undo2, ClipboardList, Pencil, Megaphone } from "lucide-react";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
+import { PersonBadge } from "@/components/home/HomeKit";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -48,9 +49,9 @@ interface Candidate {
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  nominations: { label: "פתוח למועמדות", color: "bg-info/10 text-info border-info/30" },
-  voting: { label: "הצבעה פתוחה", color: "bg-warning/10 text-warning border-warning/30" },
-  closed: { label: "נסגר - תוצאות", color: "bg-success/10 text-success border-success/30" },
+  nominations: { label: "פתוח למועמדות", color: "bg-info-soft text-info" },
+  voting: { label: "הצבעה פתוחה", color: "bg-warning-soft text-warning" },
+  closed: { label: "נסגר · תוצאות", color: "bg-success-soft text-success" },
 };
 
 const LEADERSHIP_LABELS: Record<string, string> = {
@@ -59,10 +60,10 @@ const LEADERSHIP_LABELS: Record<string, string> = {
 };
 
 const CANDIDACY_STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  pending_review: { label: "ממתין/ה לאישור מחנך/ת", color: "bg-info/10 text-info border-info/30" },
-  approved: { label: "אושרה", color: "bg-success/10 text-success border-success/30" },
-  rejected: { label: "נדחתה", color: "bg-destructive/10 text-destructive border-destructive/30" },
-  needs_revision: { label: "הוחזרה לעריכה", color: "bg-warning/10 text-warning border-warning/30" },
+  pending_review: { label: "ממתין/ה לאישור מחנך/ת", color: "bg-warning-soft text-warning" },
+  approved: { label: "אושרה", color: "bg-success-soft text-success" },
+  rejected: { label: "נדחתה", color: "bg-destructive-soft text-destructive" },
+  needs_revision: { label: "הוחזרה לעריכה", color: "bg-warning-soft text-warning" },
 };
 
 const CouncilPage = () => {
@@ -384,12 +385,10 @@ const CouncilPage = () => {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-heading font-bold flex items-center gap-2">
-            <Landmark className="h-7 w-7 text-primary" /> מועצת תלמידים
-          </h1>
-          <p className="text-sm text-muted-foreground font-body mt-1">הקול שלך נשמע - בחירות, מועמדות והצבעות</p>
+          <h1 className="font-heading text-[28px] font-black leading-tight md:text-[30px]">מועצת תלמידים</h1>
+          <p className="font-body text-sm font-semibold text-muted-foreground mt-1.5">הקול שלך נשמע: בחירות, מועמדות והצבעות</p>
         </div>
-        {isManagement && (
+        {canManageCouncil && (
           <Dialog open={newElectionOpen} onOpenChange={setNewElectionOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
@@ -461,7 +460,7 @@ const CouncilPage = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="p-3 rounded-lg bg-muted/40">
+              <div className="p-3 rounded-row bg-soft">
                 <p className="text-xs font-heading font-bold flex items-center gap-1.5 mb-1.5"><Crown className="h-3.5 w-3.5" /> ראש/ת מועצה</p>
                 {councilHead ? (
                   <div className="flex items-center justify-between gap-2">
@@ -474,7 +473,7 @@ const CouncilPage = () => {
                   <p className="text-xs text-muted-foreground">אין ראש/ת מועצה ממונ/ה</p>
                 )}
               </div>
-              <div className="p-3 rounded-lg bg-muted/40">
+              <div className="p-3 rounded-row bg-soft">
                 <p className="text-xs font-heading font-bold flex items-center gap-1.5 mb-1.5"><NewspaperIcon className="h-3.5 w-3.5" /> עורכ/ת עיתון</p>
                 {newspaperEditors.length === 0 && <p className="text-xs text-muted-foreground">אין עורכ/ת עיתון ממונ/ה</p>}
                 {newspaperEditors.map((ed) => (
@@ -502,7 +501,7 @@ const CouncilPage = () => {
             {studentResults.length > 0 && (
               <div className="space-y-1.5">
                 {studentResults.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/30">
+                  <div key={s.id} className="flex items-center justify-between gap-2 p-2.5 rounded-row bg-soft">
                     <span className="text-sm">{s.full_name}</span>
                     <div className="flex gap-1.5">
                       <Button size="sm" variant="secondary" disabled={appointing === s.id + "head"} onClick={() => appointRole(s.id, "head")}>
@@ -532,7 +531,7 @@ const CouncilPage = () => {
           </CardHeader>
           <CardContent className="space-y-2">
             {pendingReview.map((c) => (
-              <div key={c.id} className="p-3 rounded-lg bg-muted/40 space-y-2">
+              <div key={c.id} className="p-3 rounded-row bg-soft space-y-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div>
                     <p className="text-sm font-heading font-bold">{profiles[c.student_id]?.full_name || "מועמד/ת"}</p>
@@ -574,8 +573,8 @@ const CouncilPage = () => {
           </CardHeader>
           <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {members.map((m) => (
-              <div key={m.id} className="text-center p-3 rounded-lg bg-muted/40">
-                {m.avatar ? <AvatarPreview config={m.avatar} size={56} /> : <div className="h-14 w-14 rounded-full bg-muted mx-auto" />}
+              <div key={m.id} className="flex flex-col items-center p-3 rounded-row bg-soft">
+                {m.avatar ? <AvatarPreview config={m.avatar} size={56} /> : <PersonBadge name={m.full_name} />}
                 <p className="text-sm font-heading font-bold mt-2 flex items-center justify-center gap-1">
                   {m.roleType === "head" && <Crown className="h-3.5 w-3.5 text-warning" />}
                   {m.full_name}
@@ -618,8 +617,8 @@ const CouncilPage = () => {
                       {e.description && <p className="text-xs text-muted-foreground mt-1">{e.description}</p>}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusConf.color}`}>{statusConf.label}</span>
-                      {isManagement && e.status !== "closed" && (
+                      <span className={`sticker sticker-tilt-r ${statusConf.color}`}>{statusConf.label}</span>
+                      {canManageCouncil && e.status !== "closed" && (
                         <Button size="sm" variant="outline" onClick={() => advanceStatus(e)} className="gap-1">
                           {e.status === "nominations" ? "פתח הצבעה" : "סגור בחירות"} <ChevronLeft className="h-3 w-3" />
                         </Button>
@@ -652,17 +651,17 @@ const CouncilPage = () => {
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {e.status === "nominations" && isStudent && !alreadyCandidate && (
-                    <Button size="sm" variant="secondary" className="gap-2 mb-2" onClick={() => setNominateDialog(e.id)}>
-                      <UserPlus className="h-3.5 w-3.5" /> אני רוצה להתמודד!
+                    <Button variant="secondary" className="gap-2 mb-2 self-start" onClick={() => setNominateDialog(e.id)}>
+                      <UserPlus className="h-4 w-4" /> אני רוצה להתמודד!
                     </Button>
                   )}
                   {myCandidacy && myCandidacy.status !== "approved" && (
-                    <div className="p-2.5 rounded-lg border border-dashed mb-2 space-y-1.5">
+                    <div className="p-3 rounded-row border-[1.5px] border-dashed border-input mb-2 space-y-1.5">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <span className="text-sm font-medium">המועמדות שלך</span>
-                        <Badge variant="outline" className={`text-[10px] ${CANDIDACY_STATUS_LABELS[myCandidacy.status].color}`}>
+                        <span className={`sticker sticker-tilt-l ${CANDIDACY_STATUS_LABELS[myCandidacy.status].color}`}>
                           {CANDIDACY_STATUS_LABELS[myCandidacy.status].label}
-                        </Badge>
+                        </span>
                       </div>
                       {myCandidacy.review_notes && <p className="text-xs text-muted-foreground">הערה: {myCandidacy.review_notes}</p>}
                       {myCandidacy.status === "needs_revision" && (
@@ -680,29 +679,30 @@ const CouncilPage = () => {
                       )}
                     </div>
                   )}
-                  {candidates.length === 0 && <p className="text-xs text-muted-foreground">עדיין אין מועמדים מאושרים</p>}
+                  {candidates.length === 0 && <p className="rounded-row border-[1.5px] border-dashed border-input p-4 text-center font-body text-[13px] font-bold text-muted-foreground">עדיין אין מועמדים מאושרים. אולי זה/זו את/ה?</p>}
                   {sortedByVotes.map((c, idx) => {
                     const isWinner = e.status === "closed" && idx < e.num_seats;
                     return (
-                      <div key={c.id} className={`flex items-center justify-between gap-3 p-2.5 rounded-lg ${isWinner ? "bg-success/10 border border-success/30" : "bg-muted/40"}`}>
-                        <div className="min-w-0">
-                          <p className="text-sm font-heading font-medium flex items-center gap-1.5">
-                            {isWinner && <Trophy className="h-3.5 w-3.5 text-success" />}
+                      <div key={c.id} className={`flex items-center justify-between gap-3 p-3 rounded-row ${isWinner ? "bg-success-soft" : "bg-soft"}`}>
+                        <PersonBadge name={profiles[c.student_id]?.full_name || "?"} />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-heading text-[15px] font-extrabold flex items-center gap-1.5">
+                            {isWinner && <Trophy className="h-4 w-4 text-success" />}
                             {profiles[c.student_id]?.full_name || "מועמד/ת"}
                           </p>
-                          {c.statement && <p className="text-xs text-muted-foreground">{c.statement}</p>}
+                          {c.statement && <p className="font-body text-[13px] font-semibold text-text-secondary">{c.statement}</p>}
                         </div>
                         {e.status === "voting" && isStudent && (
                           myVote ? (
-                            myVote === c.id ? <Badge variant="secondary" className="shrink-0">הצבעת ✓</Badge> : null
+                            myVote === c.id ? <span className="sticker sticker-tilt-r shrink-0 bg-success-soft text-success">הצבעת ✓</span> : null
                           ) : (
                             <Button size="sm" onClick={() => castVote(e.id, c.id)} className="shrink-0 gap-1">
-                              <Vote className="h-3.5 w-3.5" /> הצבע/י
+                              הצבע/י
                             </Button>
                           )
                         )}
                         {(e.status === "closed" || (canManageCouncil && e.status === "voting")) && (
-                          <Badge variant="outline" className="shrink-0">{counts[c.id] || 0} קולות</Badge>
+                          <span className="shrink-0 rounded-full bg-card px-2.5 py-1 font-heading text-xs font-extrabold text-foreground shadow-sticker">{counts[c.id] || 0} קולות</span>
                         )}
                       </div>
                     );

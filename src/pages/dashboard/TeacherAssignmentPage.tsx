@@ -27,7 +27,7 @@ const TeacherAssignmentPage = () => {
   const [selectedClass, setSelectedClass] = useState("");
 
   const loadData = async () => {
-    if (!profile?.schoolId) return;
+    if (!profile?.schoolId) { setLoading(false); return; }
     setLoading(true);
 
     // Get professional teachers in this school

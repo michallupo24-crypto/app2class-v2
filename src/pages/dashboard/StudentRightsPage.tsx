@@ -1,16 +1,13 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Shield, CheckCircle2, XCircle, AlertTriangle, Send,
-  Loader2, BookOpen, Clock, FileText,
-} from "lucide-react";
+import { Send, Loader2, Sparkles } from "lucide-react";
+import { HomeColumns, HomeSection, HomeEmpty, RowTag } from "@/components/home/HomeKit";
+import { SubjectSticker } from "@/components/SubjectSticker";
+import { cn } from "@/lib/utils";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -52,8 +49,35 @@ const StudentRightsPage = () => {
   const [generatingAppeal, setGeneratingAppeal] = useState(false);
   const [sendingAppeal, setSendingAppeal] = useState(false);
 
-  const container = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
-  const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } };
+  // This week's exams / quizzes (Sun-Thu), and requests this student already sent.
+  const [thisWeek, setThisWeek] = useState<{ dow: number; subject: string; kind: "מבחן" | "בוחן" }[]>([]);
+  const [appeals, setAppeals] = useState<{ id: string; title: string; sentAt: string; step: number; reply: string | null }[]>([]);
+
+  useEffect(() => {
+    const APPEAL_PREFIX = "[פנייה על הפרת זכויות] ";
+    (async () => {
+      const { data: sent } = await supabase.from("messages")
+        .select("id, conversation_id, content, created_at")
+        .eq("sender_id", profile.id)
+        .like("content", "[פנייה על הפרת זכויות]%")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (!sent?.length) { setAppeals([]); return; }
+      const convIds = sent.map((m: any) => m.conversation_id);
+      const [{ data: replies }, { data: parts }] = await Promise.all([
+        supabase.from("messages").select("conversation_id, content, created_at, sender_id")
+          .in("conversation_id", convIds).neq("sender_id", profile.id).order("created_at"),
+        supabase.from("conversation_participants").select("conversation_id, user_id, last_read_at")
+          .in("conversation_id", convIds).neq("user_id", profile.id),
+      ]);
+      setAppeals(sent.map((m: any) => {
+        const reply = (replies || []).find((r: any) => r.conversation_id === m.conversation_id && r.created_at > m.created_at);
+        const read = (parts || []).some((pp: any) => pp.conversation_id === m.conversation_id && pp.last_read_at && pp.last_read_at >= m.created_at);
+        const text = String(m.content).replace(APPEAL_PREFIX, "");
+        return { id: m.id, title: text.split("\n").find((l: string) => l.trim()) || text, sentAt: m.created_at, step: reply ? 3 : read ? 2 : 1, reply: reply?.content || null };
+      }));
+    })();
+  }, [profile.id, sendingAppeal]);
 
   useEffect(() => {
     const load = async () => {
@@ -83,6 +107,12 @@ const StudentRightsPage = () => {
         .in("assignment_id", aIds);
 
       const subMap = new Map((submissions || []).map((s: any) => [s.assignment_id, s]));
+
+      const weekStart = new Date(); weekStart.setHours(0, 0, 0, 0); weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 5);
+      setThisWeek(assignments
+        .filter((a: any) => a.due_date && new Date(a.due_date) >= weekStart && new Date(a.due_date) < weekEnd && (a.title.includes("מבחן") || a.title.includes("בוחן")))
+        .map((a: any) => ({ dow: new Date(a.due_date).getDay(), subject: a.subject, kind: a.title.includes("בוחן") ? "בוחן" as const : "מבחן" as const })));
 
       // Check 1: "מבחן" requires advance notice; "בוחן" by definition does not.
       // Source: חוזר הוראות קבע תשע"ו/1(א), סעיף 3.1-51 ("מבחנים פנימיים כחלק
@@ -240,36 +270,23 @@ const StudentRightsPage = () => {
   const generateAppealText = async () => {
     if (!selectedViolation) return;
     setGeneratingAppeal(true);
+    const template = `שלום,\n\nאני ${profile.fullName}.\nברצוני לפנות בנושא: ${selectedViolation.label}.\n${selectedViolation.detail || ""}\n\nאבקש לבדוק את הנושא בהתאם לנהלי משרד החינוך.\n\nבברכה,\n${profile.fullName}`;
     try {
-      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-tutor`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({
-          action: "generate_questions",
-          prompt: `כתוב פנייה מקצועית ומכובדת בעברית מתלמיד/ה בשם ${profile.fullName} על הפרה של הנוהל הבא:
+      // invoke() sends the signed-in user's token; ai-tutor rejects the anon key.
+      const { data, error } = await supabase.functions.invoke("ai-tutor", {
+        body: {
+          message: `כתוב פנייה מקצועית ומכובדת בעברית מתלמיד/ה בשם ${profile.fullName} על הפרה של הנוהל הבא:
 "${selectedViolation.label}"
 פרטים: ${selectedViolation.detail || selectedViolation.description}
-הפנייה צריכה להיות מנומסת, עניינית ולציין את הנוהל הרלוונטי של משרד החינוך. לא יותר מ-4 משפטים.`,
-          numQuestions: 1,
-        }),
+הפנייה צריכה להיות מנומסת, עניינית ולציין את הנוהל הרלוונטי של משרד החינוך. לא יותר מ-4 משפטים. החזר רק את נוסח הפנייה.`,
+        },
       });
-      const data = await resp.json();
-      // The prompt returns a "question" but we use the first result's question_text as the generated text
-      if (data.result?.[0]) {
-        setAppealText(data.result[0].question_text || "");
-      } else {
-        // Fallback: generate inline
-        setAppealText(
-          `שלום,\n\nאני ${profile.fullName}, תלמיד/ה בכיתה.\nברצוני לפנות בנושא: ${selectedViolation.label}.\n${selectedViolation.detail || ""}\n\nאבקש לבדוק את הנושא בהתאם לנהלי משרד החינוך.\n\nבברכה,\n${profile.fullName}`
-        );
-      }
+      if (error || !data?.response) throw error ?? new Error("empty AI response");
+      setAppealText(String(data.response).trim());
     } catch {
-      setAppealText(
-        `שלום,\n\nאני ${profile.fullName}.\nברצוני לפנות בנושא: ${selectedViolation.label}.\n${selectedViolation.detail || ""}\n\nבברכה,\n${profile.fullName}`
-      );
+      // Say so: a silent template looked like the AI had written it.
+      setAppealText(template);
+      toast({ title: "ה-AI לא זמין כרגע", description: "מילאנו נוסח בסיסי — אפשר לערוך אותו לפני השליחה." });
     } finally {
       setGeneratingAppeal(false);
     }
@@ -351,7 +368,7 @@ const StudentRightsPage = () => {
         return;
       }
 
-      toast({ title: "הפנייה נשלחה!" });
+      toast({ title: "הפנייה נשלחה", description: "אפשר לעקוב אחריה ב\"הפניות שלי\"" });
       setAppealDialog(false);
       setAppealText("");
       setSelectedViolation(null);
@@ -368,151 +385,162 @@ const StudentRightsPage = () => {
     </div>
   );
 
-  const okCount = rightsChecks.filter(c => c.status === "ok").length;
-  const violationCount = violations.length;
+  const checkable = rightsChecks.filter((c) => c.status !== "unknown");
+  const goodToKnow = rightsChecks.filter((c) => c.status === "unknown");
+  const examsThisWeek = thisWeek.filter((e) => e.kind === "מבחן").length;
+  const quizzesThisWeek = thisWeek.filter((e) => e.kind === "בוחן").length;
+  const weekOk = examsThisWeek + quizzesThisWeek <= 3 && !thisWeek.some((e, i) => thisWeek.findIndex((x) => x.dow === e.dow) !== i);
+  const heroColor = weekOk ? "#178A52" : "#C47A08";
+  const weekRange = (() => {
+    const s = new Date(); s.setDate(s.getDate() - s.getDay());
+    const e = new Date(s); e.setDate(e.getDate() + 4);
+    return `${s.getDate()}–${e.getDate()} ${e.toLocaleDateString("he-IL", { month: "long" })}`;
+  })();
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
-      {/* Header */}
-      <motion.div variants={item}>
-        <h1 className="text-2xl font-heading font-bold flex items-center gap-2">
-          <Shield className="h-7 w-7 text-primary" />מגן הזכויות שלי
-        </h1>
-        <p className="text-sm text-muted-foreground font-body mt-1">
-          בדיקת עמידת הצוות בנהלי משרד החינוך
-        </p>
-      </motion.div>
-
-      {/* Score banner */}
-      <motion.div variants={item}>
-        <Card className={`${violationCount === 0 ? "border-success/30 bg-success/10" : "border-warning/30 bg-warning/10"}`}>
-          <CardContent className="py-4">
-            <div className="flex items-center gap-4">
-              <div className={`w-14 h-14 rounded-lg flex items-center justify-center ${violationCount === 0 ? "bg-success/20" : "bg-warning/20"}`}>
-                {violationCount === 0 ? <CheckCircle2 className="h-7 w-7 text-success" /> : <AlertTriangle className="h-7 w-7 text-warning" />}
-              </div>
-              <div>
-                <p className="font-heading font-bold text-lg">
-                  {violationCount === 0 ? "הכל תקין!" : `נמצאו ${violationCount} חריגות`}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {okCount} בדיקות עברו • {violationCount} חריגות
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Rights checks */}
-      <div className="space-y-3">
-        {rightsChecks.map((check) => (
-          <motion.div key={check.id} variants={item}>
-            <Card className={
-              check.status === "ok" ? "border-success/20"
-              : check.status === "violation" ? "border-destructive/40"
-              : "border-border"
-            }>
-              <CardContent className="py-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    {check.status === "ok"
-                      ? <CheckCircle2 className="h-5 w-5 text-success shrink-0 mt-0.5" />
-                      : check.status === "violation"
-                      ? <XCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                      : <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
-                    }
-                    <div className="min-w-0">
-                      <p className="font-heading font-medium text-sm">{check.label}</p>
-                      <p className="text-xs text-muted-foreground font-body mt-0.5">{check.description}</p>
-                      {check.detail && (
-                        <p className={`text-xs mt-1 font-body ${check.status === "violation" ? "text-destructive" : "text-muted-foreground"}`}>
-                          {check.detail}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="shrink-0 flex flex-col items-end gap-2">
-                    <Badge variant={check.status === "ok" ? "default" : check.status === "violation" ? "destructive" : "secondary"} className="text-[10px]">
-                      {check.status === "ok" ? "תקין" : check.status === "violation" ? "חריגה" : "מידע"}
-                    </Badge>
-                    {check.canAppeal && check.status === "violation" && (
-                      <Button size="sm" variant="outline" className="h-7 text-[11px] font-heading gap-1 text-destructive border-destructive/30 hover:bg-destructive/5"
-                        onClick={() => { setSelectedViolation(check); setAppealText(""); setAppealDialog(true); }}>
-                        <FileText className="h-3 w-3" />הגש פנייה
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-[22px]">
+      <div className="flex flex-col gap-1.5 px-1">
+        <h1 className="font-heading text-[28px] font-black leading-tight md:text-[30px]">הזכויות שלי במבחנים</h1>
+        <p className="font-body text-sm font-semibold text-muted-foreground">לפי חוזר מנכ״ל 3.1-51 · מתעדכן מהמשימות והמבחנים של הכיתה</p>
       </div>
 
-      {/* Info footer */}
-      <motion.div variants={item}>
-        <Card className="border-dashed">
-          <CardContent className="py-4">
-            <p className="text-xs text-muted-foreground font-body text-center">
-              הבדיקות מתבצעות על בסיס נתוני המשימות שהועלו למערכת.
-              לחץ "הגש פנייה" על חריגה כדי לשלוח הודעה מנומסת לגורם הרלוונטי.
-            </p>
-          </CardContent>
-        </Card>
-      </motion.div>
+      <HomeColumns
+        main={
+          <>
+            {/* This week */}
+            <div
+              className="relative mx-1 mt-3 flex flex-col gap-4 rounded-[28px] border-[6px] border-white px-6 pb-5 pt-[22px] text-white dark:border-card md:-rotate-[0.8deg]"
+              style={{ background: heroColor, boxShadow: `0 18px 30px -16px ${heroColor}` }}
+            >
+              <div className="flex flex-col gap-2">
+                <span className="self-start rounded-full bg-white/20 px-[11px] py-1.5 font-body text-[13px] font-extrabold">השבוע · {weekRange}</span>
+                <div className="font-heading text-[28px] font-black leading-[1.08] md:text-[32px]">{examsThisWeek + quizzesThisWeek} מבחנים ובחנים מתוך 3 מותרים</div>
+                <div className="font-body text-[15px] font-semibold leading-snug text-white/90">
+                  {weekOk ? "אין יום עם יותר מאירוע הערכה אחד." : "שווה לבדוק: יותר מדי אירועי הערכה השבוע, או שניים באותו יום."}
+                </div>
+              </div>
+              <div className="grid grid-cols-5 gap-2">
+                {[0, 1, 2, 3, 4].map((dow) => {
+                  const ev = thisWeek.find((e) => e.dow === dow);
+                  return (
+                    <div key={dow} className="flex flex-col items-center gap-[7px] rounded-[16px] bg-white/15 px-1 pb-[9px] pt-2.5">
+                      <span className="font-body text-xs font-extrabold text-white/85">{["א׳", "ב׳", "ג׳", "ד׳", "ה׳"][dow]}</span>
+                      <div className={cn("h-10 w-10 rounded-xl", !ev && "border-[1.5px] border-dashed border-white/40")}>
+                        {ev && <SubjectSticker subject={ev.subject} flat size={40} />}
+                      </div>
+                      <span className="min-h-[11px] font-body text-[11px] font-extrabold leading-none">{ev?.kind || ""}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <HomeSection title="מה שמור לך">
+              {checkable.map((check) => (
+                <div key={check.id} className="flex items-start gap-3.5 rounded-[20px] bg-card px-4 py-[15px] shadow-[0_8px_16px_-12px_rgba(40,30,15,0.4)]">
+                  <RowTag label={check.status === "ok" ? "נשמר" : "שווה לבדוק"} tone={check.status === "ok" ? "success" : "warning"} />
+                  <div className="flex min-w-0 flex-1 flex-col gap-[5px]">
+                    <div className="font-heading text-[15.5px] font-extrabold leading-tight">{check.label}</div>
+                    <div className="font-body text-[13px] font-semibold leading-relaxed text-text-secondary">{check.detail || check.description}</div>
+                  </div>
+                  {check.canAppeal && check.status === "violation" && (
+                    <Button size="sm" className="shrink-0" onClick={() => { setSelectedViolation(check); setAppealText(""); setAppealDialog(true); }}>
+                      לפנות בנושא
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </HomeSection>
+          </>
+        }
+        side={
+          <>
+            <HomeSection title="הפניות שלי">
+              {appeals.length === 0 ? (
+                <HomeEmpty>עוד לא שלחת פניות. אם משהו לא נשמר, אפשר לפנות מכאן</HomeEmpty>
+              ) : (
+                appeals.map((a) => (
+                  <div key={a.id} className="flex flex-col gap-3 rounded-[20px] bg-card px-4 py-[15px] shadow-[0_8px_16px_-12px_rgba(40,30,15,0.4)]">
+                    <div className="flex flex-col gap-1">
+                      <div className="font-heading text-[14.5px] font-extrabold leading-tight line-clamp-2">{a.title}</div>
+                      <div className="font-body text-[12.5px] font-semibold text-muted-foreground">{new Date(a.sentAt).toLocaleDateString("he-IL")}</div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {["נשלחה", "נקראה", "נענתה"].map((label, i) => {
+                        const done = i < a.step;
+                        return (
+                          <div key={label} className="flex flex-1 flex-col gap-1.5">
+                            <div className="h-1.5 rounded-[3px]" style={{ background: done ? "#23B26D" : "#EAE2D3" }} />
+                            <span className="font-body text-[11px] font-extrabold leading-none" style={{ color: done ? "#11734A" : "#9A9285" }}>{label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {a.reply && <div className="rounded-[13px] bg-soft px-3 py-2.5 font-body text-[13px] font-semibold leading-relaxed text-text-secondary">{a.reply}</div>}
+                  </div>
+                ))
+              )}
+            </HomeSection>
+
+            <HomeSection title="טוב לדעת">
+              {goodToKnow.map((g) => (
+                <div key={g.id} className="flex flex-col gap-[5px] rounded-[18px] border-[1.5px] border-dashed border-[#DCD3C3] bg-card/70 px-[15px] py-[13px]">
+                  <div className="font-heading text-sm font-extrabold leading-tight">{g.label}</div>
+                  <div className="font-body text-[12.5px] font-semibold leading-relaxed text-text-secondary">{g.description}</div>
+                </div>
+              ))}
+            </HomeSection>
+          </>
+        }
+      />
 
       {/* Appeal Dialog */}
       <Dialog open={appealDialog} onOpenChange={o => { if (!o) setAppealDialog(false); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-heading flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary" />הגשת פנייה
-            </DialogTitle>
+            <DialogTitle className="font-heading text-xl font-black">פנייה בנושא {selectedViolation?.label}</DialogTitle>
           </DialogHeader>
           {selectedViolation && (
-            <div className="space-y-4">
-              <div className="p-3 bg-destructive/10 rounded-lg">
-                <p className="font-heading font-medium text-sm">{selectedViolation.label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{selectedViolation.detail}</p>
+            <div className="flex flex-col gap-4">
+              {selectedViolation.detail && (
+                <div className="rounded-[14px] bg-warning-soft px-3.5 py-3 font-body text-[13px] font-bold text-warning">{selectedViolation.detail}</div>
+              )}
+
+              <div className="flex flex-col gap-2">
+                <p className="font-body text-[12.5px] font-extrabold text-muted-foreground">אל מי לפנות</p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[["homeroom", "שלב 1", "מחנך/ת הכיתה"], ["coordinator", "שלב 2", "רכז/ת השכבה"], ["management", "שלב 3", "הנהלה"]].map(([v, step, label]) => (
+                    <button key={v} type="button" onClick={() => setAppealTarget(v)}
+                      className={cn("flex flex-col gap-1 rounded-xl border-2 px-2 py-2.5 text-right", appealTarget === v ? "border-foreground bg-card" : "border-input")}>
+                      <span className="font-body text-[11px] font-bold text-hint">{step}</span>
+                      <span className="font-body text-[13px] font-extrabold">{label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <p className="text-sm font-heading">שלח אל</p>
-                <Select value={appealTarget} onValueChange={setAppealTarget}>
-                  <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="homeroom">מחנך כיתה</SelectItem>
-                    <SelectItem value="coordinator">רכז שכבה</SelectItem>
-                    <SelectItem value="management">הנהלה</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-heading">נוסח הפנייה</p>
-                  <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1 font-heading"
-                    onClick={generateAppealText} disabled={generatingAppeal}>
-                    {generatingAppeal ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
-                    נסח עם AI
+                  <p className="font-body text-[12.5px] font-extrabold text-muted-foreground">נוסח הפנייה</p>
+                  <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" onClick={generateAppealText} disabled={generatingAppeal}>
+                    {generatingAppeal ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                    ניסוח עם AI
                   </Button>
                 </div>
                 <Textarea
-                  placeholder="כתב את הפנייה שלך כאן, או לחץ 'נסח עם AI' לנוסח מקצועי..."
+                  placeholder="אפשר לכתוב בעצמך, או ללחוץ על 'ניסוח עם AI' לנוסח מנומס ומסודר"
                   value={appealText}
                   onChange={e => setAppealText(e.target.value)}
-                  className="font-body text-sm resize-none" rows={5}
+                  className="resize-none" rows={5}
                 />
               </div>
 
-              <Button className="w-full gap-2 font-heading" onClick={sendAppeal}
-                disabled={sendingAppeal || !appealText.trim()}>
+              <Button className="w-full gap-2" onClick={sendAppeal} disabled={sendingAppeal || !appealText.trim()}>
                 {sendingAppeal ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                {sendingAppeal ? "שולח..." : "שלח פנייה"}
+                {sendingAppeal ? "שולח..." : "שליחת הפנייה"}
               </Button>
-              <p className="text-[10px] text-muted-foreground text-center">
-                הפנייה תתועד ותישלח לגורם שנבחר — כל הפניות נשמרות במערכת
+              <p className="text-center font-body text-xs font-semibold text-hint">
+                הפנייה תישלח כשיחה אישית, ותופיע כאן עם הסטטוס שלה
               </p>
             </div>
           )}

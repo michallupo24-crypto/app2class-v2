@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSmartSeat } from "@/hooks/useSmartSeat";
 import { ClassroomGrid } from "@/components/smartseat/ClassroomGrid";
+import { avatarFromRow } from "@/components/avatar/avatarModel";
 
 interface StudentCard {
   id: string;
@@ -214,9 +215,7 @@ const RollCallPage = () => {
       const { data: profiles } = await supabase.from("profiles").select("id, full_name, date_of_birth").eq("class_id", selectedClass).eq("is_approved", true);
       if (!profiles) { setStudents([]); setLoading(false); return; }
       const { data: avatars } = await supabase.from("avatars").select("*").in("user_id", profiles.map(p => p.id));
-      const avatarMap = new Map((avatars || []).map(a => [a.user_id, {
-        body_type: a.face_shape || "basic", eye_color: a.eye_color || "brown", skin: a.skin_color || "#FDDBB4", hair_style: a.hair_style || "boy", hair_color: a.hair_color || "#2C1A0E",
-      }]));
+      const avatarMap = new Map((avatars || []).map(a => [a.user_id, avatarFromRow(a)!]));
 
       const today = new Date();
       setStudents(profiles.map(p => {
@@ -348,8 +347,12 @@ const RollCallPage = () => {
         const chosenSyllabusTopic = !isOtherTopic ? syllabusTopics.find(t => t.id === topicChoice) : undefined;
         const topicText = isOtherTopic ? otherTopicText.trim() : (chosenSyllabusTopic?.topic || "");
 
-        // Create or find a lesson for today, for this class + real subject
-        const today = new Date().toISOString().split('T')[0];
+        // Find or create today's lesson for this class + subject + teacher.
+        // Match on lesson_date in the local (Israel) day: matching on created_at
+        // picked up any lesson row inserted today - including backfilled ones from
+        // earlier dates - and overwrote their attendance, and the UTC date was
+        // yesterday's between midnight and 02:00/03:00.
+        const today = new Date().toLocaleDateString('en-CA');
         let lessonId;
 
         const { data: lesson } = await supabase
@@ -357,12 +360,19 @@ const RollCallPage = () => {
             .select('id')
             .eq('class_id', selectedClass)
             .eq('subject', subject)
-            .gte('created_at', today)
+            .eq('teacher_id', profile.id)
+            .eq('lesson_date', today)
+            .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
 
         if (lesson) {
             lessonId = lesson.id;
+            // Re-saving the roll call may add or change the topic.
+            if (topicText) {
+                const { error: topicError } = await supabase.from('lessons').update({ topic: topicText }).eq('id', lesson.id);
+                if (topicError) throw topicError;
+            }
         } else {
             const { data: newLesson, error: lessonError } = await supabase
                 .from('lessons')
@@ -371,7 +381,8 @@ const RollCallPage = () => {
                     subject,
                     topic: topicText || null,
                     teacher_id: profile.id,
-                    school_id: profile.schoolId
+                    school_id: profile.schoolId,
+                    lesson_date: today,
                 })
                 .select()
                 .single();

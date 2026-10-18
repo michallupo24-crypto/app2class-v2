@@ -33,14 +33,14 @@ const RegistrationLayout = ({
   const progressValue = (step / totalSteps) * 100;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-card/80 backdrop-blur-lg border-b border-border px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
             <X className="w-5 h-5" />
           </Button>
-          <h2 className="font-heading font-bold text-lg">{title}</h2>
+          <h2 className="font-heading font-black text-lg">{title}</h2>
           <span className="text-sm text-muted-foreground font-heading">
             {step}/{totalSteps}
           </span>
@@ -58,15 +58,15 @@ const RegistrationLayout = ({
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.3 }}
-          className="flex-1"
+          className="flex-1 rounded-card bg-card p-5 shadow-card md:p-7"
         >
           {children}
         </motion.div>
 
         {/* Navigation */}
-        <div className="flex gap-3 mt-6 pt-4 border-t border-border">
+        <div className="flex gap-3 mt-6">
           {showBack && step > 1 && (
-            <Button variant="outline" onClick={onBack} className="gap-2 font-heading">
+            <Button variant="outline" onClick={onBack} className="gap-2">
               <ArrowRight className="w-4 h-4" />
               חזרה
             </Button>
@@ -75,7 +75,7 @@ const RegistrationLayout = ({
             <Button
               onClick={onNext}
               disabled={nextDisabled || loading}
-              className="flex-1 gap-2 font-heading text-base"
+              className="flex-1 gap-2 text-base"
             >
               {loading ? "שולח..." : nextLabel}
               {!loading && <ArrowLeft className="w-4 h-4" />}

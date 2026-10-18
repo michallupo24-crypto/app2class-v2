@@ -12,8 +12,10 @@ import EmailInput from "@/components/registration/EmailInput";
 import AvatarStudio, { defaultAvatarConfig, type AvatarConfig } from "@/components/avatar/AvatarStudio";
 import { GRADES, STAFF_ROLES, SUBJECTS } from "@/lib/constants";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchRegistrationSchools } from "@/lib/registrationSchools";
 import { useToast } from "@/hooks/use-toast";
 import { isValidIsraeliId } from "@/lib/israeliId";
+import { saveAvatar } from "@/components/avatar/avatarModel";
 
 interface TeachingClass {
   grade: string;
@@ -60,10 +62,24 @@ const StaffRegistration = () => {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   useEffect(() => {
-    supabase.from("schools").select("id, name").then(({ data }) => {
+    fetchRegistrationSchools().then((data) => {
       if (data) setSchools(data);
     });
   }, []);
+
+  // The chosen school's own subjects and roles, when it defined them at registration.
+  const [schoolInfo, setSchoolInfo] = useState<{ roles: string[] | null; subjects: string[] }>({ roles: null, subjects: [] });
+  useEffect(() => {
+    if (!schoolId) return;
+    supabase.rpc("get_school_registration_info" as any, { p_school_id: schoolId }).then(({ data }) => {
+      const d = (data || {}) as { roles?: string[] | null; subjects?: string[] };
+      setSchoolInfo({ roles: d.roles || null, subjects: d.subjects || [] });
+    });
+  }, [schoolId]);
+  const subjectOptions = schoolInfo.subjects.length ? schoolInfo.subjects : SUBJECTS;
+  const roleOptions = STAFF_ROLES.filter(
+    (r) => !schoolInfo.roles || ["educator", "professional_teacher", "management"].includes(r.value) || schoolInfo.roles.includes(r.value),
+  );
 
   const toggleRole = (roleValue: string) => {
     setSelectedRoles((prev) => {
@@ -188,21 +204,7 @@ const StaffRegistration = () => {
       }
 
       // Avatar
-      await supabase.from("avatars").insert({
-        user_id: userId,
-        face_shape: avatar.body_type || "basic",
-        skin_color: avatar.skin || "#FDDBB4",
-        eye_shape: "round",
-        eye_color: avatar.eye_color || "brown",
-        hair_style: avatar.hair_style || "boy",
-        hair_color: avatar.hair_color || "#2C1A0E",
-        facial_hair: avatar.facialHair,
-        outfit: avatar.outfit,
-        outfit_color: avatar.outfitColor,
-        accessory: avatar.accessory,
-        expression: avatar.expression,
-        background: avatar.background,
-      });
+      await saveAvatar(supabase, userId, avatar).catch((e) => console.error("Avatar save failed", e));
 
       // Determine approval role based on STAFF_ROLES config
       const roleConfig = STAFF_ROLES.find((sr) => 
@@ -231,7 +233,7 @@ const StaffRegistration = () => {
 
   if (step === 3) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-background">
+      <div className="min-h-screen flex items-center justify-center px-4">
         <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-md">
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: "spring" }}>
             <CheckCircle2 className="w-24 h-24 text-success mx-auto mb-6" />
@@ -313,7 +315,7 @@ const StaffRegistration = () => {
           <div className="border-t border-border pt-5">
             <Label className="font-heading text-lg mb-3 block">בחירת תפקיד/ים</Label>
             <div className="space-y-3">
-              {STAFF_ROLES.map((role) => {
+              {roleOptions.map((role) => {
                 const selected = selectedRoles.find((r) => r.value === role.value);
                 return (
                   <div key={role.value} className={`p-4 rounded-xl border transition-all ${selected ? "border-primary bg-primary/5" : "border-border"}`}>
@@ -362,7 +364,7 @@ const StaffRegistration = () => {
                             <Select value={selected.subject || ""} onValueChange={(v) => updateRole(role.value, "subject", v)}>
                               <SelectTrigger><SelectValue placeholder="בחר מקצוע" /></SelectTrigger>
                               <SelectContent>
-                                {SUBJECTS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                {subjectOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                               </SelectContent>
                             </Select>
                           </div>

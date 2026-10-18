@@ -16,6 +16,7 @@ import {
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import SchoolApplicationsPanel from "@/components/admin/SchoolApplicationsPanel";
 
 interface School { id: string; name: string; createdAt: string; studentCount: number; }
 interface AuditEntry { id: string; action: string; actorName: string; targetName: string | null; createdAt: string; }
@@ -334,6 +335,7 @@ const SystemAdminPage = () => {
       <motion.div variants={item}>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full md:w-auto">
+            <TabsTrigger value="applications" className="font-heading text-xs">📝 בקשות הצטרפות</TabsTrigger>
             <TabsTrigger value="schools" className="font-heading text-xs">🏫 בתי ספר</TabsTrigger>
             <TabsTrigger value="users" className="font-heading text-xs">👤 משתמשים</TabsTrigger>
             <TabsTrigger value="audit" className="font-heading text-xs">📋 Audit Trail</TabsTrigger>
@@ -341,6 +343,10 @@ const SystemAdminPage = () => {
           </TabsList>
 
           {/* ─── SCHOOLS ─── */}
+          <TabsContent value="applications" className="mt-4">
+            <SchoolApplicationsPanel onApproved={loadSchools} />
+          </TabsContent>
+
           <TabsContent value="schools" className="space-y-4 mt-4">
             <Card>
               <CardHeader className="pb-2">
