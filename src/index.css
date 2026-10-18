@@ -161,6 +161,30 @@
     font-family: 'Rubik', sans-serif;
     font-weight: 900;
   }
+
+  /* An app, not a document: tapping or dragging controls, cards and page
+     titles must not select their text (or pop the copy menu on phones).
+     Content people may want to copy - messages, articles, documents and
+     every field - stays selectable. */
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button, [role="button"], [role="tab"], [role="switch"], [role="checkbox"], [role="radio"],
+  [role="menuitem"], [role="option"], [role="slider"], [draggable="true"],
+  a, label, summary, nav, svg, img, .cursor-pointer,
+  h1, h2, h3, [data-sidebar] {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  input, textarea, [contenteditable="true"], [contenteditable=""],
+  article, article *, .select-text, .select-text * {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+  }
 }
 
 @layer components {
