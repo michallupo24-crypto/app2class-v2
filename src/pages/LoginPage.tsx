@@ -18,6 +18,12 @@ const LoginPage = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Phone sign-in needs a server-side phone→account lookup that isn't built
+    // yet; say so instead of letting the browser reject the "email" silently.
+    if (!email.includes("@") && /^[\d\s+()-]{7,}$/.test(email.trim())) {
+      toast({ title: "התחברות עם מספר טלפון עדיין לא זמינה", description: "נא להתחבר עם כתובת האימייל שאיתה נרשמת.", variant: "destructive" });
+      return;
+    }
     setLoading(true);
 
     try {
@@ -76,7 +82,9 @@ const LoginPage = () => {
                   <Mail className="absolute right-3 top-3 w-4 h-4 text-muted-foreground" />
                   <Input
                     id="email"
-                    type="email"
+                    type="text"
+                    inputMode="email"
+                    autoComplete="username"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="your@email.com"

@@ -93,7 +93,8 @@ const TutoringManagementPage = () => {
     })));
   };
 
-  useEffect(() => { if (profile.schoolId) { loadSessions(); loadRequests(); } }, [profile.schoolId]);
+  // No school (e.g. a system-wide admin): stop the spinner instead of loading forever.
+  useEffect(() => { if (profile.schoolId) { loadSessions(); loadRequests(); } else setLoading(false); }, [profile.schoolId]);
 
   const dismissRequest = async (id: string) => {
     const { error } = await supabase.from("tutoring_requests")

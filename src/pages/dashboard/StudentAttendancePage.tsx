@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FileUp, Calendar, AlertTriangle, CheckCircle2, Star, Clock, Heart, Minus, ShieldCheck, Paperclip, Send, Trophy, Hand, HeartHandshake, Smartphone, XCircle, FileText } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadPrivateFile } from "@/lib/privateFiles";
 import { useToast } from "@/hooks/use-toast";
 
 const JUSTIFICATION_REASONS: { value: string; label: string }[] = [
@@ -162,11 +163,8 @@ export default function StudentAttendancePage() {
       let attachmentUrl: string | null = null;
       if (attachmentFile) {
         const ext = attachmentFile.name.split(".").pop();
-        const path = `absence-justifications/${profile.id}/${Date.now()}.${ext}`;
         // uploader-scoped folder (parent or student), not the justification's student_id
-        const { error: uploadErr } = await supabase.storage.from("lesson-files").upload(path, attachmentFile, { upsert: true });
-        if (uploadErr) throw uploadErr;
-        attachmentUrl = supabase.storage.from("lesson-files").getPublicUrl(path).data.publicUrl;
+        attachmentUrl = await uploadPrivateFile("absence-justifications", profile.id, `${Date.now()}.${ext}`, attachmentFile);
       }
 
       const { error } = await (supabase as any).from("absence_justifications").insert({

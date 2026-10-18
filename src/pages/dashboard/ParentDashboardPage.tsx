@@ -128,17 +128,27 @@ const ParentDashboardPage = () => {
     // 2. STAFF: Unified Educator & Counselor Lookup
     let staff = { teacherId: "", educatorName: "", counselorId: "", counselorName: "" };
     if (child.classId) {
+       // Two queries: user_roles has no FK to profiles, so an embedded
+       // profiles!inner(...) select failed outright and both rows showed "לא שובצ/ה".
        const { data: roles } = await supabase.from("user_roles")
-         .select("user_id, role, profiles!inner(full_name)")
+         .select("user_id, role")
          .or(`homeroom_class_id.eq.${child.classId},and(role.eq.counselor,grade.eq.${child.grade})`);
+       const ids = [...new Set((roles || []).map(r => r.user_id))];
+       const { data: people } = ids.length
+         ? await supabase.from("profiles").select("id, full_name, school_id").in("id", ids)
+         : { data: [] as { id: string; full_name: string; school_id: string | null }[] };
+       // Counselors are matched by grade only, so keep the child's school.
+       const byId = new Map((people || []).filter(p => !child.schoolId || p.school_id === child.schoolId).map(p => [p.id, p.full_name]));
 
        roles?.forEach(r => {
+         const name = byId.get(r.user_id);
+         if (!name) return;
          if (r.role === 'educator') {
             staff.teacherId = r.user_id;
-            staff.educatorName = (r.profiles as any)?.full_name;
+            staff.educatorName = name;
          } else if (r.role === 'counselor') {
             staff.counselorId = r.user_id;
-            staff.counselorName = (r.profiles as any)?.full_name;
+            staff.counselorName = name;
          }
        });
     }

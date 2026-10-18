@@ -12,6 +12,7 @@ import AvatarStudio, { defaultAvatarConfig, type AvatarConfig } from "@/componen
 import TrackSelector, { type TrackSelection, EMPTY_TRACK_SELECTION } from "@/components/registration/TrackSelector";
 import { GRADES } from "@/lib/constants";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchRegistrationSchools } from "@/lib/registrationSchools";
 import { useToast } from "@/hooks/use-toast";
 import { isValidIsraeliId } from "@/lib/israeliId";
 import { saveAvatar } from "@/components/avatar/avatarModel";
@@ -43,7 +44,7 @@ const StudentRegistration = () => {
   const [schools, setSchools] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
-    supabase.from("schools").select("id, name").then(({ data }) => {
+    fetchRegistrationSchools().then((data) => {
       if (data) setSchools(data);
     });
   }, []);

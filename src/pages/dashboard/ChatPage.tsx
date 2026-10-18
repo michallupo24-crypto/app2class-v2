@@ -97,6 +97,9 @@ const ROLE_LABELS: Record<string, string> = {
   professional_teacher: "מורה", subject_coordinator: "רכז/ת מקצוע",
   grade_coordinator: "רכז/ת שכבה", counselor: "יועץ/ת",
   management: "הנהלה", system_admin: "מנהל/ת מערכת",
+  // Roles the principal can grant later; without these the raw enum ("council_advisor") showed in chat headers.
+  council_advisor: "אחראית מועצה", exam_coordinator: "רכז/ת בגרויות ומבחנים", secretary: "מזכירות",
+  parent_committee_rep: "נציג/ת ועד הורים", super_admin: "מנהל/ת מערכת",
 };
 
 /** Staff who can publish availability to students/parents */

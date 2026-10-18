@@ -15,6 +15,7 @@ import {
 import AvatarPreview from "@/components/avatar/AvatarPreview";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { examConflictWarning } from "@/lib/examConflicts";
 import { useToast } from "@/hooks/use-toast";
 import { GRADES } from "@/lib/constants";
 import { format } from "date-fns";
@@ -48,6 +49,13 @@ const SubjectCoordinatorDashboard = () => {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ title: "", grade: "", event_date: "", notes: "" });
+  const [conflictWarning, setConflictWarning] = useState<string | null>(null);
+
+  // Warn before proposing an exam the grade cannot take (same day / 4th that week).
+  useEffect(() => {
+    if (!profile.schoolId || !form.grade || !form.event_date) { setConflictWarning(null); return; }
+    examConflictWarning(profile.schoolId, form.grade, form.event_date).then(setConflictWarning);
+  }, [profile.schoolId, form.grade, form.event_date]);
   const [subjectPace, setSubjectPace] = useState<(GradeLessonPaceRow & { grade: string })[]>([]);
   const [pendingRequests, setPendingRequests] = useState<{ id: string; className: string; reason: string | null }[]>([]);
   const [editingHoursFor, setEditingHoursFor] = useState<string | null>(null);
@@ -247,6 +255,7 @@ const SubjectCoordinatorDashboard = () => {
                   <SelectContent>{GRADES.map((g) => <SelectItem key={g} value={g}>{g}׳</SelectItem>)}</SelectContent>
                 </Select>
                 <Input type="date" value={form.event_date} onChange={(e) => setForm({ ...form, event_date: e.target.value })} />
+                {conflictWarning && <p className="text-sm text-warning font-medium">{conflictWarning}</p>}
                 <Textarea placeholder="הערות (אופציונלי)" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} />
                 <Button onClick={proposeExam} className="w-full">שלח/י הצעה להנהלה</Button>
               </div>

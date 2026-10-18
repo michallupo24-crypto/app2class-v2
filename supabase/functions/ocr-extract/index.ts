@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { geminiUrl } from "../_shared/gemini.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,7 +11,7 @@ const corsHeaders = {
 // student "photograph my notebook" submission, and teacher OCR-assisted grading
 // of scanned handwritten exams (spec: "בדיקת מבחנים - העלאת מבחן... ונתינה לבינה
 // המלאכותית לנסות להחליט לפי הכתב"). Mirrors task-studio-ai's structure/model
-// convention (gemini-1.5-flash — not a guessed model name).
+// convention (model from ../_shared/gemini.ts).
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -40,7 +41,7 @@ serve(async (req) => {
     }
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      geminiUrl(GEMINI_API_KEY),
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

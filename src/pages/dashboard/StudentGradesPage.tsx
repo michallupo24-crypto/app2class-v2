@@ -313,7 +313,7 @@ const StudentGradesPage = () => {
                     <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">ביצועים אישיים מול ממוצע הכיתה (10 מטלות אחרונות)</p>
                  </div>
                  <div className="flex gap-6">
-                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-primary" /> <span className="text-[10px] font-black uppercase">הילד</span></div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-primary" /> <span className="text-[10px] font-black uppercase">{isParentView ? "הילד/ה" : "אני"}</span></div>
                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-muted-foreground/40" /> <span className="text-[10px] font-black uppercase">ממוצע כיתה</span></div>
                  </div>
               </div>

@@ -6,16 +6,47 @@ import { Bell, Clock, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useNavigate, Navigate, Outlet } from "react-router-dom";
+import { useNavigate, Navigate, Outlet, useLocation } from "react-router-dom";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { FontSizeToggle } from "@/components/FontSizeToggle";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import NotificationBell from "@/components/notifications/NotificationBell";
 
+// Which roles may open each role-specific page. Pages not listed are shared.
+// The sidebar already hides these links; this stops opening them by URL
+// (RLS still protects the data either way). Admins may open everything.
+const STAFF = "staff";
+const ROUTE_ROLES: Record<string, string[] | typeof STAFF> = {
+  "teacher-home": STAFF, "live-lesson": STAFF, "roll-call": STAFF, "absence-justifications": STAFF,
+  "teacher-assignments": STAFF, "task-studio": STAFF, "teacher-grades": STAFF, "seating": STAFF, "my-classes": STAFF,
+  "admin": [], "system-org-tree": [],
+  "principal": ["management"], "team-roles": ["management"],
+  "counselor-home": ["counselor"], "counselor-cases": ["counselor"],
+  "subject-coordinator-home": ["subject_coordinator", "management"], "syllabus-planner": ["subject_coordinator", "management"],
+  "assign-teachers": ["subject_coordinator", "management"],
+  "grade-coordinator-home": ["grade_coordinator", "management"], "grade-progress": ["grade_coordinator", "management"],
+  "tutoring": ["grade_coordinator", "subject_coordinator", "management"], "staff-meetings": ["grade_coordinator", "subject_coordinator", "management"],
+  "grade-announcements": ["grade_coordinator", "management"],
+  "master-scheduler": ["grade_coordinator", "subject_coordinator", "management", "exam_coordinator", "counselor"],
+  "timetable-builder": ["grade_coordinator", "subject_coordinator", "management"],
+  "my-child": ["parent"],
+  "student-home": ["student"], "live-student": ["student"], "student-seating": ["student"],
+};
+
+function canOpen(pathname: string, roles: string[]): boolean {
+  if (roles.includes("system_admin") || roles.includes("super_admin")) return true;
+  const page = pathname.replace(/^\/dashboard\/?/, "").split("/")[0];
+  const allowed = ROUTE_ROLES[page];
+  if (allowed === undefined) return true;
+  if (allowed === STAFF) return roles.some((r) => r !== "student" && r !== "parent");
+  return allowed.some((r) => roles.includes(r));
+}
+
 const DashboardLayout = () => {
   const { profile, loading, logout, refresh } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -59,6 +90,10 @@ const DashboardLayout = () => {
         </div>
       </div>
     );
+  }
+
+  if (!canOpen(location.pathname, profile.roles)) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (

@@ -270,36 +270,23 @@ const StudentRightsPage = () => {
   const generateAppealText = async () => {
     if (!selectedViolation) return;
     setGeneratingAppeal(true);
+    const template = `שלום,\n\nאני ${profile.fullName}.\nברצוני לפנות בנושא: ${selectedViolation.label}.\n${selectedViolation.detail || ""}\n\nאבקש לבדוק את הנושא בהתאם לנהלי משרד החינוך.\n\nבברכה,\n${profile.fullName}`;
     try {
-      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-tutor`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({
-          action: "generate_questions",
-          prompt: `כתוב פנייה מקצועית ומכובדת בעברית מתלמיד/ה בשם ${profile.fullName} על הפרה של הנוהל הבא:
+      // invoke() sends the signed-in user's token; ai-tutor rejects the anon key.
+      const { data, error } = await supabase.functions.invoke("ai-tutor", {
+        body: {
+          message: `כתוב פנייה מקצועית ומכובדת בעברית מתלמיד/ה בשם ${profile.fullName} על הפרה של הנוהל הבא:
 "${selectedViolation.label}"
 פרטים: ${selectedViolation.detail || selectedViolation.description}
-הפנייה צריכה להיות מנומסת, עניינית ולציין את הנוהל הרלוונטי של משרד החינוך. לא יותר מ-4 משפטים.`,
-          numQuestions: 1,
-        }),
+הפנייה צריכה להיות מנומסת, עניינית ולציין את הנוהל הרלוונטי של משרד החינוך. לא יותר מ-4 משפטים. החזר רק את נוסח הפנייה.`,
+        },
       });
-      const data = await resp.json();
-      // The prompt returns a "question" but we use the first result's question_text as the generated text
-      if (data.result?.[0]) {
-        setAppealText(data.result[0].question_text || "");
-      } else {
-        // Fallback: generate inline
-        setAppealText(
-          `שלום,\n\nאני ${profile.fullName}, תלמיד/ה בכיתה.\nברצוני לפנות בנושא: ${selectedViolation.label}.\n${selectedViolation.detail || ""}\n\nאבקש לבדוק את הנושא בהתאם לנהלי משרד החינוך.\n\nבברכה,\n${profile.fullName}`
-        );
-      }
+      if (error || !data?.response) throw error ?? new Error("empty AI response");
+      setAppealText(String(data.response).trim());
     } catch {
-      setAppealText(
-        `שלום,\n\nאני ${profile.fullName}.\nברצוני לפנות בנושא: ${selectedViolation.label}.\n${selectedViolation.detail || ""}\n\nבברכה,\n${profile.fullName}`
-      );
+      // Say so: a silent template looked like the AI had written it.
+      setAppealText(template);
+      toast({ title: "ה-AI לא זמין כרגע", description: "מילאנו נוסח בסיסי — אפשר לערוך אותו לפני השליחה." });
     } finally {
       setGeneratingAppeal(false);
     }

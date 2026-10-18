@@ -87,7 +87,7 @@ const TeacherLiveLessonPage = () => {
 
   // Auto-detect current lesson from timetable + bell_schedule
   const detectCurrentLesson = useCallback(async () => {
-    if (!profile.schoolId) return;
+    if (!profile.schoolId) { setLoading(false); return; }
 
     const now = new Date();
     const dayOfWeek = now.getDay();

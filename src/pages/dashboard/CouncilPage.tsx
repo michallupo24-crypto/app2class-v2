@@ -388,7 +388,7 @@ const CouncilPage = () => {
           <h1 className="font-heading text-[28px] font-black leading-tight md:text-[30px]">מועצת תלמידים</h1>
           <p className="font-body text-sm font-semibold text-muted-foreground mt-1.5">הקול שלך נשמע: בחירות, מועמדות והצבעות</p>
         </div>
-        {isManagement && (
+        {canManageCouncil && (
           <Dialog open={newElectionOpen} onOpenChange={setNewElectionOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
@@ -618,7 +618,7 @@ const CouncilPage = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`sticker sticker-tilt-r ${statusConf.color}`}>{statusConf.label}</span>
-                      {isManagement && e.status !== "closed" && (
+                      {canManageCouncil && e.status !== "closed" && (
                         <Button size="sm" variant="outline" onClick={() => advanceStatus(e)} className="gap-1">
                           {e.status === "nominations" ? "פתח הצבעה" : "סגור בחירות"} <ChevronLeft className="h-3 w-3" />
                         </Button>

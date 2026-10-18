@@ -12,6 +12,7 @@ import EmailInput from "@/components/registration/EmailInput";
 import AvatarStudio, { defaultAvatarConfig, type AvatarConfig } from "@/components/avatar/AvatarStudio";
 import { GRADES, STAFF_ROLES, SUBJECTS } from "@/lib/constants";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchRegistrationSchools } from "@/lib/registrationSchools";
 import { useToast } from "@/hooks/use-toast";
 import { isValidIsraeliId } from "@/lib/israeliId";
 import { saveAvatar } from "@/components/avatar/avatarModel";
@@ -61,7 +62,7 @@ const StaffRegistration = () => {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   useEffect(() => {
-    supabase.from("schools").select("id, name").then(({ data }) => {
+    fetchRegistrationSchools().then((data) => {
       if (data) setSchools(data);
     });
   }, []);

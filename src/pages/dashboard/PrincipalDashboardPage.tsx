@@ -117,7 +117,8 @@ const PrincipalDashboardPage = () => {
 
       // 1. Basic school stats
       const [studRes, schoolProfilesRes, classRes, approvalRes, inquiriesRes, trendRes] = await Promise.all([
-        supabase.from("profiles").select("id", { count: "exact", head: true }).eq("school_id", profile.schoolId).eq("is_approved", true),
+        // Students are the profiles placed in a class; this used to count every approved user (staff, parents too).
+        supabase.from("profiles").select("id", { count: "exact", head: true }).eq("school_id", profile.schoolId).eq("is_approved", true).not("class_id", "is", null),
         supabase.from("profiles").select("id").eq("school_id", profile.schoolId),
         supabase.from("classes").select("id", { count: "exact", head: true }).eq("school_id", profile.schoolId),
         supabase.from("approvals").select("id", { count: "exact", head: true }).eq("status", "pending"),
@@ -152,7 +153,7 @@ const PrincipalDashboardPage = () => {
         const { data: schoolRoles } = await supabase.from("user_roles")
           .select("user_id, role")
           .in("user_id", schoolProfileIds)
-          .in("role", ["professional_teacher", "educator", "subject_coordinator"]);
+          .in("role", ["professional_teacher", "educator", "subject_coordinator", "grade_coordinator"]);
         teacherCount = new Set((schoolRoles || []).map((r: any) => r.user_id)).size;
       }
 
