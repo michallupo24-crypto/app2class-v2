@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "seed:demo": "node scripts/seed-demo-school.mjs",
+    "seed:demo:reset": "node scripts/seed-demo-school.mjs --reset"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

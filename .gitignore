@@ -33,3 +33,6 @@ supabase/.temp
 
 # Claude Code local permission settings (personal, not shared)
 .claude/settings.local.json
+
+# Demo school seed output (contains the demo password)
+demo-school.credentials.local.json

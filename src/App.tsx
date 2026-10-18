@@ -8,6 +8,8 @@ import { Loader2 } from "lucide-react";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 
+// Dev-only; import.meta.env.DEV is false in builds, so this chunk is never emitted.
+const DemoAccountSwitcher = import.meta.env.DEV ? lazy(() => import("./components/dev/DemoAccountSwitcher")) : null;
 const AboutPage = lazy(() => import("./pages/AboutPage"));
 const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
@@ -177,6 +179,11 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
+        {DemoAccountSwitcher && (
+          <Suspense fallback={null}>
+            <DemoAccountSwitcher />
+          </Suspense>
+        )}
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
