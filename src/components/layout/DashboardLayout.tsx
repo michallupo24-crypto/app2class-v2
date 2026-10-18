@@ -2,6 +2,8 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { useAuth } from "@/hooks/useAuth";
+import { useSchoolGuidelines } from "@/hooks/useSchoolGuidelines";
+import { disabledPages } from "@/lib/schoolSetup";
 import { Bell, Clock, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,8 +21,8 @@ import NotificationBell from "@/components/notifications/NotificationBell";
 const STAFF = "staff";
 const ROUTE_ROLES: Record<string, string[] | typeof STAFF> = {
   "teacher-home": STAFF, "live-lesson": STAFF, "roll-call": STAFF, "absence-justifications": STAFF,
-  "teacher-assignments": STAFF, "task-studio": STAFF, "teacher-grades": STAFF, "seating": STAFF, "my-classes": STAFF,
-  "admin": [], "system-org-tree": [],
+  "teacher-assignments": STAFF, "task-studio": STAFF, "teacher-grades": STAFF, "seating": STAFF, "my-classes": STAFF, "teaching": STAFF,
+  "admin": [], "system-org-tree": [], "school-settings": ["management"],
   "principal": ["management"], "team-roles": ["management"],
   "counselor-home": ["counselor"], "counselor-cases": ["counselor"],
   "subject-coordinator-home": ["subject_coordinator", "management"], "syllabus-planner": ["subject_coordinator", "management"],
@@ -47,6 +49,7 @@ const DashboardLayout = () => {
   const { profile, loading, logout, refresh } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const guidelines = useSchoolGuidelines(profile?.schoolId);
 
   if (loading) {
     return (
@@ -84,15 +87,22 @@ const DashboardLayout = () => {
           </div>
           <h1 className="font-heading font-bold text-xl">החשבון שלך ממתין לאישור</h1>
           <p className="text-sm text-muted-foreground">
-            תקבל/י גישה מלאה למערכת לאחר אישור הגורם המוסמך בבית הספר.
+            {profile.schoolId
+              ? "תקבל/י גישה מלאה למערכת לאחר אישור הגורם המוסמך בבית הספר."
+              : "אם רשמת בית ספר חדש, הוא ייפתח לאחר אישור מנהל המערכת."}
           </p>
+          {!profile.schoolId && (
+            <Button variant="secondary" onClick={() => navigate("/register/school")}>לבקשת רישום בית הספר</Button>
+          )}
           <Button variant="outline" onClick={logout}>התנתקות</Button>
         </div>
       </div>
     );
   }
 
-  if (!canOpen(location.pathname, profile.roles)) {
+  const page = location.pathname.replace(/^\/dashboard\/?/, "").split("/")[0];
+  const managesSchool = profile.roles.some((r) => ["management", "system_admin", "super_admin"].includes(r));
+  if (!canOpen(location.pathname, profile.roles) || (!managesSchool && disabledPages(guidelines).has(page))) {
     return <Navigate to="/dashboard" replace />;
   }
 

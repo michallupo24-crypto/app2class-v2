@@ -20,6 +20,8 @@ import {
 import type { UserProfile } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useSchoolGuidelines } from "@/hooks/useSchoolGuidelines";
+import { disabledPages } from "@/lib/schoolSetup";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -101,6 +103,7 @@ function getNavItems(profile: UserProfile): { primary: NavItem[]; overflow: NavI
         { title: "ציונים", url: "/dashboard/teacher-grades", icon: BarChart3 },
       ],
       overflow: [
+        { title: "המקצועות שלי", url: "/dashboard/teaching", icon: BookOpen },
         { title: "כיתות", url: "/dashboard/my-classes", icon: Users },
         { title: "מפת הושבה", url: "/dashboard/seating", icon: LayoutGrid },
         { title: "אישורי טיולים", url: "/dashboard/event-approvals", icon: FileSignature },
@@ -124,6 +127,7 @@ function getNavItems(profile: UserProfile): { primary: NavItem[]; overflow: NavI
   if (isEducator) {
     adminOverflow.push({ title: "משימות", url: "/dashboard/teacher-assignments", icon: FileText });
   }
+  if (roles.includes("management")) adminOverflow.push({ title: "הגדרות בית הספר", url: "/dashboard/school-settings", icon: Shield });
   adminOverflow.push({ title: "ניהול", url: "/dashboard/admin", icon: Shield });
   adminOverflow.push({ title: "שיחות", url: "/dashboard/chat", icon: MessageCircle });
 
@@ -135,7 +139,13 @@ export function MobileBottomNav({ profile }: MobileBottomNavProps) {
   const navigate = useNavigate();
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const { primary, overflow } = getNavItems(profile);
+  const guidelines = useSchoolGuidelines(profile.schoolId);
+  const managesSchool = profile.roles.some((r) => ["management", "system_admin", "super_admin"].includes(r));
+  const hidden = managesSchool ? new Set<string>() : disabledPages(guidelines);
+  const visible = (i: NavItem) => !hidden.has(i.url.replace("/dashboard/", ""));
+  const nav = getNavItems(profile);
+  const primary = nav.primary.filter(visible);
+  const overflow = nav.overflow.filter(visible);
 
   const isActive = (url: string) => {
     if (url === "/dashboard") return location.pathname === "/dashboard";

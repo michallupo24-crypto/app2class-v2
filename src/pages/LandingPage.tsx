@@ -124,6 +124,17 @@ const LandingPage = () => {
         </Button>
       </motion.div>
 
+      <motion.button
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.8 }}
+        onClick={() => navigate("/register/school")}
+        className="mt-5 flex items-center gap-2 rounded-full border-[2.5px] border-dashed border-border px-4 py-2 font-body text-[13.5px] font-bold text-text-secondary hover:border-primary hover:text-foreground"
+      >
+        <Building2 className="h-4 w-4" />
+        בית ספר חדש? רישום בית ספר למערכת
+      </motion.button>
+
       <div className="mt-8 flex gap-4 text-xs text-muted-foreground">
         <button onClick={() => navigate("/about")} className="hover:text-foreground underline underline-offset-2">
           מה זה App2Class?

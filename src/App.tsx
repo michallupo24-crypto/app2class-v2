@@ -18,6 +18,7 @@ const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
 const StudentRegistration = lazy(() => import("./pages/register/StudentRegistration"));
 const ParentRegistration = lazy(() => import("./pages/register/ParentRegistration"));
 const StaffRegistration = lazy(() => import("./pages/register/StaffRegistration"));
+const SchoolRegistration = lazy(() => import("./pages/register/SchoolRegistration"));
 const DashboardLayout = lazy(() => import("./components/layout/DashboardLayout"));
 const DashboardHome = lazy(() => import("./pages/dashboard/DashboardHome"));
 const ApprovalsPage = lazy(() => import("./pages/dashboard/ApprovalsPage"));
@@ -75,6 +76,8 @@ const SupportPage = lazy(() => import("./pages/dashboard/SupportPage"));
 const FinanceHubPage = lazy(() => import("./pages/dashboard/FinanceHubPage"));
 const ExamArchivePage = lazy(() => import("./pages/dashboard/ExamArchivePage"));
 const MyClassesPage = lazy(() => import("./pages/dashboard/MyClassesPage"));
+const TeacherSubjectsPage = lazy(() => import("./pages/dashboard/TeacherSubjectsPage"));
+const SchoolSettingsPage = lazy(() => import("./pages/dashboard/SchoolSettingsPage"));
 const TimetableBuilderPage = lazy(() => import("./pages/dashboard/TimetableBuilderPage"));
 const DocumentsPage = lazy(() => import("./pages/dashboard/DocumentsPage"));
 const PresentationsPage = lazy(() => import("./pages/dashboard/PresentationsPage"));
@@ -106,6 +109,7 @@ const App = () => (
             <Route path="/register/student" element={<StudentRegistration />} />
             <Route path="/register/parent" element={<ParentRegistration />} />
             <Route path="/register/staff" element={<StaffRegistration />} />
+            <Route path="/register/school" element={<SchoolRegistration />} />
             <Route path="/dashboard" element={<DashboardLayout />}>
               <Route index element={<DashboardHome />} />
               <Route path="approvals" element={<ApprovalsPage />} />
@@ -150,6 +154,8 @@ const App = () => (
               <Route path="task-studio" element={<TaskStudioPage />} />
               <Route path="teacher-grades" element={<TeacherGradesPage />} />
               <Route path="my-classes" element={<MyClassesPage />} />
+              <Route path="teaching" element={<TeacherSubjectsPage />} />
+              <Route path="school-settings" element={<SchoolSettingsPage />} />
               <Route path="assign-teachers" element={<TeacherAssignmentPage />} />
               <Route path="subject-coordinator-home" element={<SubjectCoordinatorDashboard />} />
               <Route path="support" element={<SupportPage />} />

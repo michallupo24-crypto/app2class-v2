@@ -6,6 +6,7 @@ import {
   School, HeartHandshake, UserRound, CalendarClock, XCircle,
   Bell, BellOff, Pencil, Trash2, CheckCheck, Reply, Paperclip,
   Settings, LogOut, UserMinus, FileText, Image as ImageIcon,
+  ChevronDown, GraduationCap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,12 +30,14 @@ import type { AvatarConfig } from "@/components/avatar/AvatarStudio";
 import { extractDocumentText, isExtractableDocument, isImageFile } from "@/lib/fileExtraction";
 import { requestImageOcr } from "@/lib/fileOcr";
 import { avatarFromRow } from "@/components/avatar/avatarModel";
-import { SubjectTile, subjectStickerId } from "@/components/SubjectSticker";
+import { SubjectSticker, subjectStickerId } from "@/components/SubjectSticker";
+import { STICKER_GROUPS } from "@/lib/subjectStickers";
+import { useSchoolGuidelines } from "@/hooks/useSchoolGuidelines";
 
 /* ─── Types ───────────────────────────────────────────── */
 type ConversationType = 
   | "direct" | "class" | "grade" | "subject" | "announcement" | "parent_teacher" | "counseling" | "parent_class" | "parent_grade"
-  | "private" | "group" | "class_subject" | "class_homeroom" | "class_parent_group" | "grade_parent_group";
+  | "private" | "group" | "class_subject" | "class_homeroom" | "class_parent_group" | "grade_parent_group" | "staff_team";
 
 interface Conversation {
   id: string;
@@ -58,6 +61,18 @@ interface Conversation {
   participantCount: number;
   participantPreview: string;
   muted: boolean;
+  /** Set for system-managed groups (class / class x subject / staff team). */
+  autoKey: string | null;
+  /** Subject whose sticker is the group's logo. */
+  iconSubject: string | null;
+}
+
+interface ClassTeacher {
+  user_id: string;
+  full_name: string;
+  subjects: string[];
+  is_homeroom: boolean;
+  class_label: string;
 }
 
 interface Message {
@@ -118,6 +133,7 @@ const CHANNEL_SECTIONS: { types: ConversationType[]; title: string }[] = [
   { types: ["class_parent_group", "grade_parent_group"], title: "קהילת הורים" },
   { types: ["counseling"], title: "מרחב ייעוץ" },
   { types: ["parent_teacher"], title: "הורה–מורה" },
+  { types: ["staff_team"], title: "צוותי הוראה" },
   { types: ["class_subject"], title: "מקצועות" },
   { types: ["class_homeroom"], title: "חדר הכיתה" },
   { types: ["group"], title: "קבוצות" },
@@ -241,7 +257,22 @@ const ChatPage = () => {
   const [groupAddQuery, setGroupAddQuery] = useState("");
   const [groupAddResults, setGroupAddResults] = useState<SearchUser[]>([]);
 
+  // Automatic class groups sit behind one "קבוצות כיתה" row.
+  const [classGroupsOpen, setClassGroupsOpen] = useState(false);
+  const [showClassTeachers, setShowClassTeachers] = useState(false);
+  const [classTeachers, setClassTeachers] = useState<ClassTeacher[] | null>(null);
+
   const canSetPresence = profile.roles.some((r) => STAFF_PRESENCE_ROLES.has(r));
+  const isStaff = profile.roles.some((r) => r !== "student" && r !== "parent");
+  // School guidelines: private messages to teachers and the automatic class groups can be turned off.
+  const guidelines = useSchoolGuidelines(profile.schoolId);
+  const isStudentUser = profile.roles.includes("student");
+  const isParentUser = profile.roles.includes("parent");
+  const mayMessageTeachers =
+    !guidelines ||
+    (isStudentUser ? guidelines.chat.studentTeacherMessaging : isParentUser ? guidelines.chat.parentTeacherMessaging : true);
+  const canSeeClassTeachers = (isStudentUser || isParentUser) && mayMessageTeachers;
+  const showClassGroups = !guidelines || guidelines.chat.classGroups;
 
   /* ── Quiet hours ─────────────────────────────────────── */
   useEffect(() => {
@@ -353,8 +384,16 @@ const ChatPage = () => {
   };
 
   /* ── Load conversations (batched, no N+1) ───────────── */
+  const syncedGroupsRef = useRef(false);
   const loadConversations = useCallback(async () => {
     setLoadingConvos(true);
+
+    // Create / refresh the automatic class, subject and staff-team groups once per visit.
+    if (!syncedGroupsRef.current) {
+      syncedGroupsRef.current = true;
+      const { error: syncErr } = await supabase.rpc("sync_school_chat_groups" as any, {});
+      if (syncErr) console.warn("sync_school_chat_groups:", syncErr.message);
+    }
 
     // 1. Get all conversation IDs I'm in
     const { data: myParts } = await supabase
@@ -507,6 +546,8 @@ const ChatPage = () => {
         participantCount: parts.length,
         participantPreview,
         muted: mutedMap.get(c.id) || false,
+        autoKey: c.auto_key ?? null,
+        iconSubject: c.icon_subject ?? null,
       };
     });
 
@@ -905,6 +946,11 @@ const ChatPage = () => {
 
   /* ── Start / find DM ─────────────────────────────────── */
   const startDM = async (user: SearchUser) => {
+    const peerIsStaff = !!user.roleLabel && !user.roleLabel.split(", ").every((l) => l === "תלמיד/ה" || l === "הורה");
+    if (!mayMessageTeachers && peerIsStaff) {
+      toast({ title: "לא ניתן לפנות למורים בפרטי", description: "לפי הנחיות בית הספר, הפנייה לצוות היא דרך קבוצות הכיתה." });
+      return;
+    }
     // Already open in this session's list - no round-trip needed.
     const existing = conversations.find(
       (c) => c.type === "private" && c.otherUserId === user.user_id,
@@ -1363,6 +1409,31 @@ const ChatPage = () => {
     setShowGroupInfo(true);
   };
 
+  const setGroupIcon = async (iconSubject: string) => {
+    if (!selectedId) return;
+    const { error } = await supabase.rpc("set_chat_group_icon" as any, {
+      p_conversation_id: selectedId,
+      p_icon_subject: iconSubject,
+    });
+    if (error) {
+      toast({ title: "שגיאה בשינוי הלוגו", description: error.message, variant: "destructive" });
+      return;
+    }
+    setConversations((prev) => prev.map((c) => (c.id === selectedId ? { ...c, iconSubject } : c)));
+  };
+
+  const openClassTeachers = async () => {
+    setShowClassTeachers(true);
+    if (classTeachers) return;
+    const { data, error } = await supabase.rpc("get_my_class_teachers" as any);
+    if (error) {
+      toast({ title: "שגיאה בטעינת מורי הכיתה", description: error.message, variant: "destructive" });
+      setClassTeachers([]);
+      return;
+    }
+    setClassTeachers((data as ClassTeacher[]) || []);
+  };
+
   const renameGroup = async () => {
     if (!selectedId || !groupInfoName.trim()) return;
     const title = groupInfoName.trim();
@@ -1503,11 +1574,25 @@ const ChatPage = () => {
     });
   }, [conversations, listFilter]);
 
+  const isClassAutoGroup = (c: Conversation) =>
+    !!c.autoKey && (c.autoKey.startsWith("class:") || c.autoKey.startsWith("subj:"));
+
+  // Homeroom group first, then the subjects alphabetically.
+  const classGroups = useMemo(
+    () =>
+      (showClassGroups ? filteredConversations.filter(isClassAutoGroup) : []).sort((a, b) =>
+        a.type !== b.type ? (a.type === "class_homeroom" ? -1 : 1) : a.otherName.localeCompare(b.otherName, "he"),
+      ),
+    [filteredConversations, showClassGroups],
+  );
+  const classGroupsUnread = classGroups.reduce((n, c) => n + (c.muted ? 0 : c.unreadCount), 0);
+
   const groupedConversationSections = useMemo(() => {
     const knownTypes = new Set(CHANNEL_SECTIONS.flatMap((s) => s.types));
+    const rest = filteredConversations.filter((c) => !isClassAutoGroup(c));
     const sections = CHANNEL_SECTIONS.map((sec) => ({
       title: sec.title,
-      items: filteredConversations
+      items: rest
         .filter((c) => sec.types.includes(c.type))
         .sort(
           (a, b) =>
@@ -1515,7 +1600,7 @@ const ChatPage = () => {
         ),
     })).filter((s) => s.items.length > 0);
 
-    const other = filteredConversations.filter((c) => !knownTypes.has(c.type));
+    const other = rest.filter((c) => !knownTypes.has(c.type));
     if (other.length > 0) {
       sections.push({
         title: "אחר",
@@ -1538,7 +1623,16 @@ const ChatPage = () => {
     return d.toLocaleDateString("he-IL", { day: "numeric", month: "short" });
   };
 
+  /** The group's logo: the teacher's pick, else the subject's own sticker. */
+  const groupLogoSubject = (c: Conversation | undefined): string | null => {
+    if (!c || c.type === "private") return null;
+    if (c.iconSubject && subjectStickerId(c.iconSubject)) return c.iconSubject;
+    if (c.type === "class_subject" && subjectStickerId(c.subject || c.otherName)) return c.subject || c.otherName;
+    return null;
+  };
+
   const typeIcon = (type: string) => {
+    if (type === "staff_team") return <GraduationCap className="h-4 w-4" />;
     if (type === "group") return <Users className="h-4 w-4" />;
     if (type === "class_subject") return <BookOpen className="h-4 w-4" />;
     if (type === "class_homeroom") return <School className="h-4 w-4" />;
@@ -1550,6 +1644,7 @@ const ChatPage = () => {
   };
 
   const typeColor = (type: string) => {
+    if (type === "staff_team") return "bg-[#7C5CD6] text-white";
     if (type === "group") return "bg-[#F0A21A] text-white";
     if (type === "class_subject") return "bg-[#3B7BF2] text-white";
     if (type === "class_homeroom") return "bg-[#F2668B] text-white";
@@ -1574,8 +1669,8 @@ const ChatPage = () => {
           {c.type === "private" && c.otherAvatar ? (
             <AvatarPreview config={c.otherAvatar} size={42} />
           ) : (
-            c.type === "class_subject" && subjectStickerId(c.otherName) ? (
-              <div className="-rotate-[5deg]"><SubjectTile subject={c.otherName} size={40} /></div>
+            groupLogoSubject(c) ? (
+              <SubjectSticker subject={groupLogoSubject(c)!} size={40} tilt />
             ) : (
               <div className={`w-10 h-10 rounded-[13px] border-[2.5px] border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] flex items-center justify-center -rotate-[5deg] dark:border-card ${typeColor(c.type)}`}>
                 {typeIcon(c.type)}
@@ -1603,7 +1698,9 @@ const ChatPage = () => {
                 ? c.lastMessage.is_deleted
                   ? "ההודעה נמחקה"
                   : c.lastMessage.is_flagged ? "⚠️ " + c.lastMessage.content : c.lastMessage.content
-                : c.otherRoleLabel || "אין הודעות"}
+                : c.type !== "private" && c.participantCount > 0
+                  ? `${c.participantCount} משתתפים`
+                  : c.otherRoleLabel || "אין הודעות"}
             </p>
             {c.unreadCount > 0 && (
               <span className="shrink-0 min-w-[18px] h-[18px] px-[5px] rounded-full bg-link text-white font-heading text-[10.5px] font-black flex items-center justify-center">
@@ -1800,13 +1897,64 @@ const ChatPage = () => {
                 <p className="font-heading font-medium text-muted-foreground">אין שיחות עדיין</p>
                 <p className="text-xs text-muted-foreground mt-1">לחץ + כדי להתחיל שיחה חדשה</p>
               </div>
-            ) : groupedConversationSections.length === 0 ? (
+            ) : groupedConversationSections.length === 0 && classGroups.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
                 <Search className="h-10 w-10 text-muted-foreground/20 mb-2" />
                 <p className="text-sm text-muted-foreground">לא נמצאו שיחות לפי החיפוש</p>
               </div>
             ) : (
-              groupedConversationSections.map((sec) => (
+              <>
+              {(classGroups.length > 0 || canSeeClassTeachers) && (
+                <div className="flex flex-col gap-[3px] px-2.5 pt-3.5">
+                  {classGroups.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setClassGroupsOpen((o) => !o)}
+                      aria-expanded={classGroupsOpen || !!listFilter.trim()}
+                      className="w-full flex items-center gap-[11px] px-2.5 py-[9px] rounded-row text-right hover:bg-card/70 transition-colors"
+                    >
+                      <div className="w-10 h-10 shrink-0 rounded-[13px] border-[2.5px] border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] flex items-center justify-center -rotate-[5deg] bg-[#F2668B] text-white dark:border-card">
+                        <School className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-heading text-sm font-extrabold leading-tight text-foreground">קבוצות כיתה</p>
+                        <p className="mt-[5px] font-body text-[12.5px] font-semibold text-muted-foreground truncate">
+                          {classGroups.length} קבוצות · הכיתה וכל המקצועות
+                        </p>
+                      </div>
+                      {classGroupsUnread > 0 && (
+                        <span className="shrink-0 min-w-[18px] h-[18px] px-[5px] rounded-full bg-link text-white font-heading text-[10.5px] font-black flex items-center justify-center">
+                          {classGroupsUnread > 9 ? "9+" : classGroupsUnread}
+                        </span>
+                      )}
+                      <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${classGroupsOpen || listFilter.trim() ? "rotate-180" : ""}`} />
+                    </button>
+                  )}
+                  {(classGroupsOpen || !!listFilter.trim()) && classGroups.length > 0 && (
+                    <div className="flex flex-col gap-[3px] border-r-2 border-border/60 mr-[30px] pr-1">
+                      {classGroups.map((c) => <ConvoRow key={c.id} c={c} />)}
+                    </div>
+                  )}
+                  {canSeeClassTeachers && (
+                    <button
+                      type="button"
+                      onClick={openClassTeachers}
+                      className="w-full flex items-center gap-[11px] px-2.5 py-[9px] rounded-row text-right hover:bg-card/70 transition-colors"
+                    >
+                      <div className="w-10 h-10 shrink-0 rounded-[13px] border-[2.5px] border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] flex items-center justify-center rotate-[4deg] bg-[#3B7BF2] text-white dark:border-card">
+                        <GraduationCap className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-heading text-sm font-extrabold leading-tight text-foreground">מורי הכיתה</p>
+                        <p className="mt-[5px] font-body text-[12.5px] font-semibold text-muted-foreground truncate">
+                          שליחת הודעה אישית למורה
+                        </p>
+                      </div>
+                    </button>
+                  )}
+                </div>
+              )}
+              {groupedConversationSections.map((sec) => (
                 <div key={sec.title} className="flex flex-col gap-[3px] px-2.5 pt-3.5">
                   <div className="px-2 pb-1 font-body text-[11.5px] font-extrabold text-text-secondary">
                     {sec.title}
@@ -1815,7 +1963,8 @@ const ChatPage = () => {
                     <ConvoRow key={c.id} c={c} />
                   ))}
                 </div>
-              ))
+              ))}
+              </>
             )}
           </ScrollArea>
         </div>
@@ -1834,6 +1983,8 @@ const ChatPage = () => {
               <div className="px-4 py-3 border-b border-border flex items-center gap-3 shrink-0">
                 {selectedConvo?.type === "private" && selectedConvo.otherAvatar ? (
                   <AvatarPreview config={selectedConvo.otherAvatar} size={36} />
+                ) : groupLogoSubject(selectedConvo) ? (
+                  <SubjectSticker subject={groupLogoSubject(selectedConvo)!} size={36} />
                 ) : (
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${typeColor(selectedConvo?.type || "private")}`}>
                     {typeIcon(selectedConvo?.type || "private")}
@@ -1882,7 +2033,7 @@ const ChatPage = () => {
                       {selectedConvo.muted ? <BellOff className="h-3.5 w-3.5 text-muted-foreground" /> : <Bell className="h-3.5 w-3.5" />}
                     </Button>
                   )}
-                  {selectedConvo?.type === "group" && (
+                  {(selectedConvo?.type === "group" || selectedConvo?.autoKey) && (
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={openGroupInfo} title="פרטי קבוצה">
                       <Settings className="h-3.5 w-3.5" />
                     </Button>
@@ -2344,7 +2495,7 @@ const ChatPage = () => {
             <DialogTitle className="font-heading">פרטי קבוצה</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="flex gap-2">
+            {!selectedConvo?.autoKey && <div className="flex gap-2">
               <Input
                 value={groupInfoName}
                 onChange={(e) => setGroupInfoName(e.target.value)}
@@ -2358,7 +2509,7 @@ const ChatPage = () => {
               >
                 שמור שם
               </Button>
-            </div>
+            </div>}
 
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">
@@ -2378,7 +2529,38 @@ const ChatPage = () => {
               </div>
             </div>
 
-            {selectedConvo?.created_by === profile.id && (
+            {isStaff && selectedConvo && selectedConvo.type !== "private" && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">לוגו הקבוצה</p>
+                <div className="max-h-44 overflow-y-auto rounded-lg border border-border p-2 space-y-2">
+                  {STICKER_GROUPS.map(([group, items]) => (
+                    <div key={group}>
+                      <p className="text-[10px] font-semibold text-muted-foreground mb-1">{group}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {items.map(([id, name]) => {
+                          const on = groupLogoSubject(selectedConvo) === name || selectedConvo.iconSubject === name;
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              title={name}
+                              aria-label={name}
+                              aria-pressed={on}
+                              onClick={() => setGroupIcon(name)}
+                              className={`rounded-xl p-0.5 transition ${on ? "ring-2 ring-primary" : "hover:bg-muted"}`}
+                            >
+                              <SubjectSticker subject={name} size={30} flat />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedConvo?.created_by === profile.id && !selectedConvo?.autoKey && (
               <div>
                 <div className="relative">
                   <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -2407,10 +2589,59 @@ const ChatPage = () => {
               </div>
             )}
 
-            <Button variant="outline" className="w-full gap-1.5 text-destructive border-destructive/30" onClick={leaveGroup}>
-              <LogOut className="h-3.5 w-3.5" />צא/י מהקבוצה
-            </Button>
+            {selectedConvo?.autoKey ? (
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                קבוצה אוטומטית: החברים מתעדכנים לפי שיבוץ הכיתות והמקצועות. אפשר להשתיק אותה, אבל לא לצאת ממנה.
+              </p>
+            ) : (
+              <Button variant="outline" className="w-full gap-1.5 text-destructive border-destructive/30" onClick={leaveGroup}>
+                <LogOut className="h-3.5 w-3.5" />צא/י מהקבוצה
+              </Button>
+            )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Class teachers: message any of them directly */}
+      <Dialog open={showClassTeachers} onOpenChange={setShowClassTeachers}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-heading">מורי הכיתה</DialogTitle>
+          </DialogHeader>
+          {classTeachers === null ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">טוען…</p>
+          ) : classTeachers.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">עדיין לא שובצו מורים לכיתה</p>
+          ) : (
+            <div className="max-h-[60vh] overflow-y-auto -mx-2">
+              {classTeachers.map((t) => (
+                <button
+                  key={t.user_id}
+                  type="button"
+                  onClick={() => {
+                    setShowClassTeachers(false);
+                    startDM({ user_id: t.user_id, full_name: t.full_name, avatar: null, roleLabel: t.is_homeroom ? "מחנך/ת" : "מורה" });
+                  }}
+                  className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-muted/60 text-right"
+                >
+                  {t.subjects[0] ? (
+                    <SubjectSticker subject={t.subjects[0]} size={34} flat />
+                  ) : (
+                    <div className="w-[34px] h-[34px] rounded-xl bg-[#F2668B] text-white flex items-center justify-center">
+                      <School className="h-4 w-4" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-heading text-sm font-bold truncate">{t.full_name}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {[t.is_homeroom ? `מחנך/ת ${t.class_label}` : null, ...t.subjects].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                  <MessageCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                </button>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

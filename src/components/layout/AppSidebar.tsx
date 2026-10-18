@@ -40,6 +40,8 @@ import {
 import { NavLink } from "@/components/NavLink";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
 import type { UserProfile } from "@/hooks/useAuth";
+import { useSchoolGuidelines } from "@/hooks/useSchoolGuidelines";
+import { disabledPages } from "@/lib/schoolSetup";
 import {
   Sidebar,
   SidebarContent,
@@ -77,6 +79,7 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
+  const guidelines = useSchoolGuidelines(profile.schoolId);
   const { state } = useSidebar();
   const navigate = useNavigate();
   const collapsed = state === "collapsed";
@@ -120,6 +123,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
   // Teacher navigation
   const teacherItems: { title: string; url: string; icon: any }[] = [
     { title: "דאשבורד", url: "/dashboard/teacher-home", icon: LayoutDashboard },
+    { title: "המקצועות שלי", url: "/dashboard/teaching", icon: BookOpen },
     { title: "שיעור חי", url: "/dashboard/live-lesson", icon: Activity },
     { title: "הקראת שמות", url: "/dashboard/roll-call", icon: ClipboardList },
     { title: "הצדקות היעדרות", url: "/dashboard/absence-justifications", icon: FileCheck2 },
@@ -213,6 +217,7 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
   if (isManagement || isAdmin) {
     adminItems.push({ title: "בניית מערכת שעות", url: "/dashboard/timetable-builder", icon: Wand2 });
     adminItems.push({ title: "ניהול תפקידי צוות", url: "/dashboard/team-roles", icon: UserCog });
+    adminItems.push({ title: "הגדרות בית הספר", url: "/dashboard/school-settings", icon: Settings });
     adminItems.push({ title: "מועצת תלמידים", url: "/dashboard/council", icon: Landmark });
     adminItems.push({ title: "עיתון בית הספר", url: "/dashboard/newspaper", icon: Newspaper });
     adminItems.push({ title: "מרכז תשלומים", url: "/dashboard/finance-hub", icon: Wallet });
@@ -230,7 +235,9 @@ export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
     return adminItems;
   };
 
-  const mainItems = getItems();
+  // Features the school turned off in its guidelines (management still sees them).
+  const hidden = isManagement || isAdmin ? new Set<string>() : disabledPages(guidelines);
+  const mainItems = getItems().filter((i) => !hidden.has(i.url.replace("/dashboard/", "")));
 
   return (
     <Sidebar side="right" collapsible="icon" className="border-r-0 border-l border-border [&_[data-sidebar=sidebar]]:bg-card/80 [&_[data-sidebar=sidebar]]:backdrop-blur">

@@ -67,6 +67,20 @@ const StaffRegistration = () => {
     });
   }, []);
 
+  // The chosen school's own subjects and roles, when it defined them at registration.
+  const [schoolInfo, setSchoolInfo] = useState<{ roles: string[] | null; subjects: string[] }>({ roles: null, subjects: [] });
+  useEffect(() => {
+    if (!schoolId) return;
+    supabase.rpc("get_school_registration_info" as any, { p_school_id: schoolId }).then(({ data }) => {
+      const d = (data || {}) as { roles?: string[] | null; subjects?: string[] };
+      setSchoolInfo({ roles: d.roles || null, subjects: d.subjects || [] });
+    });
+  }, [schoolId]);
+  const subjectOptions = schoolInfo.subjects.length ? schoolInfo.subjects : SUBJECTS;
+  const roleOptions = STAFF_ROLES.filter(
+    (r) => !schoolInfo.roles || ["educator", "professional_teacher", "management"].includes(r.value) || schoolInfo.roles.includes(r.value),
+  );
+
   const toggleRole = (roleValue: string) => {
     setSelectedRoles((prev) => {
       const exists = prev.find((r) => r.value === roleValue);
@@ -301,7 +315,7 @@ const StaffRegistration = () => {
           <div className="border-t border-border pt-5">
             <Label className="font-heading text-lg mb-3 block">בחירת תפקיד/ים</Label>
             <div className="space-y-3">
-              {STAFF_ROLES.map((role) => {
+              {roleOptions.map((role) => {
                 const selected = selectedRoles.find((r) => r.value === role.value);
                 return (
                   <div key={role.value} className={`p-4 rounded-xl border transition-all ${selected ? "border-primary bg-primary/5" : "border-border"}`}>
@@ -350,7 +364,7 @@ const StaffRegistration = () => {
                             <Select value={selected.subject || ""} onValueChange={(v) => updateRole(role.value, "subject", v)}>
                               <SelectTrigger><SelectValue placeholder="בחר מקצוע" /></SelectTrigger>
                               <SelectContent>
-                                {SUBJECTS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                {subjectOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                               </SelectContent>
                             </Select>
                           </div>

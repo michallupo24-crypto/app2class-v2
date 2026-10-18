@@ -152,10 +152,15 @@ const SubjectDetailPage = () => {
         return;
       }
 
+      // Prefer the automatic class x subject group (sync_school_chat_groups);
+      // the hand-made channel below is the fallback for schools without a timetable.
+      await supabase.rpc("sync_school_chat_groups" as any, {});
       const { data: existing } = await supabase
         .from("conversations")
         .select("id")
         .eq("type", "class_subject").eq("class_id", p.class_id).eq("subject", subject)
+        .order("auto_key", { ascending: true, nullsFirst: false })
+        .limit(1)
         .maybeSingle();
 
       let convoId = existing?.id as string | undefined;
