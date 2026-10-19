@@ -31,6 +31,7 @@ const RollCallPage = lazy(() => import("./pages/dashboard/RollCallPage"));
 const AbsenceJustificationsPage = lazy(() => import("./pages/dashboard/AbsenceJustificationsPage"));
 const MeetingSlotsPage = lazy(() => import("./pages/dashboard/MeetingSlotsPage"));
 const TeacherAssignmentsPage = lazy(() => import("./pages/dashboard/TeacherAssignmentsPage"));
+const AssignmentSubmissionsPage = lazy(() => import("./pages/dashboard/AssignmentSubmissionsPage"));
 const TeacherGradesPage = lazy(() => import("./pages/dashboard/TeacherGradesPage"));
 const TaskStudioPage = lazy(() => import("./pages/dashboard/TaskStudioPage"));
 const SyllabusPlannerPage = lazy(() => import("./pages/dashboard/SyllabusPlannerPage"));
@@ -151,6 +152,7 @@ const App = () => (
               <Route path="seating" element={<SeatingMapPage />} />
               <Route path="live-lesson" element={<TeacherLiveLessonPage />} />
               <Route path="teacher-assignments" element={<TeacherAssignmentsPage />} />
+              <Route path="assignments/:assignmentId/submissions" element={<AssignmentSubmissionsPage />} />
               <Route path="task-studio" element={<TaskStudioPage />} />
               <Route path="teacher-grades" element={<TeacherGradesPage />} />
               <Route path="my-classes" element={<MyClassesPage />} />

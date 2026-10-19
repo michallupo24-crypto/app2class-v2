@@ -18,6 +18,7 @@ import { buildSandboxHtml } from "@/components/task-studio/ide/sandboxBuilder";
 import { StudentSolveEditor } from "@/components/task-studio/ide/StudentSolveEditor";
 import type { TaskLanguage } from "@/components/task-studio/ide/types";
 import { tierForAverage } from "@/lib/adaptiveTier";
+import { serializeQuizAnswers, type QuizAnswer } from "@/lib/quizAnswers";
 import {
   fetchAssignmentRules, shuffleArray, hasExistingAttempt, getNextAttemptNumber,
   startFocusGuard, type AssignmentRules, type FocusGuardHandle,
@@ -78,6 +79,9 @@ const StudentPracticePage = () => {
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
   const [wrongIds, setWrongIds] = useState<string[]>([]);
+  // Saved with the submission (as quiz-answers JSON in `content`) so the
+  // teacher's submissions view can show what each student actually answered.
+  const answerLogRef = useRef<QuizAnswer[]>([]);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   // Flashcard state
@@ -359,6 +363,7 @@ const StudentPracticePage = () => {
     setSelected(null);
     setAnswered(false);
     setWrongIds([]);
+    answerLogRef.current = [];
     setFlipped(false);
     setFcIdx(0);
     setOpenAnswer("");
@@ -389,6 +394,12 @@ const StudentPracticePage = () => {
     setAnswered(true);
     const isCorrect = ans.trim().toLowerCase() === (currentQ?.correct_answer || "").trim().toLowerCase();
     setCorrect(isCorrect);
+    if (currentQ) {
+      answerLogRef.current.push({
+        questionId: currentQ.id, questionText: currentQ.question_text,
+        answer: ans, correctAnswer: currentQ.correct_answer || "", correct: isCorrect,
+      });
+    }
     if (isCorrect) setScore(s => s + 1);
     else {
       setWrongIds(prev => [...prev, currentQ.id]);
@@ -463,6 +474,7 @@ const StudentPracticePage = () => {
     const timeSpentSeconds = practiceStartedAt ? Math.round((Date.now() - practiceStartedAt) / 1000) : null;
     const attemptNumber = await getNextAttemptNumber(assignmentId, profile.id);
     const grade = rules.dataHookAutoGrade ? pct : null;
+    const answersContent = answerLogRef.current.length ? serializeQuizAnswers(answerLogRef.current) : null;
     try {
       const { data: existing } = await supabase.from("submissions")
         .select("id").eq("assignment_id", assignmentId).eq("student_id", profile.id).maybeSingle();
@@ -470,6 +482,7 @@ const StudentPracticePage = () => {
         const { error } = await supabase.from("submissions").update({
           grade, status: "submitted" as any, submitted_at: new Date().toISOString(),
           attempt_number: attemptNumber, time_spent_seconds: timeSpentSeconds, focus_violations: violations,
+          content: answersContent,
         }).eq("id", existing.id);
         if (error) throw error;
       } else {
@@ -477,6 +490,7 @@ const StudentPracticePage = () => {
           assignment_id: assignmentId, student_id: profile.id,
           grade, status: "submitted" as any, submitted_at: new Date().toISOString(),
           attempt_number: attemptNumber, time_spent_seconds: timeSpentSeconds, focus_violations: violations,
+          content: answersContent,
         });
         if (error) throw error;
       }
