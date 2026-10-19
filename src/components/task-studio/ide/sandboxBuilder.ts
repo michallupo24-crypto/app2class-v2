@@ -122,9 +122,10 @@ export function buildSandboxHtml(options: BuildSandboxOptions): string {
           onLoadState: function(callback) {
             if (typeof callback === 'function') {
               stateLoadListeners.push(callback);
-              if (window.__INITIAL_STATE__) {
-                callback(window.__INITIAL_STATE__);
-              }
+              // Always answer once, with null when there's no saved state: tasks
+              // commonly render their first screen inside this callback, and
+              // nothing ever posts 'state-load' for a fresh start.
+              callback(window.__INITIAL_STATE__ || null);
             }
           }
         };
