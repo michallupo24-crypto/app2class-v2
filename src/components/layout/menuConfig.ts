@@ -68,7 +68,7 @@ export function buildMenu(profile: UserProfile): MenuGroup[] {
   const isExamCoordinator = has("exam_coordinator");
   const hasApprovalPower = isAdmin || isManagement || has("educator") || has("secretary") || has("grade_coordinator");
 
-  const council = isCouncilAdvisor ? [I("מועצת תלמידים", "council")] : [];
+  const council = isCouncilAdvisor ? [I("מועצת תלמידים", "council"), I("הצבעות", "polls")] : [];
   const examBoard = isExamCoordinator ? [I("לוח מבחנים", "master-scheduler")] : [];
 
   let groups: MenuGroup[];
@@ -121,7 +121,7 @@ export function buildMenu(profile: UserProfile): MenuGroup[] {
         items: [I("בניית מערכת שעות", "timetable-builder"), I("ניהול תפקידי צוות", "team-roles"), I("הגדרות בית הספר", "school-settings"), I("ארכיון מבחנים", "exam-archive"),
           ...(isAdmin ? [I("ניהול מערכת", "admin"), I("עץ ארגוני - כלל המערכת", "system-org-tree")] : [])],
       }] : []),
-      { title: "קהילה ותקשורת", icon: "people", color: "#6B5BFF", items: [I("שיחות", "chat"), I("מסמכים", "documents"), ...(leads ? [I("מועצת תלמידים", "council"), I("עיתון בית הספר", "newspaper")] : [])] },
+      { title: "קהילה ותקשורת", icon: "people", color: "#6B5BFF", items: [I("שיחות", "chat"), I("מסמכים", "documents"), ...(leads ? [I("מועצת תלמידים", "council"), I("עיתון בית הספר", "newspaper"), I("הצבעות", "polls")] : council)] },
     ];
   }
 
