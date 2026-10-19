@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useOutletContext, useNavigate } from "react-router-dom";
+import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToolSticker } from "@/components/ToolSticker";
@@ -65,7 +65,11 @@ const TaskStudioPage = () => {
   const navigate = useNavigate();
   const [activeMode, setActiveMode] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("all");
-  const [selectedAssignment, setSelectedAssignment] = useState<string | null>(null);
+  // "הוסף שאלות" on the assignments page deep-links here with the assignment preselected.
+  const location = useLocation();
+  const [selectedAssignment, setSelectedAssignment] = useState<string | null>(
+    (location.state as { assignmentId?: string } | null)?.assignmentId ?? null,
+  );
   const [assignments, setAssignments] = useState<any[]>([]);
   const [pendingGeneratedCode, setPendingGeneratedCode] = useState<{ title?: string; description?: string; htmlCode?: string; cssCode?: string; jsCode?: string } | null>(null);
 
