@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
@@ -69,7 +69,8 @@ const CounselorDashboard = lazy(() => import("./pages/dashboard/CounselorDashboa
 const CounselorCasesPage = lazy(() => import("./pages/dashboard/CounselorCasesPage"));
 const CouncilPage = lazy(() => import("./pages/dashboard/CouncilPage"));
 const NewspaperPage = lazy(() => import("./pages/dashboard/NewspaperPage"));
-const BellVotePage = lazy(() => import("./pages/dashboard/BellVotePage"));
+const PollsPage = lazy(() => import("./pages/dashboard/polls/PollsPage"));
+const PollDetailPage = lazy(() => import("./pages/dashboard/polls/PollDetailPage"));
 const EventApprovalsPage = lazy(() => import("./pages/dashboard/EventApprovalsPage"));
 const SubjectCoordinatorDashboard = lazy(() => import("./pages/dashboard/SubjectCoordinatorDashboard"));
 const SupportPage = lazy(() => import("./pages/dashboard/SupportPage"));
@@ -180,7 +181,9 @@ const App = () => (
               {/* Student Life Hub */}
               <Route path="council" element={<CouncilPage />} />
               <Route path="newspaper" element={<NewspaperPage />} />
-              <Route path="bell-vote" element={<BellVotePage />} />
+              <Route path="polls" element={<PollsPage />} />
+              <Route path="polls/:pollId" element={<PollDetailPage />} />
+              <Route path="bell-vote" element={<Navigate to="/dashboard/polls" replace />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
