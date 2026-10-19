@@ -55,7 +55,7 @@ export function useSmartSeat(classId?: string, lessonId?: string) {
 
             // Grow the grid to fit the saved layout, but never past the limits. Seats saved
             // outside the limit show up as unseated (see unseatedStudents) instead of vanishing.
-            const placed = (seats as any[] || []).filter(s => s.row_index >= 0 && s.col_index >= 0);
+            const placed = [...seatMap.values()].filter(s => s.row_index >= 0 && s.col_index >= 0);
             const neededRows = Math.max(0, ...placed.map(s => s.row_index + 1));
             const neededCols = Math.max(0, ...placed.map(s => s.col_index + 1));
             if (neededRows > MAX_SEAT_ROWS || neededCols > MAX_SEAT_COLS) {
