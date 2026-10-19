@@ -73,7 +73,6 @@ const BellVotePage = lazy(() => import("./pages/dashboard/BellVotePage"));
 const EventApprovalsPage = lazy(() => import("./pages/dashboard/EventApprovalsPage"));
 const SubjectCoordinatorDashboard = lazy(() => import("./pages/dashboard/SubjectCoordinatorDashboard"));
 const SupportPage = lazy(() => import("./pages/dashboard/SupportPage"));
-const FinanceHubPage = lazy(() => import("./pages/dashboard/FinanceHubPage"));
 const ExamArchivePage = lazy(() => import("./pages/dashboard/ExamArchivePage"));
 const MyClassesPage = lazy(() => import("./pages/dashboard/MyClassesPage"));
 const TeacherSubjectsPage = lazy(() => import("./pages/dashboard/TeacherSubjectsPage"));
@@ -159,7 +158,6 @@ const App = () => (
               <Route path="assign-teachers" element={<TeacherAssignmentPage />} />
               <Route path="subject-coordinator-home" element={<SubjectCoordinatorDashboard />} />
               <Route path="support" element={<SupportPage />} />
-              <Route path="finance-hub" element={<FinanceHubPage />} />
               <Route path="exam-archive" element={<ExamArchivePage />} />
               {/* Grade Coordinator routes */}
               <Route path="grade-coordinator-home" element={<GradeCoordinatorDashboard />} />
