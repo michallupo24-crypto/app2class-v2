@@ -50,17 +50,46 @@ serve(async (req) => {
   if (req.method === "OPTIONS")
     return new Response(null, { headers: corsHeaders });
 
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const admin = createClient(supabaseUrl, serviceKey);
+
+  // The sender is whoever is signed in - never an id from the request body,
+  // which let anyone file distress alerts in another student's name.
+  const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  const { data: authData } = jwt ? await admin.auth.getUser(jwt) : { data: { user: null } };
+  const sender_id = authData?.user?.id;
+  if (!sender_id) return json({ error: "Unauthorized" }, 401);
+
   let message = "";
+  let conversation_id: string | undefined;
+
+  // The database only accepts a message whose verdict carries this
+  // signature (enforce_chat_moderation), so skipping this function, or
+  // dropping a flag, makes the insert fail.
+  const signed = async (result: ModResult) => {
+    const flag = !result.blocked && result.flag;
+    let token: string | null = null;
+    if (!result.blocked && conversation_id) {
+      const { data, error } = await admin.rpc("chat_moderation_token", {
+        p_sender: sender_id, p_conversation: conversation_id, p_content: message, p_flagged: flag,
+      });
+      if (error) console.error("sign error:", error.message);
+      token = (data as string) ?? null;
+    }
+    return { ...result, flag, token };
+  };
+
   try {
     const body = await req.json();
     message = String(body.message ?? "");
     const sender_name = String(body.sender_name ?? "");
-    const sender_id = body.sender_id as string | undefined;
-    const conversation_id = body.conversation_id as string | undefined;
+    conversation_id = body.conversation_id as string | undefined;
 
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     let result: ModResult | null = null;
 
@@ -135,8 +164,7 @@ Rules:
     if (!result) result = localModerate(message);
     if (result.blocked) result.flag = false;
 
-    if (result.distress && supabaseUrl && serviceKey && sender_id) {
-      const admin = createClient(supabaseUrl, serviceKey);
+    if (result.distress) {
       const { data: prof, error: profErr } = await admin
         .from("profiles")
         .select("school_id")
@@ -156,14 +184,9 @@ Rules:
       }
     }
 
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json(await signed(result));
   } catch (e) {
     console.error("moderation error:", e);
-    return new Response(
-      JSON.stringify(localModerate(message)),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return json(await signed(localModerate(message)));
   }
 });

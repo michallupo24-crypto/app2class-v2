@@ -408,31 +408,28 @@ const ChatPage = () => {
     if (!myParts?.length) { setConversations([]); setLoadingConvos(false); return; }
 
     const convoIds = myParts.map((p: any) => p.conversation_id);
-    const lastReadMap = new Map<string, string>(
-      myParts.map((p: any) => [p.conversation_id, p.last_read_at])
-    );
     const mutedMap = new Map<string, boolean>(
       myParts.map((p: any) => [p.conversation_id, Boolean(p.muted)])
     );
 
     // 2. Fetch conversations + messages + participant rows (ללא embed — אין FK מ-user_id ל-profiles ב-PostgREST)
-    const [convosRes, lastMsgsRes, participantsRawRes, unreadRes] = await Promise.all([
+    // Last message and unread count come from one server-side summary per
+    // conversation - fetching every message to count them got heavy with
+    // the automatic class groups, and a row limit hid quiet conversations'
+    // last message.
+    const [convosRes, summariesRes, participantsRawRes] = await Promise.all([
       supabase.from("conversations").select("*").in("id", convoIds).order("updated_at", { ascending: false }),
-      supabase.from("messages").select("conversation_id, content, created_at, is_flagged, is_deleted")
-        .in("conversation_id", convoIds)
-        .order("created_at", { ascending: false })
-        .limit(convoIds.length * 3),
+      supabase.rpc("get_my_conversation_summaries" as any),
       supabase.from("conversation_participants")
         .select("conversation_id, user_id")
-        .in("conversation_id", convoIds),
-      supabase.from("messages")
-        .select("conversation_id, created_at")
         .in("conversation_id", convoIds),
     ]);
 
     const convos = convosRes.data || [];
-    const allMsgs = lastMsgsRes.data || [];
-    const allMsgTimes = unreadRes.data || [];
+    const summaries = ((summariesRes.data as any[]) || []) as {
+      conversation_id: string; last_content: string | null; last_created_at: string | null;
+      last_is_flagged: boolean; last_is_deleted: boolean; unread_count: number;
+    }[];
 
     if (participantsRawRes.error) {
       console.error("conversation_participants:", participantsRawRes.error);
@@ -480,19 +477,16 @@ const ChatPage = () => {
       user_roles: rolesByUser.get(row.user_id) || [],
     }));
 
-    // Build last message map
-    const lastMsgMap = new Map<string, typeof allMsgs[0]>();
-    for (const msg of allMsgs) {
-      if (!lastMsgMap.has(msg.conversation_id)) lastMsgMap.set(msg.conversation_id, msg);
-    }
-
-    // Build unread count map
+    const lastMsgMap = new Map<string, { content: string; created_at: string; is_flagged: boolean; is_deleted: boolean }>();
     const unreadMap = new Map<string, number>();
-    for (const msg of allMsgTimes) {
-      const lastRead = lastReadMap.get(msg.conversation_id);
-      if (lastRead && msg.created_at > lastRead) {
-        unreadMap.set(msg.conversation_id, (unreadMap.get(msg.conversation_id) || 0) + 1);
+    for (const s of summaries) {
+      if (s.last_created_at) {
+        lastMsgMap.set(s.conversation_id, {
+          content: s.last_content ?? "", created_at: s.last_created_at,
+          is_flagged: s.last_is_flagged, is_deleted: s.last_is_deleted,
+        });
       }
+      if (s.unread_count > 0) unreadMap.set(s.conversation_id, s.unread_count);
     }
 
     // Build participants map
@@ -1076,13 +1070,13 @@ const ChatPage = () => {
         block_reason?: string | null;
         flag?: boolean;
         flag_reason?: string | null;
-        safe?: boolean;
-        reason?: string | null;
+        token?: string | null;
       };
 
       let blocked = false;
       let flagged = false;
       let flagReason: string | null = null;
+      let moderationToken: string | null = null;
 
       if (content) {
         const { data: modResult } = await supabase.functions.invoke("chat-moderate", {
@@ -1096,9 +1090,10 @@ const ChatPage = () => {
 
         const mr = modResult as ModResponse | null;
         blocked = mr?.blocked === true;
-        const legacyUnsafe = Boolean(mr && mr.blocked !== true && mr.safe === false);
-        flagged = !blocked && (mr?.flag === true || legacyUnsafe);
-        flagReason = mr?.flag_reason || mr?.reason || null;
+        // The server's verdict is signed; the database rejects any other flag value.
+        flagged = !blocked && mr?.flag === true;
+        flagReason = mr?.flag_reason || null;
+        moderationToken = mr?.token ?? null;
 
         if (blocked) {
           toast({
@@ -1112,6 +1107,12 @@ const ChatPage = () => {
           setPendingAttachment(attachment);
           return;
         }
+        if (!moderationToken) {
+          toast({ title: "לא נשלחה", description: "לא הצלחנו לבדוק את ההודעה כרגע. נסה/י שוב בעוד רגע.", variant: "destructive" });
+          setInput(content);
+          setPendingAttachment(attachment);
+          return;
+        }
       }
 
       const { data: inserted, error: insertError } = await supabase.from("messages").insert({
@@ -1120,6 +1121,7 @@ const ChatPage = () => {
         content: content || "",
         is_flagged: flagged,
         flag_reason: flagged ? flagReason : null,
+        moderation_token: moderationToken,
         reply_to_id: replyToId,
         mentioned_user_ids: mentions,
         attachment_path: attachment?.path ?? null,
@@ -1216,7 +1218,7 @@ const ChatPage = () => {
       const mr = modResult as {
         blocked?: boolean; block_reason?: string | null;
         flag?: boolean; flag_reason?: string | null;
-        safe?: boolean; reason?: string | null;
+        token?: string | null;
       } | null;
       const blocked = mr?.blocked === true;
       if (blocked) {
@@ -1227,15 +1229,20 @@ const ChatPage = () => {
         });
         return;
       }
-      const legacyUnsafe = Boolean(mr && mr.blocked !== true && mr.safe === false);
-      const flagged = mr?.flag === true || legacyUnsafe;
-      const flagReason = mr?.flag_reason || mr?.reason || null;
+      if (!mr?.token) {
+        toast({ title: "לא ניתן לתזמן", description: "לא הצלחנו לבדוק את ההודעה כרגע. נסה/י שוב בעוד רגע.", variant: "destructive" });
+        return;
+      }
+      const flagged = mr.flag === true;
+      const flagReason = mr.flag_reason || null;
 
+      // The token signed at scheduling time is what lets delivery insert it later.
       const { data, error } = await supabase.from("scheduled_chat_messages")
         .insert({
           conversation_id: selectedId, sender_id: profile.id, content,
           send_at: sendAtDate.toISOString(), is_flagged: flagged, flag_reason: flagged ? flagReason : null,
-        })
+          moderation_token: mr.token,
+        } as any)
         .select("id, content, send_at").single();
       if (error || !data) throw error;
 
@@ -1286,7 +1293,7 @@ const ChatPage = () => {
     const mr = modResult as {
       blocked?: boolean; block_reason?: string | null;
       flag?: boolean; flag_reason?: string | null;
-      safe?: boolean; reason?: string | null;
+      token?: string | null;
     } | null;
     if (mr?.blocked === true) {
       toast({
@@ -1298,16 +1305,21 @@ const ChatPage = () => {
       setEditText(text);
       return;
     }
-    const legacyUnsafe = Boolean(mr && mr.blocked !== true && mr.safe === false);
-    const flagged = mr?.flag === true || legacyUnsafe;
-    const flagReason = mr?.flag_reason || mr?.reason || null;
+    if (!mr?.token) {
+      toast({ title: "לא ניתן לשמור", description: "לא הצלחנו לבדוק את ההודעה כרגע. נסה/י שוב בעוד רגע.", variant: "destructive" });
+      setEditingId(id);
+      setEditText(text);
+      return;
+    }
+    const flagged = mr.flag === true;
+    const flagReason = mr.flag_reason || null;
 
     const editedAt = new Date().toISOString();
     setMessages((prev) => prev.map((m) => m.id === id
       ? { ...m, content: text, edited_at: editedAt, is_flagged: flagged, flag_reason: flagged ? flagReason : null }
       : m));
     const { error } = await supabase.from("messages")
-      .update({ content: text, edited_at: editedAt, is_flagged: flagged, flag_reason: flagged ? flagReason : null })
+      .update({ content: text, edited_at: editedAt, is_flagged: flagged, flag_reason: flagged ? flagReason : null, moderation_token: mr.token } as any)
       .eq("id", id);
     if (error) toast({ title: "שגיאה בעריכת ההודעה", description: error.message, variant: "destructive" });
     else if (flagged) toast({ title: "ההודעה המעודכנת נשלחה לבדיקה", description: flagReason || "התוכן סומן לצוות", variant: "destructive" });
