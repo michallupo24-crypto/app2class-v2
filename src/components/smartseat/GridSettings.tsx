@@ -17,7 +17,7 @@ export function GridSettings({ config, onChange }: Props) {
         const max = key === 'rows' ? MAX_SEAT_ROWS : MAX_SEAT_COLS;
         const value = Number(raw);
         if (value > max) {
-            toast.warning(`אפשר להגדיר עד ${max} ${key === 'rows' ? 'שורות' : 'עמודות'} במפת ההושבה`, { id: 'seat-grid-limit' });
+            toast.warning(`אפשר להגדיר עד ${max} ${key === 'rows' ? 'שורות' : 'עמודות'} במפת ההושבה`);
         }
         onChange({ ...config, [key]: clampDim(value, max) });
     };

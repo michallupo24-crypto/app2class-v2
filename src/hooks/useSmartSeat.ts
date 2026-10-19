@@ -59,7 +59,7 @@ export function useSmartSeat(classId?: string, lessonId?: string) {
             const neededRows = Math.max(0, ...placed.map(s => s.row_index + 1));
             const neededCols = Math.max(0, ...placed.map(s => s.col_index + 1));
             if (neededRows > MAX_SEAT_ROWS || neededCols > MAX_SEAT_COLS) {
-                toast.warning(`סידור הישיבה השמור גדול מ־${MAX_SEAT_ROWS}×${MAX_SEAT_COLS}; תלמידים שמחוץ למפה הועברו לרשימת הממתינים לשיבוץ`, { id: 'seat-grid-limit' });
+                toast.warning(`סידור הישיבה השמור גדול מ־${MAX_SEAT_ROWS}×${MAX_SEAT_COLS}; תלמידים שמחוץ למפה הועברו לרשימת הממתינים לשיבוץ`);
             }
             setRawConfig(prev => clampConfig({
                 ...prev,
