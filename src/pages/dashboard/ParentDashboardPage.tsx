@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ShieldCheck, MessageSquare, Loader2, CalendarDays, FileText, PartyPopper, Moon } from "lucide-react";
+import { ShieldCheck, MessageSquare, Loader2, CalendarDays, FileText, PartyPopper, Moon, BookOpenCheck } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +30,14 @@ interface WeeklyItem {
   type: 'exam' | 'holiday' | 'assignment' | 'event';
   date: string;
   dayLabel: string;
+}
+
+interface HomeworkItem {
+  id: string;
+  title: string;
+  subject: string | null;
+  dueDate: string | null;
+  submitted: boolean;
 }
 
 interface RecentGrade {
@@ -72,6 +80,7 @@ const ParentDashboardPage = () => {
     attendancePct: 100,
     absentCount: 0,
     weeklyRoadmap: [] as WeeklyItem[],
+    homework: [] as HomeworkItem[],
     recentGrades: [] as RecentGrade[],
     educators: { teacherId: "", educatorName: "", counselorId: "", counselorName: "" },
     classComparison: null as {
@@ -157,21 +166,32 @@ const ParentDashboardPage = () => {
     const [{ data: gEvs }, { data: sEvs }, { data: assigns }, { data: attH }] = await Promise.all([
        supabase.from("grade_events").select("id, title, event_date").eq("school_id", child.schoolId).gte("event_date", today),
        supabase.from("school_events").select("id, title, start_date").eq("school_id", child.schoolId).gte("start_date", today),
-       supabase.from("assignments").select("id, title, due_date, type").eq("class_id", child.classId).gte("due_date", today),
+       supabase.from("assignments").select("id, title, subject, due_date, type").eq("class_id", child.classId).eq("published", true).gte("due_date", today),
        supabase.from("attendance").select("status").eq("student_id", child.id)
     ]);
 
     const combined: WeeklyItem[] = [];
     gEvs?.forEach(e => combined.push({ id: e.id, title: e.title, type: 'exam', date: e.event_date, dayLabel: new Date(e.event_date).toLocaleDateString("he-IL", { weekday: "short" }) }));
     sEvs?.forEach(e => combined.push({ id: e.id, title: e.title, type: 'event', date: e.start_date, dayLabel: new Date(e.start_date).toLocaleDateString("he-IL", { weekday: "short" }) }));
+    // Homework gets its own "שיעורי הבית של <ילד/ה>" panel, so keep it out of the roadmap.
     assigns?.forEach(e => {
-       if (e.due_date) combined.push({ id: e.id, title: e.title, type: e.type === 'exam' ? 'exam' : 'assignment', date: e.due_date, dayLabel: new Date(e.due_date).toLocaleDateString("he-IL", { weekday: "short" }) });
+       if (e.due_date && e.type !== 'homework') combined.push({ id: e.id, title: e.title, type: e.type === 'exam' ? 'exam' : 'assignment', date: e.due_date, dayLabel: new Date(e.due_date).toLocaleDateString("he-IL", { weekday: "short" }) });
     });
 
     const finalRoadmap = combined
       .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)
       .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(0, 5);
+
+    const hwAssigns = (assigns || []).filter(a => a.type === "homework")
+      .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime());
+    const { data: hwSubs } = hwAssigns.length
+      ? await supabase.from("submissions").select("assignment_id, status").eq("student_id", child.id).in("assignment_id", hwAssigns.map(a => a.id))
+      : { data: [] as { assignment_id: string; status: string }[] };
+    const submittedIds = new Set((hwSubs || []).filter(s => s.status !== "draft").map(s => s.assignment_id));
+    const homework: HomeworkItem[] = hwAssigns.map(a => ({
+      id: a.id, title: a.title, subject: a.subject, dueDate: a.due_date, submitted: submittedIds.has(a.id),
+    }));
 
     const absences = (attH || []).filter(a => a.status === "absent").length;
     const attPct = attH?.length ? Math.round(((attH.length - absences) / attH.length) * 100) : 100;
@@ -202,6 +222,7 @@ const ParentDashboardPage = () => {
       attendancePct: attPct,
       absentCount: absences,
       weeklyRoadmap: finalRoadmap,
+      homework,
       recentGrades: (recent || []) as any,
       educators: staff,
       classComparison,
@@ -336,6 +357,28 @@ const ParentDashboardPage = () => {
   const main = (
     <>
       <HeroCard {...hero} />
+
+      {/* Parents read "שיעורי בית" as their own to-do; name the child loudly. */}
+      <section className="flex flex-col gap-3 rounded-[24px] border-[3px] border-[#F2A007]/60 bg-[#FFF6E0] p-4 dark:bg-[#F2A007]/10">
+        <div className="flex items-center gap-3 px-1">
+          <IconTile icon={BookOpenCheck} color="#F2A007" size={46} />
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <h2 className="font-heading text-[21px] font-black leading-none text-foreground">שיעורי הבית של {childName}</h2>
+            <p className="font-body text-[13px] font-bold leading-snug text-[#7A5200] dark:text-[#F2C46B]">
+              {state.homework.length === 0
+                ? `ל${childName} אין כרגע שיעורי בית פתוחים`
+                : `${state.homework.filter(h => !h.submitted).length} מתוך ${state.homework.length} עדיין לא הוגשו על ידי ${childName}`}
+            </p>
+          </div>
+        </div>
+        {state.homework.map((h, idx) => (
+          <HomeRow key={h.id} index={idx} subject={h.subject || undefined}
+            icon={<IconTile icon={FileText} color="#F2A007" />}
+            title={h.title}
+            meta={[h.subject, h.dueDate && `להגשה ${weekday.format(new Date(h.dueDate))} ${shortDate.format(new Date(h.dueDate))}`].filter(Boolean).join(" · ")}
+            tag={h.submitted ? { label: "הוגש", tone: "success" } : { label: "טרם הוגש", tone: "warning" }} />
+        ))}
+      </section>
 
       <HomeSection title={`השבוע של ${childName}`}>
         {state.weeklyRoadmap.length === 0 ? (
