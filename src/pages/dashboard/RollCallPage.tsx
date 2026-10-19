@@ -16,13 +16,17 @@ import { useSmartSeat } from "@/hooks/useSmartSeat";
 import { ClassroomGrid } from "@/components/smartseat/ClassroomGrid";
 import { avatarFromRow } from "@/components/avatar/avatarModel";
 import { ToolSticker } from "@/components/ToolSticker";
+import { SwipeStudentRow } from "@/components/attendance/SwipeStudentRow";
+import { useAttendanceEventTypes, eventKey, type AttendanceEventType } from "@/hooks/useAttendanceEventTypes";
+import { applySwipe, type SwipeAction } from "@/lib/attendanceSwipe";
 
 interface StudentCard {
   id: string;
   name: string;
   avatar: AvatarConfig | null;
   status: "present" | "absent" | "late" | "excused" | null;
-  notes: { category: string; note?: string }[];
+  // key: category for built-in notes, the event type id for a school's own events.
+  notes: { key: string; category: string; label: string; eventTypeId?: string | null; note?: string }[];
   isBirthday: boolean;
 }
 
@@ -47,15 +51,7 @@ const TILE_STATUS: Record<NonNullable<StudentCard["status"]>, { label: string; c
   excused: { label: "מוצדק", cls: "bg-info-soft text-info", ring: "#2F5FB8" },
 };
 
-// Quick lesson notes in the side panel (a subset of NOTE_CATEGORIES).
-const QUICK_NOTES = [
-  { value: "positive_participation", label: "ציון לשבח", icon: "star" },
-  { value: "helped_peer", label: "עזרה לחבר/ה", icon: "people" },
-  { value: "disruption", label: "הפרעה", icon: "alert" },
-  { value: "phone", label: "שימוש בטלפון", icon: "chat" },
-  { value: "no_homework", label: "חסרים ש״ב", icon: "tasks" },
-  { value: "excellence", label: "הצטיינות", icon: "trophy" },
-];
+const EVENT_ICON = { late: "clock", negative: "alert", positive: "star" } as const;
 
 const StudentTile = ({ student, selected, onTap, onNotes }: {
   student: StudentCard;
@@ -128,7 +124,9 @@ const RollCallPage = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [counselorReason, setCounselorReason] = useState("");
   const [flaggingCounselor, setFlaggingCounselor] = useState(false);
+  const [markRestPresent, setMarkRestPresent] = useState(true);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { events } = useAttendanceEventTypes(profile.schoolId);
 
   useEffect(() => {
     const loadClasses = async () => {
@@ -209,19 +207,26 @@ const RollCallPage = () => {
 
   const ss = useSmartSeat(selectedClass);
 
-  const handleSwipe = useCallback((id: string, direction: "left" | "right" | "late") => {
-    const status = direction === "left" ? "present" : direction === "right" ? "absent" : "late";
+  // Every status change goes through here so it gets the undo toast.
+  const updateStatus = useCallback((id: string, next: (cur: StudentCard["status"]) => StudentCard["status"]) => {
     setStudents(prev => {
       const target = prev.find(s => s.id === id);
       if (!target) return prev;
-      const newStatus = target.status === status ? null : status;
-      const label = newStatus === "present" ? "נוכח" : newStatus === "absent" ? "חיסור" : newStatus === "late" ? "איחור" : "בוטל";
+      const newStatus = next(target.status);
+      const label = newStatus === "present" ? "נוכח" : newStatus === "absent" ? "חיסור" : newStatus === "late" ? "איחור" : "ביטול סימון";
       setLastAction({ id, name: target.name, prevStatus: target.status, label });
       if (undoTimer.current) clearTimeout(undoTimer.current);
-      undoTimer.current = setTimeout(() => setLastAction(null), 5000);
+      undoTimer.current = setTimeout(() => setLastAction(null), 4000);
       return prev.map(s => s.id === id ? { ...s, status: newStatus } : s);
     });
   }, []);
+
+  const handleSwipe = useCallback((id: string, direction: "left" | "right" | "late") => {
+    const status = direction === "left" ? "present" : direction === "right" ? "absent" : "late";
+    updateStatus(id, cur => cur === status ? null : status);
+  }, [updateStatus]);
+
+  const handleRowSwipe = (id: string, action: SwipeAction) => updateStatus(id, cur => applySwipe(cur, action));
 
   const handleUndoLast = () => {
     if (!lastAction) return;
@@ -259,7 +264,7 @@ const RollCallPage = () => {
     }
   };
 
-  const handleToggleNote = (studentId: string, category: string) => {
+  const handleToggleNote = (studentId: string, note: Omit<StudentCard["notes"][number], "label"> & { label?: string }) => {
     const target = students.find(s => s.id === studentId);
     if (target?.status === "absent") {
       toast({
@@ -271,9 +276,19 @@ const RollCallPage = () => {
     }
     setStudents(prev => prev.map(s => {
       if (s.id !== studentId) return s;
-      const hasIt = s.notes.some(n => n.category === category);
-      return { ...s, notes: hasIt ? s.notes.filter(n => n.category !== category) : [...s.notes, { category }] };
+      const hasIt = s.notes.some(n => n.key === note.key);
+      const label = note.label || NOTE_CATEGORIES.find(c => c.value === note.category)?.label || note.category;
+      return { ...s, notes: hasIt ? s.notes.filter(n => n.key !== note.key) : [...s.notes, { ...note, label }] };
     }));
+  };
+
+  const toggleCategory = (studentId: string, category: string) => handleToggleNote(studentId, { key: category, category });
+
+  // An item from the school's event menu: איחור sets the status, the rest are notes.
+  const handleEvent = (studentId: string, ev: AttendanceEventType) => {
+    if (ev.kind === "late") { updateStatus(studentId, cur => cur === "late" ? null : "late"); return; }
+    const custom = ev.category!.startsWith("custom_");
+    handleToggleNote(studentId, { key: eventKey(ev), category: ev.category!, label: ev.label, eventTypeId: ev.id, note: custom ? ev.label : undefined });
   };
 
   const performSave = async () => {
@@ -340,12 +355,14 @@ const RollCallPage = () => {
         }
 
         // Upsert attendance
+        // Fast flow: mark only the exceptions, everyone left is present.
+        const finalStatus = (s: StudentCard) => s.status || (markRestPresent ? "present" : null);
         const attendanceData = students
-            .filter(s => s.status)
+            .filter(s => finalStatus(s))
             .map(s => ({
                 student_id: s.id,
                 lesson_id: lessonId,
-                status: s.status,
+                status: finalStatus(s)!,
                 noted_at: new Date().toISOString()
             }));
 
@@ -363,6 +380,8 @@ const RollCallPage = () => {
                 student_id: s.id,
                 lesson_id: lessonId,
                 category: n.category as any,
+                ...(n.note ? { note: n.note } : {}),
+                ...(n.eventTypeId ? { event_type_id: n.eventTypeId } : {}),
             })));
 
         if (notesData.length > 0) {
@@ -371,7 +390,7 @@ const RollCallPage = () => {
         }
 
         toast({ title: "הנוכחות נשמרה בהצלחה!", description: `נשמרו ${attendanceData.length} רשומות נוכחות ו-${notesData.length} הערות.` });
-        setStudents(prev => prev.map(s => ({ ...s, notes: [] })));
+        setStudents(prev => prev.map(s => ({ ...s, status: finalStatus(s), notes: [] })));
         setTopicChoice("");
         setOtherTopicText("");
         setMarkTopicCompleted(false);
@@ -406,6 +425,7 @@ const RollCallPage = () => {
       toast({ variant: "destructive", title: "בחר/י מקצוע", description: "יש לבחור את המקצוע שנלמד בשיעור זה." });
       return;
     }
+    setMarkRestPresent(true);
     setShowConfirm(true);
   };
 
@@ -431,7 +451,7 @@ const RollCallPage = () => {
         <div className="flex gap-2 items-center flex-wrap">
           <div className="flex bg-muted rounded-xl p-1" role="tablist" aria-label="תצוגה">
             <button type="button" role="tab" aria-selected={viewMode === "list"} onClick={() => setViewMode("list")}
-              className={`px-3 py-1.5 rounded-[9px] font-body font-extrabold text-[13px] ${viewMode === "list" ? "bg-card shadow-sm" : "text-muted-foreground"}`}>כרטיסים</button>
+              className={`px-3 py-1.5 rounded-[9px] font-body font-extrabold text-[13px] ${viewMode === "list" ? "bg-card shadow-sm" : "text-muted-foreground"}`}>רשימה</button>
             <button type="button" role="tab" aria-selected={viewMode === "map"} onClick={() => setViewMode("map")}
               className={`px-3 py-1.5 rounded-[9px] font-body font-extrabold text-[13px] ${viewMode === "map" ? "bg-card shadow-sm" : "text-muted-foreground"}`}>מפה</button>
           </div>
@@ -476,13 +496,19 @@ const RollCallPage = () => {
             ) : (
               <>
                 <p className="font-body font-semibold text-[12.5px] md:text-[13px] leading-snug text-muted-foreground px-1">
-                  לחיצה על כרטיס מחליפה מצב: נוכח/ת ← איחור ← חסר/ה. לחיצה ארוכה (או קליק ימני) פותחת הערות.
+                  <span className="md:hidden">החליקו ימינה לחיסור, שמאלה לנוכח/ת. לחיצה ארוכה או ⋯ לאיחור והערות.</span>
+                  <span className="max-md:hidden">סמנו רק את החסרים בלחיצה על ״חיסור״; ⋯ לאיחור והערות.</span>
+                  {" "}בשמירה כל מי שלא סומן/ה נרשם/ת כנוכח/ת.
                   {unmarkedCount > 0 && ` ${unmarkedCount} טרם סומנו.`}
                 </p>
-                <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-2.5 md:gap-3">
+                <div className="flex flex-col gap-2">
                   {students.map(s => (
-                    <StudentTile key={s.id} student={s} selected={s.id === selectedId} onTap={() => tapStudent(s.id)}
-                      onNotes={() => { setSelectedId(s.id); setNoteStudentId(s.id); }} />
+                    <SwipeStudentRow key={s.id} student={s} events={events} selected={s.id === selectedId}
+                      onSelect={() => setSelectedId(s.id)}
+                      onSwipe={action => handleRowSwipe(s.id, action)}
+                      onToggleAbsent={() => handleRowSwipe(s.id, "absent")}
+                      onEvent={ev => handleEvent(s.id, ev)}
+                      onMoreNotes={() => { setSelectedId(s.id); setNoteStudentId(s.id); }} />
                   ))}
                 </div>
               </>
@@ -587,14 +613,14 @@ const RollCallPage = () => {
               {selectedStudent ? `הערה ל${selectedStudent.name}:` : "בחר/י תלמיד/ה ואז סוג הערה"}
             </p>
             <div className="grid grid-cols-2 gap-2">
-              {QUICK_NOTES.map(n => {
-                const on = !!selectedStudent?.notes.some(x => x.category === n.value);
+              {events.map(ev => {
+                const on = ev.kind === "late" ? selectedStudent?.status === "late" : !!selectedStudent?.notes.some(x => x.key === eventKey(ev));
                 return (
-                  <button key={n.value} type="button" disabled={!selectedStudent} aria-pressed={on}
-                    onClick={() => selectedStudent && handleToggleNote(selectedStudent.id, n.value)}
+                  <button key={eventKey(ev)} type="button" disabled={!selectedStudent} aria-pressed={on}
+                    onClick={() => selectedStudent && handleEvent(selectedStudent.id, ev)}
                     className={`flex items-center gap-2 px-2.5 py-[9px] rounded-[13px] text-right disabled:opacity-50 ${on ? "bg-primary text-primary-foreground" : "bg-soft"}`}>
-                    <ToolSticker id={n.icon} size={26} />
-                    <span className="font-body font-extrabold text-[12.5px] leading-tight">{n.label}</span>
+                    <ToolSticker id={EVENT_ICON[ev.kind]} size={26} />
+                    <span className="font-body font-extrabold text-[12.5px] leading-tight">{ev.label}</span>
                   </button>
                 );
               })}
@@ -633,6 +659,12 @@ const RollCallPage = () => {
             סימנת {absentCount} חיסורים, {lateCount} איחורים ו-
             {students.reduce((sum, s) => sum + s.notes.length, 0)} הערות. לאשר?
           </p>
+          {unmarkedCount > 0 && (
+            <label className="flex items-center gap-2 text-sm cursor-pointer w-fit">
+              <Checkbox checked={markRestPresent} onCheckedChange={v => setMarkRestPresent(!!v)} />
+              לסמן את {unmarkedCount} שלא סומנו כנוכחים
+            </label>
+          )}
           <div className="flex gap-2 justify-end mt-4">
             <Button variant="outline" onClick={() => setShowConfirm(false)}>חזור</Button>
             <Button onClick={async () => { setShowConfirm(false); await performSave(); }} disabled={isSaving}>
@@ -654,10 +686,10 @@ const RollCallPage = () => {
                 <p className="text-xs font-bold text-muted-foreground mb-2">{group === "discipline" ? "משמעת" : "חיובי"}</p>
                 <div className="flex flex-wrap gap-2">
                   {NOTE_CATEGORIES.filter(c => c.group === group).map(c => {
-                    const on = !!noteStudent?.notes.some(n => n.category === c.value);
+                    const on = !!noteStudent?.notes.some(n => n.key === c.value);
                     return (
                       <button key={c.value} type="button" aria-pressed={on}
-                        onClick={() => noteStudentId && handleToggleNote(noteStudentId, c.value)}
+                        onClick={() => noteStudentId && toggleCategory(noteStudentId, c.value)}
                         className={`px-3 py-2 rounded-full font-body font-extrabold text-[13px] leading-none shadow-[0_3px_8px_-5px_rgba(40,30,15,.35)] ${
                           on ? (group === "discipline" ? "bg-destructive text-destructive-foreground" : "bg-success text-success-foreground") : "bg-soft"}`}>
                         {c.label}
