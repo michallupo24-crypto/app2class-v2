@@ -26,6 +26,7 @@ import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import CouncilTournament from "@/components/council/CouncilTournament";
+import { displayName, nameSearchFilter } from "@/lib/displayName";
 
 interface Profile {
   id: string;
@@ -146,7 +147,7 @@ const CouncilPage = () => {
 
     const [profilesRes, myVotesRes] = await Promise.all([
       allStudentIds.length
-        ? supabase.from("profiles").select("id, full_name").in("id", allStudentIds)
+        ? supabase.from("profiles").select("id, full_name, display_name").in("id", allStudentIds)
         : Promise.resolve({ data: [] }),
       (supabase as any).from("council_votes").select("election_id, candidate_id").eq("voter_id", profile.id),
     ]);
@@ -289,9 +290,9 @@ const CouncilPage = () => {
     setSearchingStudents(true);
     const { data: matchingProfiles } = await supabase
       .from("profiles")
-      .select("id, full_name")
+      .select("id, full_name, display_name")
       .eq("school_id", profile.schoolId)
-      .ilike("full_name", `%${studentQuery.trim()}%`)
+      .or(nameSearchFilter(studentQuery.trim()))
       .limit(20);
     const ids = (matchingProfiles || []).map((p) => p.id);
     const { data: studentRoleRows } = ids.length
@@ -464,7 +465,7 @@ const CouncilPage = () => {
                 <p className="text-xs font-heading font-bold flex items-center gap-1.5 mb-1.5"><Crown className="h-3.5 w-3.5" /> ראש/ת מועצה</p>
                 {councilHead ? (
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm">{councilHead.full_name}</span>
+                    <span className="text-sm">{displayName(councilHead)}</span>
                     <Button size="sm" variant="ghost" className="h-7 text-destructive hover:text-destructive gap-1" onClick={() => revokeRole(councilHead.councilRowId)}>
                       <X className="h-3.5 w-3.5" /> בטל
                     </Button>
@@ -478,7 +479,7 @@ const CouncilPage = () => {
                 {newspaperEditors.length === 0 && <p className="text-xs text-muted-foreground">אין עורכ/ת עיתון ממונ/ה</p>}
                 {newspaperEditors.map((ed) => (
                   <div key={ed.councilRowId} className="flex items-center justify-between gap-2">
-                    <span className="text-sm">{ed.full_name}</span>
+                    <span className="text-sm">{displayName(ed)}</span>
                     <Button size="sm" variant="ghost" className="h-7 text-destructive hover:text-destructive gap-1" onClick={() => revokeRole(ed.councilRowId)}>
                       <X className="h-3.5 w-3.5" /> בטל
                     </Button>
@@ -502,7 +503,7 @@ const CouncilPage = () => {
               <div className="space-y-1.5">
                 {studentResults.map((s) => (
                   <div key={s.id} className="flex items-center justify-between gap-2 p-2.5 rounded-row bg-soft">
-                    <span className="text-sm">{s.full_name}</span>
+                    <span className="text-sm">{displayName(s)}</span>
                     <div className="flex gap-1.5">
                       <Button size="sm" variant="secondary" disabled={appointing === s.id + "head"} onClick={() => appointRole(s.id, "head")}>
                         מנה כראש/ת מועצה
@@ -534,7 +535,7 @@ const CouncilPage = () => {
               <div key={c.id} className="p-3 rounded-row bg-soft space-y-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div>
-                    <p className="text-sm font-heading font-bold">{profiles[c.student_id]?.full_name || "מועמד/ת"}</p>
+                    <p className="text-sm font-heading font-bold">{displayName(profiles[c.student_id]) || "מועמד/ת"}</p>
                     <p className="text-xs text-muted-foreground">{c.election_title}</p>
                   </div>
                   <div className="flex gap-1.5">
@@ -574,10 +575,10 @@ const CouncilPage = () => {
           <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {members.map((m) => (
               <div key={m.id} className="flex flex-col items-center p-3 rounded-row bg-soft">
-                {m.avatar ? <AvatarPreview config={m.avatar} size={56} /> : <PersonBadge name={m.full_name} />}
+                {m.avatar ? <AvatarPreview config={m.avatar} size={56} /> : <PersonBadge name={displayName(m)} />}
                 <p className="text-sm font-heading font-bold mt-2 flex items-center justify-center gap-1">
                   {m.roleType === "head" && <Crown className="h-3.5 w-3.5 text-warning" />}
-                  {m.full_name}
+                  {displayName(m)}
                 </p>
                 <p className="text-xs text-muted-foreground">{m.position}</p>
               </div>
@@ -684,11 +685,11 @@ const CouncilPage = () => {
                     const isWinner = e.status === "closed" && idx < e.num_seats;
                     return (
                       <div key={c.id} className={`flex items-center justify-between gap-3 p-3 rounded-row ${isWinner ? "bg-success-soft" : "bg-soft"}`}>
-                        <PersonBadge name={profiles[c.student_id]?.full_name || "?"} />
+                        <PersonBadge name={displayName(profiles[c.student_id]) || "?"} />
                         <div className="min-w-0 flex-1">
                           <p className="font-heading text-[15px] font-extrabold flex items-center gap-1.5">
                             {isWinner && <Trophy className="h-4 w-4 text-success" />}
-                            {profiles[c.student_id]?.full_name || "מועמד/ת"}
+                            {displayName(profiles[c.student_id]) || "מועמד/ת"}
                           </p>
                           {c.statement && <p className="font-body text-[13px] font-semibold text-text-secondary">{c.statement}</p>}
                         </div>

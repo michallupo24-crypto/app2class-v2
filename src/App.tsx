@@ -59,6 +59,7 @@ const ChatPage = lazy(() => import("./pages/dashboard/ChatPage"));
 const SystemAdminPage = lazy(() => import("./pages/dashboard/SystemAdminPage"));
 const PrincipalDashboardPage = lazy(() => import("./pages/dashboard/PrincipalDashboardPage"));
 const SchoolOrgTreePage = lazy(() => import("./pages/dashboard/SchoolOrgTreePage"));
+const DisplayNamesPage = lazy(() => import("./pages/dashboard/DisplayNamesPage"));
 const SystemAdminOrgTreePage = lazy(() => import("./pages/dashboard/SystemAdminOrgTreePage"));
 const SchedulePage = lazy(() => import("./pages/dashboard/SchedulePage"));
 const CommunityPage = lazy(() => import("./pages/dashboard/CommunityPage"));
@@ -117,6 +118,7 @@ const App = () => (
               <Route path="admin" element={<SystemAdminPage />} />
               <Route path="principal" element={<PrincipalDashboardPage />} />
               <Route path="org-tree" element={<SchoolOrgTreePage />} />
+              <Route path="display-names" element={<DisplayNamesPage />} />
               <Route path="system-org-tree" element={<SystemAdminOrgTreePage />} />
               <Route path="schedule" element={<SchedulePage />} />
               <Route path="timetable" element={<SchedulePage />} />

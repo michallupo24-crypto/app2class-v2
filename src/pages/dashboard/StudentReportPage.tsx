@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
 import { computeWeightedAverage } from "@/lib/gradeMath";
 import StudentHistoryPanel from "@/components/StudentHistoryPanel";
+import { displayName } from "@/lib/displayName";
 
 interface GradeEntry {
   subject: string;
@@ -118,9 +119,9 @@ const StudentReportPage = () => {
           .limit(1)
           .maybeSingle();
         const { data: educator } = educatorRole
-          ? await supabase.from("profiles").select("full_name").eq("id", educatorRole.user_id).maybeSingle()
+          ? await supabase.from("profiles").select("full_name, display_name").eq("id", educatorRole.user_id).maybeSingle()
           : { data: null };
-        setEducatorName(educator?.full_name || null);
+        setEducatorName(displayName(educator) || null);
       }
 
       // 6. Real, data-driven AI insight (no fabricated praise applied blindly)
@@ -130,12 +131,12 @@ const StudentReportPage = () => {
       }))) ?? 0;
 
       const performanceLine = !submissions?.length
-        ? `טרם נאספו ציונים מספיקים עבור ${profile.full_name} כדי להציג ניתוח ביצועים.`
+        ? `טרם נאספו ציונים מספיקים עבור ${displayName(profile)} כדי להציג ניתוח ביצועים.`
         : avg >= 90
-          ? `${profile.full_name} מציג/ה ביצועים מצוינים ב${subjectsText || "מקצועות הלימוד"}, עם ממוצע של ${avg}.`
+          ? `${displayName(profile)} מציג/ה ביצועים מצוינים ב${subjectsText || "מקצועות הלימוד"}, עם ממוצע של ${avg}.`
           : avg >= 70
-            ? `${profile.full_name} שומר/ת על ממוצע תקין של ${avg} ב${subjectsText || "מקצועות הלימוד"}.`
-            : `${profile.full_name} מציג/ה ממוצע של ${avg} ב${subjectsText || "מקצועות הלימוד"}, ויש מקום לשיפור.`;
+            ? `${displayName(profile)} שומר/ת על ממוצע תקין של ${avg} ב${subjectsText || "מקצועות הלימוד"}.`
+            : `${displayName(profile)} מציג/ה ממוצע של ${avg} ב${subjectsText || "מקצועות הלימוד"}, ויש מקום לשיפור.`;
 
       const attendanceLine = attPct === null
         ? ""
@@ -235,7 +236,7 @@ const StudentReportPage = () => {
                   </div>
                   <div>
                      <h1 className="text-4xl font-heading font-black text-foreground tracking-tighter mb-1">תעודת הערכה לרבעון א'</h1>
-                     <p className="text-xl font-heading font-bold text-primary">{student.full_name}</p>
+                     <p className="text-xl font-heading font-bold text-primary">{displayName(student)}</p>
                      <p className="text-sm text-muted-foreground font-medium">כיתה {student.classes?.grade}' {student.classes?.class_number} • שנת לימודים תשפ״ה</p>
                   </div>
                </div>

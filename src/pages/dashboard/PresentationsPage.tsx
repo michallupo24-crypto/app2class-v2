@@ -18,6 +18,7 @@ import { PresenterMode } from './presentations/components/PresenterMode';
 import { PresentationShareModal } from './presentations/components/PresentationShareModal';
 import { exportSlideToPng, exportPresentationToPdf } from './presentations/utils/exportUtils';
 import { useFitScale } from './presentations/utils/useFitScale';
+import { displayName } from "@/lib/displayName";
 
 type PresentationRow = {
   id: string;
@@ -91,13 +92,13 @@ const PresentationsPage = () => {
           if (!classId) return;
           supabase
             .from('presentation_shares')
-            .select('presentation:presentations(*), sharer:profiles!presentation_shares_shared_by_fkey(full_name)')
+            .select('presentation:presentations(*), sharer:profiles!presentation_shares_shared_by_fkey(full_name, display_name)')
             .eq('class_id', classId)
             .then(({ data: shares, error }) => {
               if (error) { console.error('Failed to load shared presentations:', error); return; }
               const list = ((shares as any[]) || [])
                 .filter((row) => row.presentation)
-                .map((row) => ({ presentation: rowToPresentation(row.presentation), sharedByName: row.sharer?.full_name ?? null }));
+                .map((row) => ({ presentation: rowToPresentation(row.presentation), sharedByName: displayName(row.sharer) ?? null }));
               setSharedWithMe(list);
             });
         });

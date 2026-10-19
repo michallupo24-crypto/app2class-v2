@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { computeWeightedAverage } from "@/lib/gradeMath";
 import { useStudentDay, formatClassName } from "@/hooks/useStudentDay";
 import { subjectColor } from "@/components/SubjectSticker";
+import { displayName } from "@/lib/displayName";
 import {
   HomeHeader, HeroCard, HomeSection, HomeColumns, StatTiles, HomeRow, HomeEmpty, PillSwitch, IconTile,
   greeting, longHebrewDate, firstName, type Tone,
@@ -135,10 +136,10 @@ const ParentDashboardPage = () => {
          .or(`homeroom_class_id.eq.${child.classId},and(role.eq.counselor,grade.eq.${child.grade})`);
        const ids = [...new Set((roles || []).map(r => r.user_id))];
        const { data: people } = ids.length
-         ? await supabase.from("profiles").select("id, full_name, school_id").in("id", ids)
+         ? await supabase.from("profiles").select("id, full_name, display_name, school_id").in("id", ids)
          : { data: [] as { id: string; full_name: string; school_id: string | null }[] };
        // Counselors are matched by grade only, so keep the child's school.
-       const byId = new Map((people || []).filter(p => !child.schoolId || p.school_id === child.schoolId).map(p => [p.id, p.full_name]));
+       const byId = new Map((people || []).filter(p => !child.schoolId || p.school_id === child.schoolId).map(p => [p.id, displayName(p)]));
 
        roles?.forEach(r => {
          const name = byId.get(r.user_id);
@@ -231,10 +232,10 @@ const ParentDashboardPage = () => {
       const { data: lks } = await supabase.from("parent_student").select("student_id").eq("parent_id", profile.id);
       if (!lks?.length) { setLoading(false); return; }
       const ids = lks.map(l => l.student_id);
-      const { data: prs } = await supabase.from("profiles").select("id, full_name, class_id, school_id, schools(name), classes(grade, class_number)").in("id", ids);
+      const { data: prs } = await supabase.from("profiles").select("id, full_name, display_name, class_id, school_id, schools(name), classes(grade, class_number)").in("id", ids);
       if (prs) {
         const kids = prs.map((p: any) => ({
-          id: p.id, fullName: p.full_name, grade: p.classes?.grade || null, classNumber: p.classes?.class_number || null,
+          id: p.id, fullName: displayName(p), grade: p.classes?.grade || null, classNumber: p.classes?.class_number || null,
           schoolName: p.schools?.name || null, classId: p.class_id || null, schoolId: p.school_id || null,
         }));
         setChildren(kids);

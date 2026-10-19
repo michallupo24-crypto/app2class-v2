@@ -9,6 +9,7 @@ import { uploadPrivateFile } from "@/lib/privateFiles";
 import { useToast } from "@/hooks/use-toast";
 import { SubjectSticker } from "@/components/SubjectSticker";
 import { ToolSticker } from "@/components/ToolSticker";
+import { displayName } from "@/lib/displayName";
 
 const JUSTIFICATION_REASONS: { value: string; label: string }[] = [
   { value: "illness", label: "מחלה" },
@@ -60,8 +61,8 @@ export default function StudentAttendancePage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     
-    const { data: p } = await supabase.from("profiles").select("full_name, class_id").eq("id", studentId).single();
-    if (isParentView && p) setStudentName(p.full_name);
+    const { data: p } = await supabase.from("profiles").select("full_name, display_name, class_id").eq("id", studentId).single();
+    if (isParentView && p) setStudentName(displayName(p));
 
     // Real denominator for the attendance rate: how many lessons this
     // student's class actually had, not a made-up formula.

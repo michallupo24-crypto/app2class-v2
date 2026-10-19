@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { UserProfile } from "@/hooks/useAuth";
 import type { AvatarConfig } from "@/components/avatar/AvatarStudio";
 import { avatarFromRow } from "@/components/avatar/avatarModel";
+import { displayName } from "@/lib/displayName";
 
 interface PersonNode {
   id: string;
@@ -98,7 +99,7 @@ const SystemAdminOrgTreePage = () => {
     setSearchQuery("");
 
     const [profilesRes, rolesRes, avatarsRes, classesRes, tcRes, psRes] = await Promise.all([
-      supabase.from("profiles").select("id, full_name, email, class_id").eq("school_id", school.id),
+      supabase.from("profiles").select("id, full_name, display_name, email, class_id").eq("school_id", school.id),
       supabase.from("user_roles").select("user_id, role, subject, grade, homeroom_class_id"),
       supabase.from("avatars").select("*"),
       supabase.from("classes").select("id, grade, class_number").eq("school_id", school.id).order("grade").order("class_number"),
@@ -129,7 +130,7 @@ const SystemAdminOrgTreePage = () => {
       const userRoles = rolesMap[p.id] || [];
       return {
         id: p.id,
-        fullName: p.full_name,
+        fullName: displayName(p),
         email: p.email,
         avatar: avatarMap[p.id] || null,
         roles: userRoles.map(r => r.role),

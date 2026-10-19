@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { AvatarConfig } from "@/components/avatar/AvatarStudio";
 import { avatarFromRow } from "@/components/avatar/avatarModel";
+import { displayName } from "@/lib/displayName";
 
 export interface UserProfile {
   id: string;
@@ -47,7 +48,7 @@ export const useAuth = () => {
     // closed (unapproved, no roles) rather than fabricating an approved
     // parent identity, which previously gave full parent-dashboard access to
     // anyone caught in that state.
-    const fullName = profileRes.data?.full_name || user.user_metadata?.full_name || "משתמש אנונימי";
+    const fullName = displayName(profileRes.data) || user.user_metadata?.full_name || "משתמש אנונימי";
     const userEmail = profileRes.data?.email || user.email || "";
     const isApproved = profileRes.data ? profileRes.data.is_approved : false;
     const schoolId = profileRes.data?.school_id || null;

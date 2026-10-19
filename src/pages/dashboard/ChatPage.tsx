@@ -33,6 +33,7 @@ import { avatarFromRow } from "@/components/avatar/avatarModel";
 import { SubjectSticker, subjectStickerId } from "@/components/SubjectSticker";
 import { STICKER_GROUPS } from "@/lib/subjectStickers";
 import { useSchoolGuidelines } from "@/hooks/useSchoolGuidelines";
+import { displayName, nameSearchFilter } from "@/lib/displayName";
 
 /* ─── Types ───────────────────────────────────────────── */
 type ConversationType = 
@@ -328,8 +329,8 @@ const ChatPage = () => {
       .eq("conversation_id", conversationId);
     if (!parts?.length) { setSelectedParticipants([]); return; }
     const ids = parts.map((p: any) => p.user_id);
-    const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", ids);
-    const nameMap = new Map((profs || []).map((p: any) => [p.id, p.full_name || "משתמש"]));
+    const { data: profs } = await supabase.from("profiles").select("id, full_name, display_name").in("id", ids);
+    const nameMap = new Map((profs || []).map((p: any) => [p.id, displayName(p, "משתמש")]));
     setSelectedParticipants(parts.map((p: any) => ({
       user_id: p.user_id,
       full_name: nameMap.get(p.user_id) || "משתמש",
@@ -450,7 +451,7 @@ const ChatPage = () => {
 
     if (participantUserIds.length > 0) {
       const [profRes, rolesRes, avatarMap] = await Promise.all([
-        supabase.from("profiles").select("id, full_name").in("id", participantUserIds),
+        supabase.from("profiles").select("id, full_name, display_name").in("id", participantUserIds),
         supabase.from("user_roles").select("user_id, role").in("user_id", participantUserIds),
         fetchAvatarsByUserIds(participantUserIds),
       ]);
@@ -458,7 +459,7 @@ const ChatPage = () => {
       if (rolesRes.error) console.error("user_roles (chat participants):", rolesRes.error);
       for (const p of profRes.data || []) {
         profileMap.set(p.id, {
-          full_name: p.full_name,
+          full_name: displayName(p),
           avatars: avatarMap.get(p.id) ?? null,
         });
       }
@@ -506,11 +507,11 @@ const ChatPage = () => {
       const other = otherParts[0];
       const roles = (other?.user_roles || []).map((r: any) => r.role);
       const roleLabel = roles.map((r: string) => ROLE_LABELS[r] || r).join(", ");
-      const lastName = otherParts.map((p: any) => (p.profiles as any)?.full_name || "").filter(Boolean).join(", ");
+      const lastName = otherParts.map((p: any) => displayName(p.profiles as any)).filter(Boolean).join(", ");
       const otherUserId = c.type === "private" && other ? (other.user_id as string) : null;
 
       const participantNames = parts
-        .map((p: any) => (p.profiles as any)?.full_name)
+        .map((p: any) => displayName(p.profiles as any))
         .filter(Boolean) as string[];
       const participantPreview =
         participantNames.length > 0
@@ -628,13 +629,13 @@ const ChatPage = () => {
     const profById = new Map<string, { full_name: string | null; avatars: unknown }>();
     if (senderIds.length > 0) {
       const [profRes, avatarMap] = await Promise.all([
-        supabase.from("profiles").select("id, full_name").in("id", senderIds),
+        supabase.from("profiles").select("id, full_name, display_name").in("id", senderIds),
         fetchAvatarsByUserIds(senderIds),
       ]);
       if (profRes.error) console.error("profiles (messages):", profRes.error);
       for (const p of profRes.data || []) {
         profById.set(p.id, {
-          full_name: p.full_name,
+          full_name: displayName(p),
           avatars: avatarMap.get(p.id) ?? null,
         });
       }
@@ -709,7 +710,7 @@ const ChatPage = () => {
         // Fetch sender info
         const { data: prof } = await supabase
           .from("profiles")
-          .select("full_name")
+          .select("full_name, display_name")
           .eq("id", m.sender_id)
           .maybeSingle();
         const avMap = await fetchAvatarsByUserIds([m.sender_id]);
@@ -717,7 +718,7 @@ const ChatPage = () => {
         const newMsg: Message = {
           id: m.id,
           sender_id: m.sender_id,
-          sender_name: ((prof as any)?.full_name && String((prof as any).full_name).trim()) || "משתמש",
+          sender_name: displayName(prof as any, "משתמש"),
           sender_avatar: avatarFromRow(avRow ?? null),
           content: m.content,
           created_at: m.created_at,
@@ -875,8 +876,8 @@ const ChatPage = () => {
       if (error || !rows?.length) { setMessageSearchResults([]); return; }
 
       const senderIds = [...new Set(rows.map((r) => r.sender_id))];
-      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", senderIds);
-      const nameMap = new Map((profs || []).map((p) => [p.id, p.full_name || "משתמש"]));
+      const { data: profs } = await supabase.from("profiles").select("id, full_name, display_name").in("id", senderIds);
+      const nameMap = new Map((profs || []).map((p) => [p.id, displayName(p, "משתמש")]));
       const titleMap = new Map(conversations.map((c) => [c.id, c.otherName]));
 
       setMessageSearchResults(
@@ -906,10 +907,10 @@ const ChatPage = () => {
       const term = searchQuery.trim();
       let q = supabase
         .from("profiles")
-        .select("id, full_name")
+        .select("id, full_name, display_name")
         .eq("is_approved", true)
         .neq("id", profile.id)
-        .ilike("full_name", `%${term}%`);
+        .or(nameSearchFilter(term));
       if (profile.schoolId) q = q.eq("school_id", profile.schoolId);
       const { data: profs, error } = await q.limit(25);
       if (error) {
@@ -933,9 +934,9 @@ const ChatPage = () => {
         roleLabelByUser.set(row.user_id, [roleLabelByUser.get(row.user_id), label].filter(Boolean).join(", "));
       }
       setSearchUsers(
-        profs.map((u: { id: string; full_name: string }) => ({
+        profs.map((u: { id: string; full_name: string; display_name: string | null }) => ({
           user_id: u.id,
-          full_name: u.full_name,
+          full_name: displayName(u),
           avatar: avatarFromRow(avatarMap.get(u.id) ?? null),
           roleLabel: roleLabelByUser.get(u.id) || "",
         })),
@@ -1446,14 +1447,14 @@ const ChatPage = () => {
     if (!showGroupInfo || !groupAddQuery.trim()) { setGroupAddResults([]); return; }
     const timer = setTimeout(async () => {
       const term = groupAddQuery.trim();
-      let q = supabase.from("profiles").select("id, full_name").eq("is_approved", true).ilike("full_name", `%${term}%`);
+      let q = supabase.from("profiles").select("id, full_name, display_name").eq("is_approved", true).or(nameSearchFilter(term));
       if (profile.schoolId) q = q.eq("school_id", profile.schoolId);
       const { data: profs } = await q.limit(15);
       const existingIds = new Set(selectedParticipants.map((p) => p.user_id));
       setGroupAddResults(
         (profs || [])
           .filter((p: any) => !existingIds.has(p.id))
-          .map((p: any) => ({ user_id: p.id, full_name: p.full_name, avatar: null, roleLabel: "" })),
+          .map((p: any) => ({ user_id: p.id, full_name: displayName(p), avatar: null, roleLabel: "" })),
       );
     }, 280);
     return () => clearTimeout(timer);

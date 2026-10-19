@@ -32,6 +32,7 @@ import {
 } from "@/lib/timetableGenerator";
 import type { ConstraintLite } from "@/lib/timetableConflicts";
 import type { Json } from "@/integrations/supabase/types";
+import { displayName } from "@/lib/displayName";
 
 // A school day shouldn't end earlier than this just because a class's total
 // weekly hours happen to be light on a given day - flagged as a warning so
@@ -166,7 +167,7 @@ const TimetableBuilderPage = () => {
       supabase.from("subject_requirements").select("*").eq("school_id", schoolId),
       supabase.from("teacher_classes").select("user_id, class_id"),
       supabase.from("user_roles").select("user_id, subject").eq("role", "professional_teacher"),
-      supabase.from("profiles").select("id, full_name").eq("school_id", schoolId),
+      supabase.from("profiles").select("id, full_name, display_name").eq("school_id", schoolId),
       supabase.from("rooms").select("name, room_type, capacity").eq("school_id", schoolId),
       supabase.from("timetable_slots").select("*").eq("school_id", schoolId),
       supabase.from("subject_teacher_counts").select("subject, teacher_count").eq("school_id", schoolId),
@@ -205,7 +206,7 @@ const TimetableBuilderPage = () => {
     setPeriods(periodList);
     const endTimeByLesson = new Map<number, string>(nonBreakBell.map((b: any) => [b.lesson_number, b.end_time?.slice(0, 5)]));
 
-    const profilesById = new Map((profilesRes.data || []).map((p: any) => [p.id, p.full_name]));
+    const profilesById = new Map((profilesRes.data || []).map((p: any) => [p.id, displayName(p)]));
     const subjectByTeacher = new Map((roleRes.data || []).map((r: any) => [r.user_id, r.subject]));
     const teachers: EligibleTeacher[] = (tcRes.data || [])
       .map((tc: any) => {

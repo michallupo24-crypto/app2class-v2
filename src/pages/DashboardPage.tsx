@@ -7,6 +7,7 @@ import { LogOut, CheckCircle2, XCircle, Clock } from "lucide-react";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
 import type { AvatarConfig } from "@/components/avatar/AvatarStudio";
 import { useToast } from "@/hooks/use-toast";
+import { displayName } from "@/lib/displayName";
 
 const DashboardPage = () => {
   const navigate = useNavigate();
@@ -32,7 +33,7 @@ const DashboardPage = () => {
       supabase.from("profiles").select("*, schools(name)").eq("id", user.id).single(),
       supabase.from("user_roles").select("*").eq("user_id", user.id),
       supabase.from("avatars").select("*").eq("user_id", user.id).single(),
-      supabase.from("approvals").select("*, profiles!approvals_user_id_fkey(full_name, email)").eq("status", "pending"),
+      supabase.from("approvals").select("*, profiles!approvals_user_id_fkey(full_name, display_name, email)").eq("status", "pending"),
     ]);
 
     setProfile(profileRes.data);
@@ -111,7 +112,7 @@ const DashboardPage = () => {
           <div className="flex items-center gap-4">
             {avatar && <AvatarPreview config={avatar} size={64} />}
             <div>
-              <h1 className="text-2xl font-heading font-bold">שלום, {profile?.full_name}</h1>
+              <h1 className="text-2xl font-heading font-bold">שלום, {displayName(profile)}</h1>
               <div className="flex gap-2 mt-1">
                 {roles.map((r) => (
                   <span key={r.id} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-heading">
@@ -140,7 +141,7 @@ const DashboardPage = () => {
               {pendingApprovals.map((approval) => (
                 <div key={approval.id} className="flex items-center justify-between p-4 bg-muted rounded-xl">
                   <div>
-                    <p className="font-heading font-medium">{(approval as any).profiles?.full_name || "משתמש"}</p>
+                    <p className="font-heading font-medium">{displayName((approval as any).profiles) || "משתמש"}</p>
                     <p className="text-sm text-muted-foreground">{approval.notes}</p>
                   </div>
                   <div className="flex gap-2">

@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import type { TaskProgress } from './types';
+import { displayName } from "@/lib/displayName";
 
 interface TeacherAnalyticsDashboardProps {
   taskId: string;
@@ -32,7 +33,7 @@ export const TeacherAnalyticsDashboard: React.FC<TeacherAnalyticsDashboardProps>
       if (!classId) { setProgressList([]); return; }
 
       const [{ data: roster, error: rosterError }, { data: progress, error: progressError }] = await Promise.all([
-        supabase.from('profiles').select('id, full_name').eq('class_id', classId).eq('is_approved', true),
+        supabase.from('profiles').select('id, full_name, display_name').eq('class_id', classId).eq('is_approved', true),
         supabase.from('interactive_task_progress').select('*').eq('task_id', taskId),
       ]);
       if (rosterError) throw rosterError;
@@ -45,7 +46,7 @@ export const TeacherAnalyticsDashboard: React.FC<TeacherAnalyticsDashboardProps>
         return {
           id: p?.id || s.id,
           studentId: s.id,
-          studentName: s.full_name,
+          studentName: displayName(s),
           state: (p?.state as Record<string, any>) || null,
           score: p?.score ?? null,
           total: p?.total ?? null,

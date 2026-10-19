@@ -10,6 +10,7 @@ import { computeWeightedAverage } from "@/lib/gradeMath";
 import { Loader2 } from "lucide-react";
 import { SubjectSticker } from "@/components/SubjectSticker";
 import { ToolSticker } from "@/components/ToolSticker";
+import { displayName } from "@/lib/displayName";
 
 /* ─── Types ───────────────────────────────────────────── */
 interface GradeEntry {
@@ -75,8 +76,8 @@ const StudentGradesPage = () => {
         if (kids?.[0]?.student_id) targetId = kids[0].student_id;
       }
 
-      const { data: p } = await supabase.from("profiles").select("full_name, class_id").eq("id", targetId).single();
-      if (p) { setStudentName(p.full_name); setClassId(p.class_id); }
+      const { data: p } = await supabase.from("profiles").select("full_name, display_name, class_id").eq("id", targetId).single();
+      if (p) { setStudentName(displayName(p)); setClassId(p.class_id); }
 
       const { data: subs, error } = await supabase
         .from("submissions")

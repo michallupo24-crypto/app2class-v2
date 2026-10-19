@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Users, BookOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { displayName } from "@/lib/displayName";
 
 interface TeacherWithClasses {
   id: string;
@@ -46,7 +47,7 @@ const TeacherAssignmentPage = () => {
     // Get profiles
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, full_name")
+      .select("id, full_name, display_name")
       .eq("school_id", profile.schoolId)
       .in("id", teacherIds);
 
@@ -80,13 +81,13 @@ const TeacherAssignmentPage = () => {
       });
       return {
         id: p.id,
-        full_name: p.full_name,
+        full_name: displayName(p),
         subject: role?.subject || null,
         classes,
       };
     });
 
-    setTeachers(teacherList.sort((a, b) => a.full_name.localeCompare(b.full_name)));
+    setTeachers(teacherList.sort((a, b) => displayName(a).localeCompare(displayName(b))));
     setLoading(false);
   };
 

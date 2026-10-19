@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { GRADES } from "@/lib/constants";
 import { format } from "date-fns";
+import { displayName } from "@/lib/displayName";
 
 interface PaymentItem {
   id: string;
@@ -81,7 +82,7 @@ const FinanceHubPage = () => {
         const { data: classes } = await supabase.from("classes").select("id").eq("school_id", profile.schoolId!).eq("grade", grade as any);
         const classIds = (classes || []).map((c: any) => c.id);
         if (classIds.length) {
-          const { data: students } = await supabase.from("profiles").select("id, full_name").in("class_id", classIds);
+          const { data: students } = await supabase.from("profiles").select("id, full_name, display_name").in("class_id", classIds);
           gradeMap[grade] = students || [];
         }
       }
@@ -97,8 +98,8 @@ const FinanceHubPage = () => {
       setLoading(false);
       return;
     }
-    const { data: kids } = await supabase.from("profiles").select("id, full_name, school_id, classes(grade)").in("id", studentIds);
-    const kidsList = (kids || []).map((k: any) => ({ id: k.id, fullName: k.full_name, grade: k.classes?.grade || null }));
+    const { data: kids } = await supabase.from("profiles").select("id, full_name, display_name, school_id, classes(grade)").in("id", studentIds);
+    const kidsList = (kids || []).map((k: any) => ({ id: k.id, fullName: displayName(k), grade: k.classes?.grade || null }));
     setChildren(kidsList);
 
     const schoolIds = Array.from(new Set((kids || []).map((k: any) => k.school_id)));
@@ -237,7 +238,7 @@ const FinanceHubPage = () => {
                         const status = rec?.status || "pending";
                         return (
                           <div key={s.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/40">
-                            <span className="text-sm font-body">{s.full_name}</span>
+                            <span className="text-sm font-body">{displayName(s)}</span>
                             <div className="flex items-center gap-1.5">
                               {status === "paid" ? (
                                 <Badge className="bg-success/10 text-success border-success/30">שולם{rec?.payment_method ? ` (${METHOD_LABELS[rec.payment_method]})` : ""}</Badge>
