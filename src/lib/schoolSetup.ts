@@ -147,7 +147,7 @@ export function disabledPages(g: Guidelines | null): Set<string> {
   if (!g.forums.enabled) out.add("community");
   if (!g.council.enabled) out.add("council");
   if (!g.newspaper.enabled) out.add("newspaper");
-  if (!g.games.enabled || !g.games.bellVote) out.add("bell-vote");
+  // games.bellVote now only hides bell-song polls inside the polls page.
   return out;
 }
 

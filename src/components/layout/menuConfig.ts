@@ -65,7 +65,7 @@ export function buildMenu(profile: UserProfile): MenuGroup[] {
       { ...MAIN, items: [I("דאשבורד", "student-home"), I("שיעור חי", "live-student"), I("לוח זמנים", "schedule"), I("נוכחות", "attendance")] },
       { title: "לימודים", icon: "learn_note", color: "#C98A00", items: [I("המקצועות שלי", "subjects"), I("משימות", "tasks"), I("ציונים", "grades"), I("הישגים", "badges"), I("ארכיון מבחנים", "exam-archive"), I("מסמכים", "documents"), I("מצגות", "presentations")] },
       { title: "כלים", icon: "ai", color: "#12807C", items: [I("עוזר AI", "ai-tutor"), I("מגן זכויות", "rights")] },
-      { title: "קהילה", icon: "people", color: "#6B5BFF", items: [I("שיחות", "chat"), I("קהילה", "community"), I("מועצת תלמידים", "council"), I("עיתון בית הספר", "newspaper"), I("הצבעה לצלצול", "bell-vote")] },
+      { title: "קהילה", icon: "people", color: "#6B5BFF", items: [I("שיחות", "chat"), I("קהילה", "community"), I("מועצת תלמידים", "council"), I("עיתון בית הספר", "newspaper"), I("הצבעות", "polls")] },
     ];
   } else if (has("grade_coordinator")) {
     groups = [

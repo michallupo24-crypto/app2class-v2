@@ -2650,6 +2650,166 @@ export type Database = {
           },
         ]
       }
+      poll_options: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          media_url: string | null
+          poll_id: string
+          sort_order: number
+          suggested_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          media_url?: string | null
+          poll_id: string
+          sort_order?: number
+          suggested_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          media_url?: string | null
+          poll_id?: string
+          sort_order?: number
+          suggested_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poll_options_poll_id_fkey"
+            columns: ["poll_id"]
+            isOneToOne: false
+            referencedRelation: "polls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "poll_options_suggested_by_fkey"
+            columns: ["suggested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      poll_votes: {
+        Row: {
+          created_at: string
+          id: string
+          option_id: string
+          poll_id: string
+          voter_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          option_id: string
+          poll_id: string
+          voter_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          option_id?: string
+          poll_id?: string
+          voter_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poll_votes_option_id_fkey"
+            columns: ["option_id"]
+            isOneToOne: false
+            referencedRelation: "poll_options"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "poll_votes_poll_id_fkey"
+            columns: ["poll_id"]
+            isOneToOne: false
+            referencedRelation: "polls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "poll_votes_voter_id_fkey"
+            columns: ["voter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      polls: {
+        Row: {
+          allow_suggestions: boolean
+          audience: string
+          audience_grades: Database["public"]["Enums"]["grade_level"][] | null
+          closes_at: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          kind: string
+          opens_at: string
+          school_id: string
+          show_results: string
+          title: string
+        }
+        Insert: {
+          allow_suggestions?: boolean
+          audience?: string
+          audience_grades?: Database["public"]["Enums"]["grade_level"][] | null
+          closes_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          opens_at?: string
+          school_id: string
+          show_results?: string
+          title: string
+        }
+        Update: {
+          allow_suggestions?: boolean
+          audience?: string
+          audience_grades?: Database["public"]["Enums"]["grade_level"][] | null
+          closes_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          opens_at?: string
+          school_id?: string
+          show_results?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polls_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polls_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           chat_presence: string
@@ -4220,6 +4380,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      can_manage_polls: { Args: { _school_id: string }; Returns: boolean }
       cancel_meeting_slot: { Args: { p_slot_id: string }; Returns: undefined }
       check_and_award_badge: {
         Args: {
@@ -4278,6 +4439,13 @@ export type Database = {
         }[]
       }
       get_counselor_note: { Args: { p_note_id: string }; Returns: string }
+      get_poll_results: {
+        Args: { _poll_id: string }
+        Returns: {
+          option_id: string
+          votes: number
+        }[]
+      }
       get_grade_coordinator_class_stats: {
         Args: { p_grade: Database["public"]["Enums"]["grade_level"] }
         Returns: {
@@ -4346,6 +4514,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      poll_is_for_me: { Args: { _poll_id: string }; Returns: boolean }
+      poll_is_open_for_me: { Args: { _poll_id: string }; Returns: boolean }
       is_conversation_participant: {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
