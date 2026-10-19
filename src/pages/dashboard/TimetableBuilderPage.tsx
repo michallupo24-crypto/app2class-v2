@@ -15,6 +15,8 @@ import RoomsManager from "@/components/timetable-builder/RoomsManager";
 import SubjectRequirementsEditor from "@/components/timetable-builder/SubjectRequirementsEditor";
 import CoordinatorTeacherHours from "@/components/timetable-builder/CoordinatorTeacherHours";
 import TeacherConstraintsManager from "@/components/timetable-builder/TeacherConstraintsManager";
+import SchoolTimetableRulesEditor from "@/components/timetable-builder/SchoolTimetableRulesEditor";
+import { buildTimetableRules } from "@/lib/timetableRules";
 import TeacherContinuityPanel from "@/components/timetable-builder/TeacherContinuityPanel";
 import TimetableVersionHistoryModal from "@/components/timetable-builder/TimetableVersionHistoryModal";
 import { Input } from "@/components/ui/input";
@@ -160,7 +162,7 @@ const TimetableBuilderPage = () => {
     await checkApproval();
 
     const schoolId = profile.schoolId!;
-    const [classesRes, bellRes, reqRes, tcRes, roleRes, profilesRes, roomsRes, existingRes, teacherCountsRes, constraintsRes] = await Promise.all([
+    const [classesRes, bellRes, reqRes, tcRes, roleRes, profilesRes, roomsRes, existingRes, teacherCountsRes, constraintsRes, settingsRes] = await Promise.all([
       supabase.from("classes").select("id, grade, class_number").eq("school_id", schoolId),
       supabase.from("bell_schedule").select("lesson_number, label, end_time, is_break").eq("school_id", schoolId).order("lesson_number"),
       supabase.from("subject_requirements").select("*").eq("school_id", schoolId),
@@ -171,6 +173,7 @@ const TimetableBuilderPage = () => {
       supabase.from("timetable_slots").select("*").eq("school_id", schoolId),
       supabase.from("subject_teacher_counts").select("subject, teacher_count").eq("school_id", schoolId),
       supabase.from("teacher_constraints").select("*").eq("school_id", schoolId).eq("status", "approved"),
+      (supabase as any).from("school_timetable_settings").select("rules").eq("school_id", schoolId).maybeSingle(),
     ]);
 
     if (!reqRes.data?.length) {
@@ -445,6 +448,9 @@ const TimetableBuilderPage = () => {
       unavailable,
       rooms: roomList,
       lockedSlots: existingSlots,
+      // School rules (short days, subject lesson windows, morning subjects)
+      // and the hard teacher limits (max lessons a day, no first/last lesson).
+      rules: buildTimetableRules(settingsRes.data?.rules, (constraintsRes.data || []) as any[]),
     });
 
     // A continuity request that couldn't actually be honored (the preferred
@@ -596,7 +602,12 @@ const TimetableBuilderPage = () => {
             </TabsContent>
 
             <TabsContent value="constraints" className="mt-4">
-              {tab === "constraints" && <TeacherConstraintsManager schoolId={profile.schoolId} profile={profile} />}
+              {tab === "constraints" && (
+                <div className="space-y-4">
+                  <SchoolTimetableRulesEditor schoolId={profile.schoolId} canEdit={canManageSetup} />
+                  <TeacherConstraintsManager schoolId={profile.schoolId} profile={profile} />
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="continuity" className="mt-4">

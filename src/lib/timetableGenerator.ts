@@ -75,6 +75,23 @@ export interface TimetableConflict {
   severity: "error" | "warning";
 }
 
+// School- and teacher-level constraints beyond "no double booking, no gaps".
+// All optional: an empty rules object behaves exactly like before.
+export interface TimetableRules {
+  /** Hard: most lessons a teacher may teach in one day (teacher_constraints max_daily_hours). */
+  teacherMaxDaily?: Map<string, number>;
+  /** Hard: never in the first or the last lesson of the day (teacher_constraints no_edge_lesson). */
+  teacherNoEdge?: Set<string>;
+  /** Hard: a short day - the last lesson_number allowed on that day (e.g. Friday until 5). */
+  dayLastPeriod?: Map<number, number>;
+  /** Hard: a subject may not start before this lesson_number (e.g. PE not in lesson 1). */
+  subjectEarliestPeriod?: Map<string, number>;
+  /** Hard: a subject must end by this lesson_number (e.g. exams-heavy subjects not at the end of the day). */
+  subjectLatestPeriod?: Map<string, number>;
+  /** Soft: these subjects are pulled towards the first lessons of the day. */
+  morningSubjects?: Set<string>;
+}
+
 export interface GenerateTimetableInput {
   classes: GeneratorClass[];
   periods: number[]; // non-break lesson_numbers, in daily order
@@ -84,6 +101,7 @@ export interface GenerateTimetableInput {
   unavailable: Set<string>; // `${teacherId}-${day}-${lesson}`
   rooms: RoomInfo[];
   lockedSlots: GeneratedSlot[];
+  rules?: TimetableRules;
 }
 
 export interface GenerateTimetableResult {
@@ -163,6 +181,7 @@ export function sanitizePlaceholderTeacher(slot: GeneratedSlot): GeneratedSlot {
  */
 export function generateTimetable(input: GenerateTimetableInput): GenerateTimetableResult {
   const { classes, periods, days, requirements, eligibleTeachers, unavailable, rooms, lockedSlots } = input;
+  const rules = input.rules || {};
   const classesById = new Map(classes.map(c => [c.id, c]));
 
   const slots: GeneratedSlot[] = [...lockedSlots];
@@ -182,13 +201,37 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
   const classDayPeriodIdx = new Map<string, Set<number>>();
 
   const periodIndex = new Map(periods.map((p, i) => [p, i]));
+  // teacherId-day -> lessons taught that day, for max_daily_hours.
+  const teacherDayCount = new Map<string, number>();
+
+  const lastPeriodOf = (day: number): number => rules.dayLastPeriod?.get(day) ?? periods[periods.length - 1];
+  const dayAllows = (day: number, lessons: number[]): boolean => lessons.every(l => l <= lastPeriodOf(day));
+  const subjectAllows = (subject: string, lessons: number[]): boolean => {
+    const min = rules.subjectEarliestPeriod?.get(subject);
+    const max = rules.subjectLatestPeriod?.get(subject);
+    return lessons.every(l => (min === undefined || l >= min) && (max === undefined || l <= max));
+  };
+  // Free, not blocked, under the daily cap, and not on the day's edges when asked.
+  const teacherAllowed = (teacherId: string, day: number, lessons: number[]): boolean => {
+    if (lessons.some(l => teacherOccupied.has(key(teacherId, day, l)) || unavailable.has(key(teacherId, day, l)))) return false;
+    const max = rules.teacherMaxDaily?.get(teacherId);
+    if (max !== undefined && (teacherDayCount.get(key(teacherId, day)) ?? 0) + lessons.length > max) return false;
+    if (rules.teacherNoEdge?.has(teacherId) && lessons.some(l => l === periods[0] || l === lastPeriodOf(day))) return false;
+    return true;
+  };
+  const morningPenalty = (subject: string, startIdx: number): number =>
+    rules.morningSubjects?.has(subject) ? startIdx * 25 : 0;
 
   const roomHasCapacity = (room: string, day: number, lesson: number): boolean =>
     (roomUsage.get(key(room, day, lesson)) ?? 0) < (roomCapacity.get(room) ?? 1);
 
   const markOccupied = (slot: GeneratedSlot) => {
     classOccupied.set(key(slot.class_id, slot.day_of_week, slot.lesson_number), slot);
-    if (slot.teacher_id) teacherOccupied.add(key(slot.teacher_id, slot.day_of_week, slot.lesson_number));
+    if (slot.teacher_id) {
+      teacherOccupied.add(key(slot.teacher_id, slot.day_of_week, slot.lesson_number));
+      const tk = key(slot.teacher_id, slot.day_of_week);
+      teacherDayCount.set(tk, (teacherDayCount.get(tk) ?? 0) + 1);
+    }
     if (slot.room) {
       const k = key(slot.room, slot.day_of_week, slot.lesson_number);
       roomUsage.set(k, (roomUsage.get(k) ?? 0) + 1);
@@ -203,7 +246,11 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
 
   const unmarkOccupied = (slot: GeneratedSlot) => {
     classOccupied.delete(key(slot.class_id, slot.day_of_week, slot.lesson_number));
-    if (slot.teacher_id) teacherOccupied.delete(key(slot.teacher_id, slot.day_of_week, slot.lesson_number));
+    if (slot.teacher_id) {
+      teacherOccupied.delete(key(slot.teacher_id, slot.day_of_week, slot.lesson_number));
+      const tk = key(slot.teacher_id, slot.day_of_week);
+      teacherDayCount.set(tk, Math.max(0, (teacherDayCount.get(tk) ?? 0) - 1));
+    }
     if (slot.room) {
       const k = key(slot.room, slot.day_of_week, slot.lesson_number);
       roomUsage.set(k, Math.max(0, (roomUsage.get(k) ?? 0) - 1));
@@ -426,6 +473,7 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
         const idxRange = Array.from({ length: unit.blockLen }, (_, i) => startIdx + i);
         if (idxRange.some(i => occupiedIdx.has(i))) continue;
         const lessons = idxRange.map(i => periods[i]);
+        if (!dayAllows(day, lessons) || !subjectAllows(unit.subject, lessons)) continue;
 
         const room = findRoom(unit.preferredRoomType, day, lessons);
         if (unit.preferredRoomType && !room) continue; // a required room type is still a hard constraint
@@ -459,10 +507,9 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
         // and others left completely empty.
         score -= occupiedIdx.size * occupiedIdx.size * 8;
         score -= startIdx; // mild preference for earlier periods
+        score -= morningPenalty(unit.subject, startIdx);
 
-        const freeTeacher = teacherOptions.find(teacher =>
-          !lessons.some(l => teacherOccupied.has(key(teacher.teacher_id, day, l)) || unavailable.has(key(teacher.teacher_id, day, l)))
-        ) || null;
+        const freeTeacher = teacherOptions.find(teacher => teacherAllowed(teacher.teacher_id, day, lessons)) || null;
         const candidateScore = freeTeacher ? score + 200 : score; // prefer a slot where a teacher can already be filled in
 
         if (!best || candidateScore > best.score) {
@@ -535,6 +582,7 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
         const allClassesFree = tb.classIds.every(cid => !idxRange.some(i => occSets.get(cid)!.has(i)));
         if (!allClassesFree) continue;
         const lessons = idxRange.map(i => periods[i]);
+        if (!dayAllows(day, lessons) || !tb.options.every(o => subjectAllows(o.subject, lessons))) continue;
 
         // Rooms and teachers are assigned per OPTION (not per class) - every
         // class shares the same physical option/teacher/room for that option.
@@ -562,10 +610,7 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
         let filledCount = 0;
         for (const opt of tb.options) {
           const options = teachersForAnyClass(tb.classIds, opt.subject);
-          const free = options.find(t =>
-            !usedTeachers.has(t.teacher_id) &&
-            !lessons.some(l => teacherOccupied.has(key(t.teacher_id, day, l)) || unavailable.has(key(t.teacher_id, day, l)))
-          ) || null;
+          const free = options.find(t => !usedTeachers.has(t.teacher_id) && teacherAllowed(t.teacher_id, day, lessons)) || null;
           if (free) {
             usedTeachers.add(free.teacher_id);
             filledCount++;
@@ -581,11 +626,14 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
         }
         score -= startIdx;
         score += filledCount * 50;
+        // Same rule as per-class subjects: the block's lessons go on separate
+        // days in the primary pass (a small penalty let a 4-hour track land as
+        // 4 lessons in a row on one day); only the relaxed pass may double up.
         if (!relaxed) {
           const sameDaySubjectElsewhere = tb.classIds.some(cid =>
             Array.from(classOccupied.values()).some(s => s.class_id === cid && s.day_of_week === day && s.group_name)
           );
-          if (sameDaySubjectElsewhere) score -= 30;
+          if (sameDaySubjectElsewhere) continue;
         }
 
         if (!best || score > best.score) {
@@ -638,6 +686,7 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
         const allClassesFree = gw.classIds.every(cid => !idxRange.some(i => occSets.get(cid)!.has(i)));
         if (!allClassesFree) continue;
         const lessons = idxRange.map(i => periods[i]);
+        if (!dayAllows(day, lessons) || !subjectAllows(gw.subject, lessons)) continue;
 
         // Classes sharing this grade-wide slot can share a room too, up to
         // its capacity (e.g. 5 classes of PE together in one gym) - only
@@ -654,10 +703,7 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
         let filledCount = 0;
         for (const cid of gw.classIds) {
           const options = teachersFor.get(key(cid, gw.subject)) || [];
-          const free = options.find(t =>
-            !usedTeachers.has(t.teacher_id) &&
-            !lessons.some(l => teacherOccupied.has(key(t.teacher_id, day, l)) || unavailable.has(key(t.teacher_id, day, l)))
-          ) || null;
+          const free = options.find(t => !usedTeachers.has(t.teacher_id) && teacherAllowed(t.teacher_id, day, lessons)) || null;
           if (free) {
             usedTeachers.add(free.teacher_id);
             filledCount++;
@@ -672,12 +718,13 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
           if (occ.has(startIdx - 1) || occ.has(startIdx + gw.blockLen)) score += 100 / gw.classIds.length;
         }
         score -= startIdx;
+        score -= morningPenalty(gw.subject, startIdx);
         score += filledCount * 50; // prefer slots where more classes already have a teacher filled in
         if (!relaxed) {
           const sameDaySubjectElsewhere = gw.classIds.some(cid =>
             Array.from(classOccupied.values()).some(s => s.class_id === cid && s.day_of_week === day && s.subject === gw.subject)
           );
-          if (sameDaySubjectElsewhere) score -= 30;
+          if (sameDaySubjectElsewhere) continue;
         }
 
         if (!best || score > best.score) {
@@ -787,10 +834,14 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
         if (sharedSlotKeys.has(key(cls.id, day, fromLesson))) continue; // never relocate a grade-wide slot on its own
         const toLesson = periods[holeIdx];
 
-        const teacherFree = !slot.teacher_id || !teacherOccupied.has(key(slot.teacher_id, day, toLesson));
+        const teacherFree = !slot.teacher_id || (
+          !teacherOccupied.has(key(slot.teacher_id, day, toLesson)) &&
+          !unavailable.has(key(slot.teacher_id, day, toLesson)) &&
+          !(rules.teacherNoEdge?.has(slot.teacher_id) && toLesson === periods[0])
+        );
         const roomFree = !slot.room || roomHasCapacity(slot.room, day, toLesson);
         const targetFree = !classOccupied.has(key(cls.id, day, toLesson));
-        if (!teacherFree || !roomFree || !targetFree) continue;
+        if (!teacherFree || !roomFree || !targetFree || !subjectAllows(slot.subject, [toLesson])) continue;
 
         unmarkOccupied(slot);
         slot.lesson_number = toLesson;
