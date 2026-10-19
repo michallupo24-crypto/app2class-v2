@@ -240,6 +240,10 @@ const ChatPage = () => {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionedIds, setMentionedIds] = useState<Set<string>>(new Set());
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Set when the user sends, so the composer gets focus back once the send
+  // settles (WhatsApp-style) - but never on its own, so mobile keyboards
+  // don't pop up when the user didn't just send.
+  const refocusComposerRef = useRef(false);
 
   // Attachments
   const [pendingAttachment, setPendingAttachment] = useState<{ path: string; name: string; type: string; extractedText: string | null } | null>(null);
@@ -1033,6 +1037,7 @@ const ChatPage = () => {
   /* ── Send message ─────────────────────────────────────── */
   const sendMessage = async () => {
     if ((!input.trim() && !pendingAttachment) || !selectedId || sending) return;
+    refocusComposerRef.current = true;
 
     const convo = conversations.find(c => c.id === selectedId);
     // Block: creator of unaccepted request already sent 1 message
@@ -1042,6 +1047,8 @@ const ChatPage = () => {
         .eq("conversation_id", selectedId).eq("sender_id", profile.id);
       if ((count || 0) >= 1) {
         toast({ title: "ממתין לתגובה", description: "ניתן לשלוח הודעה אחת עד שיענו", variant: "destructive" });
+        refocusComposerRef.current = false;
+        textareaRef.current?.focus();
         return;
       }
     }
@@ -1101,7 +1108,7 @@ const ChatPage = () => {
               "ההודעה שכתבת לא עומדת בסטנדרט הקהילה שלנו. נסה/י לנסח מחדש בנימוס ובכבוד.",
             variant: "destructive",
           });
-          setInput(content);
+          setInput((draft) => draft.trim() ? draft : content);
           setPendingAttachment(attachment);
           return;
         }
@@ -1166,12 +1173,21 @@ const ChatPage = () => {
       }
     } catch (err: any) {
       toast({ title: "שגיאה", description: err.message, variant: "destructive" });
-      setInput(content);
+      setInput((draft) => draft.trim() ? draft : content);
       setPendingAttachment(attachment);
     } finally {
       setSending(false);
     }
   };
+
+  useEffect(() => {
+    if (sending || !refocusComposerRef.current) return;
+    refocusComposerRef.current = false;
+    // Don't yank focus back if the user moved on to another field mid-send.
+    const active = document.activeElement;
+    if (active && active !== document.body && active !== textareaRef.current) return;
+    textareaRef.current?.focus();
+  }, [sending]);
 
   /* ── Schedule message for later ───────────────────────── */
   const scheduleMessage = async () => {
@@ -2362,7 +2378,6 @@ const ChatPage = () => {
                           if (e.key === "Enter" && !e.shiftKey && mentionQuery === null) { e.preventDefault(); sendMessage(); }
                         }}
                         placeholder={quietHours ? "שעות שקטות — כתוב הודעה..." : "כתוב הודעה..."}
-                        disabled={sending}
                         rows={1}
                         className="flex-1 resize-none font-body text-[14.5px] font-semibold min-h-[38px] max-h-24 py-2 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
@@ -2406,6 +2421,8 @@ const ChatPage = () => {
                         type="submit"
                         size="icon"
                         className="h-9 w-9 shrink-0 rounded-xl"
+                        // Keep focus in the textarea when tapping send.
+                        onMouseDown={e => e.preventDefault()}
                         disabled={(!input.trim() && !pendingAttachment) || sending}
                       >
                         {sending
