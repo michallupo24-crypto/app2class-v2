@@ -65,6 +65,38 @@ const ROADMAP_TAG: Record<WeeklyItem["type"], { label: string; tone: Tone }> = {
 const shortDate = new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "numeric" });
 const weekday = new Intl.DateTimeFormat("he-IL", { weekday: "long" });
 
+// What ai-tutor returns (with HTTP 200) when the model call fails.
+const AI_INSIGHT_FALLBACK = "לא ניתן לטעון תובנה כרגע";
+
+/** A short weekly insight from the child's real numbers, used whenever the AI one isn't available. */
+function buildWeeklyInsight(d: {
+  name: string; avg: number | null; classAvg: number | null; absences: number; attendancePct: number;
+  classAbsenceRate: number | null; openHomework: number; nextHomeworkDue: string | null; nextExam: WeeklyItem | null;
+}): string {
+  const lines: string[] = [];
+  if (d.avg !== null && d.classAvg !== null) {
+    const diff = Math.round(d.avg - d.classAvg);
+    lines.push(diff >= 5 ? `הממוצע של ${d.name} (${d.avg}) גבוה ב-${diff} נקודות מממוצע הכיתה. כל הכבוד!`
+      : diff <= -5 ? `הממוצע של ${d.name} (${d.avg}) נמוך ב-${-diff} נקודות מממוצע הכיתה (${d.classAvg}). כדאי לבדוק יחד באיזה מקצוע קשה יותר.`
+      : `הממוצע של ${d.name} (${d.avg}) קרוב לממוצע הכיתה (${d.classAvg}).`);
+  } else if (d.avg !== null) {
+    lines.push(`הממוצע של ${d.name} עומד על ${d.avg}.`);
+  }
+  if (d.absences === 0) lines.push("אין היעדרויות עד כה.");
+  else {
+    const aboveClass = d.classAbsenceRate !== null && 1 - d.attendancePct / 100 > d.classAbsenceRate + 0.03;
+    lines.push(`${d.absences === 1 ? "היעדרות אחת" : `${d.absences} היעדרויות`} (נוכחות ${d.attendancePct}%)${aboveClass ? ", יותר מהממוצע בכיתה" : ""}.`);
+  }
+  if (d.openHomework > 0) {
+    const due = d.nextHomeworkDue ? `, ${d.openHomework === 1 ? "להגשה" : "הקרובה להגשה"} ב${weekday.format(new Date(d.nextHomeworkDue))}` : "";
+    lines.push(`ל${d.name} ${d.openHomework === 1 ? "יש מטלת שיעורי בית אחת שעוד לא הוגשה" : `יש ${d.openHomework} שיעורי בית שעוד לא הוגשו`}${due}.`);
+  }
+  if (d.nextExam) {
+    lines.push(`בקרוב: ${d.nextExam.title} ב${weekday.format(new Date(d.nextExam.date))} ${shortDate.format(new Date(d.nextExam.date))}. זה זמן טוב לשאול איך ההכנה.`);
+  }
+  return lines.length ? lines.join(" ") : `עדיין אין מספיק נתונים השבוע על ${d.name}.`;
+}
+
 const ParentDashboardPage = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
   const navigate = useNavigate();
@@ -228,19 +260,31 @@ const ParentDashboardPage = () => {
       classComparison,
     });
 
+    // The insight used to come only from ai-tutor, which answers 200 with a
+    // canned "לא ניתן לטעון תובנה כרגע" whenever Gemini fails - so parents saw
+    // that sentence instead of an insight. Show one built from this week's real
+    // numbers right away, and let the AI text replace it only when it succeeds.
+    const openHw = homework.filter(h => !h.submitted);
+    setAiInsight(buildWeeklyInsight({
+      name: firstName(child.fullName), avg: cAvg, classAvg, absences, attendancePct: attPct,
+      classAbsenceRate: classComparison?.classAbsenceRate ?? null,
+      openHomework: openHw.length, nextHomeworkDue: openHw[0]?.dueDate ?? null,
+      nextExam: finalRoadmap.find(r => r.type === "exam") ?? null,
+    }));
     setAiInsightLoading(true);
-    setAiInsight("");
     try {
       const contextStr = `ילד/ה: ${child.fullName}, כיתה ${child.grade || ""}'${child.classNumber || ""}.
 ממוצע ציונים אישי: ${cAvg ?? "אין נתונים"}. ממוצע כיתה: ${classAvg ?? "אין נתונים"}.
 אחוז נוכחות: ${attPct}%. מספר היעדרויות: ${absences}.
+שיעורי בית פתוחים שלא הוגשו: ${openHw.length}.
 אירועים קרובים: ${finalRoadmap.length > 0 ? finalRoadmap.map(r => r.title).join(", ") : "אין אירועים קרובים"}.`;
-      const { data } = await supabase.functions.invoke("ai-tutor", {
+      const { data, error } = await supabase.functions.invoke("ai-tutor", {
         body: { context: "parent_insight", message: contextStr, studentId: child.id },
       });
-      setAiInsight(data?.message || "לא ניתן לטעון תובנה כרגע");
+      const text = typeof data?.message === "string" ? data.message.trim() : "";
+      if (!error && !data?.aiFailed && text && text !== AI_INSIGHT_FALLBACK) setAiInsight(text);
     } catch {
-      setAiInsight("שגיאה בטעינת התובנה, נסה/י שוב מאוחר יותר");
+      // Keep the data-driven insight.
     } finally {
       setAiInsightLoading(false);
     }
@@ -409,7 +453,7 @@ const ParentDashboardPage = () => {
           <HomeRow
             icon={<IconTile icon={ShieldCheck} color="#9257EC" />}
             title={`מה כדאי לדעת על ${childName}`}
-            meta={aiInsightLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : aiInsight}
+            meta={aiInsight || (aiInsightLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null)}
           />
         </HomeSection>
       )}
