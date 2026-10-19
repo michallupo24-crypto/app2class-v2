@@ -1,18 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileUp, Calendar, AlertTriangle, CheckCircle2, Star, Clock, Heart, Minus, ShieldCheck, Paperclip, Send, Trophy, Hand, HeartHandshake, Smartphone, XCircle, FileText } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadPrivateFile } from "@/lib/privateFiles";
 import { useToast } from "@/hooks/use-toast";
+import { SubjectSticker } from "@/components/SubjectSticker";
+import { ToolSticker } from "@/components/ToolSticker";
 
 const JUSTIFICATION_REASONS: { value: string; label: string }[] = [
   { value: "illness", label: "מחלה" },
@@ -59,8 +55,6 @@ export default function StudentAttendancePage() {
   const [studentName, setStudentName] = useState("");
   const [totalLessons, setTotalLessons] = useState<number | null>(null);
 
-  const container = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
-  const item = { hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } };
 
   /* ── Data Logic ───────────────────────────────────────── */
   const loadData = useCallback(async () => {
@@ -189,219 +183,169 @@ export default function StudentAttendancePage() {
     }
   };
 
-  const getIconForCategory = (cat: string) => {
-    switch (cat) {
-      case "excellence": return Trophy;
-      case "positive_participation": return Hand;
-      case "helped_peer": return HeartHandshake;
-      case "disruption": return AlertTriangle;
-      case "phone": return Smartphone;
-      case "no_homework": return XCircle;
-      default: return FileText;
-    }
-  };
-
   if (loading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
 
+  const selected = records.find(r => r.id === selectedRecordId);
+  const praise = notes.filter(n => POSITIVE.includes(n.category));
+  const remarks = notes.filter(n => !POSITIVE.includes(n.category));
+  const margin = Math.max(0, 15 - stats.absencePct);
+  const fmt = (d: string) => d ? new Date(d).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" }) : "";
+
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="max-w-5xl mx-auto px-4 py-10 space-y-12 pb-32">
-      
-      {/* 1. HEADER & IDENTITY */}
-      <motion.div variants={item} className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="space-y-1">
-           <h1 className="text-3xl font-heading font-black tracking-tighter flex items-center gap-3">
-              <Clock className="h-8 w-8 text-primary" /> יומן נוכחות ואירועים
-           </h1>
-           <p className="text-sm text-muted-foreground font-bold">
-              {isParentView ? `מעקב נוכחות עבור: ${studentName}` : "היסטוריית חיסורים, איחורים וציונים לשבח"}
-           </p>
+    <div className="max-w-6xl mx-auto flex flex-col gap-[22px]">
+      {/* Header */}
+      <div className="flex items-center gap-3.5">
+        <ToolSticker id="attendance" size={52} className="max-md:w-10 max-md:h-10" />
+        <div className="flex flex-col gap-1.5">
+          <h1 className="font-heading font-black text-[26px] md:text-[30px] leading-none">{isParentView ? `הנוכחות של ${studentName}` : "הנוכחות שלי"}</h1>
+          <p className="font-body font-semibold text-sm leading-none text-muted-foreground max-md:hidden">חיסורים, איחורים וציונים לשבח מכל השיעורים</p>
         </div>
-        <div className="flex items-center gap-3">
-           <Badge className="bg-primary text-primary-foreground px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest">מתעדכן בזמן אמת</Badge>
-        </div>
-      </motion.div>
-
-      {/* 2. ATTENDANCE PULSE CARD */}
-      <motion.div variants={item}>
-         <Card className={`border-none text-primary-foreground rounded-lg p-10 overflow-hidden relative ${stats.nearRedLine ? "bg-destructive" : "bg-primary"}`}>
-            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-12">
-               <div className="space-y-4 text-center md:text-right">
-                  <p className="text-[10px] uppercase font-black tracking-widest text-primary-foreground/70">מדד נוכחות והתמדה</p>
-                  <h2 className="text-6xl font-heading font-black">{stats.presencePct}%</h2>
-                  <div className="flex items-center gap-2 font-bold text-xs text-primary-foreground/80">
-                     {stats.nearRedLine ? (
-                        <><AlertTriangle className="h-4 w-4" /> {stats.absencePct}% היעדרות — מתקרב לקו האדום (15%)</>
-                     ) : (
-                        <><ShieldCheck className="h-4 w-4" /> רמת התמדה יציבה</>
-                     )}
-                  </div>
-               </div>
-               <div className="flex-1 w-full max-w-md space-y-6">
-                  <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest text-primary-foreground/70">
-                     <span>Presence Health</span>
-                     <span>Excellent</span>
-                  </div>
-                  <Progress value={stats.presencePct} className="h-4 bg-primary-foreground/10" />
-                  <div className="grid grid-cols-3 gap-4">
-                     <div className="text-center"><p className="text-xl font-black">{stats.unexcused}</p><p className="text-[9px] uppercase font-black text-primary-foreground/70">חיסורים</p></div>
-                     <div className="text-center"><p className="text-xl font-black">{stats.lates}</p><p className="text-[9px] uppercase font-black text-primary-foreground/70">איחורים</p></div>
-                     <div className="text-center"><p className="text-xl font-black">{stats.highlights}</p><p className="text-[9px] uppercase font-black text-primary-foreground/70">ציונים לשבח</p></div>
-                  </div>
-               </div>
-            </div>
-         </Card>
-      </motion.div>
-
-      {/* 3. TWO-COLUMN SPLIT: Absences vs Commendations */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-         
-         {/* Absences Section */}
-         <motion.div variants={item} className="space-y-6">
-            <div className="flex items-center justify-between px-4">
-               <h3 className="text-xl font-heading font-black flex items-center gap-3">
-                  <AlertTriangle className="h-5 w-5 text-destructive" /> חיסורים ואיחורים
-               </h3>
-               <Badge variant="outline" className="rounded-full text-destructive border-destructive/30 px-3">{records.length}</Badge>
-            </div>
-
-            {records.length === 0 ? (
-               <Card className="border-dashed border-2 border-border bg-transparent rounded-lg p-10 text-center space-y-3 opacity-50">
-                  <CheckCircle2 className="h-10 w-10 mx-auto text-success" />
-                  <p className="text-sm font-bold font-heading">אין אירועי משמעת או חיסורים להצגה</p>
-               </Card>
-            ) : (
-               <div className="space-y-4">
-                  {records.map(r => (
-                    <Card key={r.id} className="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-all overflow-hidden">
-                       <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-5">
-                             <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${r.status === "absent" ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning"}`}>
-                                {r.status === "absent" ? <Minus className="h-6 w-6" /> : <Clock className="h-6 w-6" />}
-                             </div>
-                             <div>
-                                <p className="text-sm font-black">{r.subject}</p>
-                                <p className="text-[10px] text-muted-foreground font-bold">שיעור {r.lesson_number} • {new Date(r.date).toLocaleDateString("he-IL")}</p>
-                             </div>
-                          </div>
-                          {r.status === "excused" ? (
-                             <Badge className="bg-success/10 text-success border-transparent rounded-lg text-[9px] font-black uppercase">מוצדק</Badge>
-                          ) : r.justificationStatus === "pending" ? (
-                             <Badge className="bg-warning/10 text-warning border-transparent rounded-lg text-[9px] font-black uppercase">ממתין לאישור מחנך</Badge>
-                          ) : r.justificationStatus === "rejected" ? (
-                             <Badge variant="outline" className="rounded-lg text-[9px] font-black uppercase text-destructive border-destructive/30">הצדקה נדחתה</Badge>
-                          ) : (
-                             <Button size="sm" variant="outline" className="rounded-lg border-border hover:bg-muted text-[10px] font-black uppercase h-9 px-4" onClick={() => setSelectedRecordId(r.id)}>הגש הצדקה</Button>
-                          )}
-                       </div>
-                    </Card>
-                  ))}
-               </div>
-            )}
-         </motion.div>
-
-         {/* Commendations Section */}
-         <motion.div variants={item} className="space-y-6">
-            <div className="flex items-center justify-between px-4">
-               <h3 className="text-xl font-heading font-black flex items-center gap-3">
-                  <Star className="h-5 w-5 text-warning" /> קיר הצטיינות וציונים לשבח
-               </h3>
-               <Badge className="bg-warning/10 text-warning rounded-full px-3">{notes.length}</Badge>
-            </div>
-
-            {notes.length === 0 ? (
-               <Card className="border-dashed border-2 border-border bg-transparent rounded-lg p-10 text-center space-y-3 opacity-50">
-                  <Heart className="h-10 w-10 mx-auto text-muted-foreground" />
-                  <p className="text-sm font-bold font-heading">עדיין לא נרשמו הערות מיוחדות</p>
-               </Card>
-            ) : (
-               <div className="space-y-4">
-                  {notes.map(n => {
-                    const NoteIcon = getIconForCategory(n.category);
-                    return (
-                    <Card key={n.id} className="bg-warning/5 rounded-lg p-6 border border-warning/20 shadow-sm hover:shadow-md transition-all">
-                       <div className="flex items-start gap-5">
-                          <div className="bg-card w-14 h-14 rounded-lg flex items-center justify-center shadow-sm shrink-0">
-                             <NoteIcon className="h-6 w-6 text-warning" />
-                          </div>
-                          <div className="flex-1 space-y-2">
-                             <div className="flex justify-between items-start">
-                                <p className="text-sm font-black">{n.subject}</p>
-                                <p className="text-[10px] text-warning font-bold">{new Date(n.date).toLocaleDateString("he-IL")}</p>
-                             </div>
-                             {n.comment && <p className="text-[11px] text-muted-foreground italic leading-relaxed">" {n.comment} "</p>}
-                          </div>
-                       </div>
-                    </Card>
-                    );
-                  })}
-               </div>
-            )}
-         </motion.div>
       </div>
 
-      {/* EXCUSE MODAL */}
+      {/* Rate + counters */}
+      <div className="grid grid-cols-3 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))] gap-2 md:gap-3.5">
+        <div className={`col-span-3 md:col-span-1 flex flex-col gap-3 px-[22px] py-5 rounded-[22px] text-white shadow-raised ${stats.nearRedLine ? "bg-[#B42318]" : "bg-[#1B2333]"}`}>
+          <div className="flex items-baseline gap-2.5">
+            <span className="font-heading font-black text-[50px] md:text-[54px] leading-none">{stats.presencePct}%</span>
+            <span className="font-body font-bold text-sm text-white/80">נוכחות השנה</span>
+          </div>
+          <div className="relative h-3 rounded-md bg-white/15" role="progressbar" aria-valuenow={stats.presencePct} aria-valuemin={0} aria-valuemax={100} aria-label="אחוז נוכחות">
+            <div className="h-full rounded-md bg-[#23B26D]" style={{ width: `${stats.presencePct}%` }} />
+            <div className="absolute -top-[5px] -bottom-[5px] right-[85%] w-[3px] rounded-sm bg-[#FF8A7A]" title="הקו האדום: 15% היעדרות" />
+          </div>
+          <p className="font-body font-semibold text-[12.5px] leading-snug text-white/75">
+            {stats.nearRedLine
+              ? `${stats.absencePct}% היעדרות - עברת את הקו האדום של משרד החינוך (15%).`
+              : `הקו האדום של משרד החינוך הוא 15% היעדרות. יש לך עוד מרווח של ${margin}%.`}
+          </p>
+        </div>
+        {[
+          { v: stats.unexcused, label: "חיסורים", cls: "bg-destructive-soft text-destructive -rotate-2" },
+          { v: stats.lates, label: "איחורים", cls: "bg-warning-soft text-warning rotate-2" },
+          { v: stats.highlights, label: "ציונים לשבח", cls: "bg-success-soft text-success -rotate-1" },
+        ].map(s => (
+          <div key={s.label} className={`flex flex-col justify-end gap-1.5 md:gap-2 p-3 md:p-4 rounded-[18px] md:rounded-[20px] border-[3px] border-white dark:border-card shadow-[0_8px_16px_-11px_rgba(40,30,15,.45)] ${s.cls}`}>
+            <span className="font-heading font-black text-2xl md:text-[34px] leading-none">{s.v}</span>
+            <span className="font-body font-extrabold text-[12.5px] md:text-sm leading-tight">{s.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[18px] items-start">
+        {/* Absences */}
+        <section className="flex flex-col gap-2.5">
+          <h2 className="font-heading font-black text-[17px] md:text-lg leading-none px-1 pb-1">חיסורים ואיחורים</h2>
+          {records.length === 0 ? (
+            <EmptyCard text="אין חיסורים או איחורים. כל הכבוד!" />
+          ) : records.map(r => {
+            const tag = r.status === "excused" || r.justificationStatus === "approved" ? TAGS.approved
+              : r.justificationStatus === "pending" ? TAGS.pending
+              : r.justificationStatus === "rejected" ? TAGS.rejected
+              : r.status === "late" ? TAGS.late : null;
+            return (
+              <div key={r.id} className="flex items-center gap-3 px-3.5 py-3 rounded-[20px] bg-card shadow-[0_8px_16px_-12px_rgba(40,30,15,.4)]">
+                <SubjectSticker subject={r.subject} size={42} />
+                <div className="flex-1 min-w-0 flex flex-col gap-[5px]">
+                  <span className="font-heading font-extrabold text-[15px] leading-tight truncate">{r.subject}</span>
+                  <span className="font-body font-semibold text-[12.5px] leading-none text-muted-foreground">{r.status === "late" ? "איחור" : "חיסור"} · שיעור {r.lesson_number} · {fmt(r.date)}</span>
+                </div>
+                {tag ? (
+                  <span className={`px-[9px] py-[5px] rounded-[9px] border-2 border-white dark:border-card font-body font-extrabold text-xs leading-none rotate-3 shadow-sticker ${tag.cls}`}>{tag.label}</span>
+                ) : (
+                  <button type="button" onClick={() => setSelectedRecordId(r.id)} className="px-3 py-[9px] rounded-xl bg-primary text-primary-foreground font-body font-extrabold text-[13px] leading-none">
+                    <span className="md:hidden">הצדקה</span><span className="max-md:hidden">הגש/י הצדקה</span>
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </section>
+
+        {/* Praise (and other lesson remarks) */}
+        <section className="flex flex-col gap-2.5">
+          <h2 className="font-heading font-black text-[17px] md:text-lg leading-none px-1 pb-1">ציונים לשבח</h2>
+          {praise.length === 0 ? <EmptyCard text="עדיין לא נרשמו ציונים לשבח" /> : praise.map(n => <NoteCard key={n.id} n={n} fmt={fmt} />)}
+          {remarks.length > 0 && (
+            <>
+              <h2 className="font-heading font-black text-[17px] md:text-lg leading-none px-1 pt-3 pb-1">הערות מהשיעורים</h2>
+              {remarks.map(n => <NoteCard key={n.id} n={n} fmt={fmt} />)}
+            </>
+          )}
+        </section>
+      </div>
+
+      {/* Justification sheet */}
       <Dialog open={!!selectedRecordId} onOpenChange={o => { if (!o) { setSelectedRecordId(null); setExcuseReason(""); setExcuseText(""); setAttachmentFile(null); } }}>
-         <DialogContent className="rounded-lg p-10 max-w-md text-right" dir="rtl">
-            <DialogHeader className="mb-6">
-               <DialogTitle className="text-2xl font-black font-heading flex items-center gap-3">
-                  <FileUp className="h-7 w-7 text-primary" /> הגשת הצדקה רשמית
-               </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-6">
-               <div className="p-4 bg-primary/10 rounded-lg border border-primary/20 flex items-center gap-4">
-                  <Clock className="h-5 w-5 text-primary" />
-                  <div>
-                     <p className="text-sm font-black italic">בקשה עבור חיסור בתאריך {records.find(r => r.id === selectedRecordId)?.date}</p>
-                  </div>
-               </div>
-               <div className="space-y-2">
-                  <p className="text-xs font-black text-muted-foreground uppercase tracking-widest px-2">סיבת ההיעדרות</p>
-                  <Select value={excuseReason} onValueChange={setExcuseReason}>
-                     <SelectTrigger className="rounded-lg border-border bg-muted/50 h-12 text-sm">
-                        <SelectValue placeholder="בחר/י סיבה" />
-                     </SelectTrigger>
-                     <SelectContent>
-                        {JUSTIFICATION_REASONS.map(r => (
-                           <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                        ))}
-                     </SelectContent>
-                  </Select>
-               </div>
-               <div className="space-y-2">
-                  <p className="text-xs font-black text-muted-foreground uppercase tracking-widest px-2">פירוט נוסף (אופציונלי)</p>
-                  <Textarea
-                     value={excuseText}
-                     onChange={e => setExcuseText(e.target.value)}
-                     placeholder="פרטים נוספים אם צריך..."
-                     className="rounded-lg border-border bg-muted/50 min-h-[80px] p-4 text-sm"
-                  />
-               </div>
-               <div className="space-y-2">
-                  <input
-                     id="justification-attachment"
-                     type="file"
-                     accept="image/*,.pdf"
-                     className="hidden"
-                     onChange={e => setAttachmentFile(e.target.files?.[0] || null)}
-                  />
-                  <Button
-                     type="button"
-                     variant="outline"
-                     className="w-full h-12 rounded-lg border-dashed border-2 border-border text-xs font-bold gap-2"
-                     onClick={() => document.getElementById("justification-attachment")?.click()}
-                  >
-                     {attachmentFile ? <Paperclip className="h-4 w-4" /> : <FileUp className="h-4 w-4" />}
-                     {attachmentFile ? attachmentFile.name : "העלאת אישור רפואי / הורים"}
-                  </Button>
-               </div>
-               <Button onClick={handleExcuseSubmit} disabled={submittingExcuse || !excuseReason} className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-black gap-3 transition-colors">
-                  {submittingExcuse ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5 rotate-180" />}
-                  שלח הצדקה למחנך/ת
-               </Button>
-            </div>
-         </DialogContent>
+        <DialogContent className="rounded-[28px] p-6 max-w-md text-right bg-background gap-3.5" dir="rtl">
+          <DialogHeader className="space-y-1.5 text-right">
+            <DialogTitle className="font-heading font-black text-xl leading-tight">הצדקת {selected?.status === "late" ? "איחור" : "חיסור"}</DialogTitle>
+            {selected && <p className="font-body font-semibold text-[13px] text-muted-foreground">{selected.subject} · שיעור {selected.lesson_number} · {fmt(selected.date)}</p>}
+          </DialogHeader>
+          <p className="font-body font-extrabold text-[13px] leading-none">מה הסיבה?</p>
+          <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="סיבת ההיעדרות">
+            {JUSTIFICATION_REASONS.map(r => {
+              const on = excuseReason === r.value;
+              return (
+                <button key={r.value} type="button" role="radio" aria-checked={on} onClick={() => setExcuseReason(r.value)}
+                  className={`px-3 py-[9px] rounded-full font-body font-extrabold text-[13px] leading-none shadow-[0_3px_8px_-5px_rgba(40,30,15,.35)] ${on ? "bg-primary text-primary-foreground" : "bg-card text-foreground"}`}>
+                  {r.label}
+                </button>
+              );
+            })}
+          </div>
+          <Textarea value={excuseText} onChange={e => setExcuseText(e.target.value)} placeholder="פירוט נוסף (לא חובה)" className="rounded-[14px] bg-card min-h-[70px] text-sm" />
+          <input id="justification-attachment" type="file" accept="image/*,.pdf" className="hidden" onChange={e => setAttachmentFile(e.target.files?.[0] || null)} />
+          <button type="button" onClick={() => document.getElementById("justification-attachment")?.click()}
+            className="flex items-center gap-2.5 px-3.5 py-3 rounded-[14px] border-2 border-dashed border-input text-right">
+            <ToolSticker id="drive" size={32} />
+            <span className="font-body font-bold text-[13.5px] leading-tight text-text-secondary truncate">{attachmentFile ? attachmentFile.name : "צירוף אישור רפואי או מכתב הורים"}</span>
+          </button>
+          <Button onClick={handleExcuseSubmit} disabled={submittingExcuse || !excuseReason} className="w-full h-12 rounded-[13px] font-body font-extrabold text-[15px] gap-2">
+            {submittingExcuse && <Loader2 className="h-5 w-5 animate-spin" />}
+            שלח/י למחנך/ת
+          </Button>
+          <p className="text-center font-body font-semibold text-[12.5px] text-muted-foreground -mt-1">הבקשה תופיע אצל המחנך/ת לאישור</p>
+        </DialogContent>
       </Dialog>
-    </motion.div>
+    </div>
+  );
+}
+
+const POSITIVE = ["excellence", "positive_participation", "helped_peer"];
+
+const NOTE_KINDS: Record<string, { label: string; icon: string }> = {
+  excellence: { label: "הצטיינות", icon: "trophy" },
+  positive_participation: { label: "השתתפות פעילה", icon: "star" },
+  helped_peer: { label: "עזרה לחבר/ה", icon: "people" },
+  disruption: { label: "הפרעה", icon: "alert" },
+  phone: { label: "שימוש בטלפון", icon: "chat" },
+  no_homework: { label: "חסרים שיעורי בית", icon: "tasks" },
+};
+
+const TAGS = {
+  approved: { label: "הוצדק", cls: "bg-success-soft text-success" },
+  pending: { label: "ממתין לאישור", cls: "bg-warning-soft text-warning" },
+  rejected: { label: "הצדקה נדחתה", cls: "bg-destructive-soft text-destructive" },
+  late: { label: "איחור", cls: "bg-muted text-muted-foreground" },
+};
+
+function NoteCard({ n, fmt }: { n: LessonNote; fmt: (d: string) => string }) {
+  const kind = NOTE_KINDS[n.category] || { label: "הערה", icon: "docs" };
+  return (
+    <div className="flex items-start gap-3 px-4 py-3.5 rounded-[20px] bg-card shadow-[0_8px_16px_-12px_rgba(40,30,15,.4)]">
+      <ToolSticker id={kind.icon} size={44} className="max-md:w-10 max-md:h-10" />
+      <div className="flex-1 flex flex-col gap-[5px]">
+        <span className="font-heading font-extrabold text-[15px] leading-tight">{kind.label}</span>
+        {n.comment && <p className="font-body font-semibold text-[13.5px] leading-relaxed text-text-secondary">{n.comment}</p>}
+        <span className="font-body font-bold text-xs leading-none text-hint">{n.subject} · {fmt(n.date)}</span>
+      </div>
+    </div>
+  );
+}
+
+function EmptyCard({ text }: { text: string }) {
+  return (
+    <div className="px-4 py-8 rounded-[20px] border-2 border-dashed border-input text-center font-body font-bold text-sm text-muted-foreground">{text}</div>
   );
 }
 

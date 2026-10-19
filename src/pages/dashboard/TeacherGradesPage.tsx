@@ -20,6 +20,11 @@ import { fetchFileFromUrl, extractDocumentText, isExtractableDocument, isImageFi
 import { openStoredFile, resolveFileUrl } from "@/lib/privateFiles";
 import { requestImageOcr } from "@/lib/fileOcr";
 import MisconceptionInsights from "@/components/task-studio/MisconceptionInsights";
+import { ToolSticker } from "@/components/ToolSticker";
+import AvatarPreview from "@/components/avatar/AvatarPreview";
+import type { AvatarConfig } from "@/components/avatar/AvatarStudio";
+import { avatarFromRow } from "@/components/avatar/avatarModel";
+import { computeWeightedAverage } from "@/lib/gradeMath";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   LineChart, Line, ReferenceLine,
@@ -58,7 +63,7 @@ const TeacherGradesPage = () => {
   const [saving, setSaving] = useState(false);
   const [showGrading, setShowGrading] = useState(false);
   const [subjectAvgs, setSubjectAvgs] = useState<SubjectAvg[]>([]);
-  const [activeTab, setActiveTab] = useState("grade");
+  const [activeTab, setActiveTab] = useState("book");
   const [assignmentMeta, setAssignmentMeta] = useState<AssignmentMeta>({ isGame: false });
   const [transcriptions, setTranscriptions] = useState<Record<string, string>>({});
   const [transcribing, setTranscribing] = useState<Record<string, boolean>>({});
@@ -353,6 +358,52 @@ const TeacherGradesPage = () => {
     }
   };
 
+  // Gradebook (per the "Grades" design): every student against every assignment of the class.
+  const [book, setBook] = useState<{ students: { id: string; name: string; avatar: AvatarConfig | null }[]; cells: Record<string, { grade: number | null; status: string }> } | null>(null);
+  useEffect(() => {
+    if (!selectedClass) return;
+    let cancelled = false;
+    const load = async () => {
+      const ids = assignments.map((a) => a.id);
+      const [{ data: students }, { data: subs }] = await Promise.all([
+        supabase.from("profiles").select("id, full_name").eq("class_id", selectedClass).order("full_name"),
+        ids.length
+          ? supabase.from("submissions").select("student_id, assignment_id, grade, status").in("assignment_id", ids)
+          : Promise.resolve({ data: [] as { student_id: string; assignment_id: string; grade: number | null; status: string }[] }),
+      ]);
+      const studentIds = (students || []).map((s) => s.id);
+      const { data: avatars } = studentIds.length ? await supabase.from("avatars").select("*").in("user_id", studentIds) : { data: [] };
+      if (cancelled) return;
+      const avatarBy = new Map((avatars || []).map((a: any) => [a.user_id, avatarFromRow(a)]));
+      const cells: Record<string, { grade: number | null; status: string }> = {};
+      (subs || []).forEach((s: any) => { cells[`${s.student_id}:${s.assignment_id}`] = { grade: s.grade, status: s.status }; });
+      setBook({ students: (students || []).map((s) => ({ id: s.id, name: s.full_name, avatar: avatarBy.get(s.id) || null })), cells });
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [selectedClass, assignments]);
+
+  const bookCols = useMemo(() => [...assignments].reverse(), [assignments]);
+  const bookRows = useMemo(() => (book?.students || []).map((st) => {
+    const cells = bookCols.map((a) => {
+      const c = book!.cells[`${st.id}:${a.id}`];
+      const norm = c?.grade != null ? Math.round((c.grade / a.maxGrade) * 100) : null;
+      return { a, norm, pending: c?.grade == null && c?.status === "submitted" };
+    });
+    const avg = computeWeightedAverage(cells.filter((c) => c.norm != null).map((c) => ({ grade: c.norm!, maxGrade: 100, weightPercent: c.a.weight })));
+    return { ...st, cells, avg: avg == null ? null : Math.round(avg) };
+  }), [book, bookCols]);
+  const bookStats = useMemo(() => {
+    const avgs = bookRows.map((r) => r.avg).filter((v): v is number => v != null);
+    return {
+      classAvg: avgs.length ? Math.round(avgs.reduce((a, b) => a + b, 0) / avgs.length) : null,
+      pending: bookRows.reduce((n, r) => n + r.cells.filter((c) => c.pending).length, 0),
+      below60: avgs.filter((v) => v < 60).length,
+    };
+  }, [bookRows]);
+  const openGrading = (assignmentId: string) => { setSelectedAssignment(assignmentId); setShowGrading(true); };
+  const subjectLine = [...new Set(assignments.map((a) => a.subject))].slice(0, 2).join(", ");
+
   const gradeColor = (g: number) => {
     if (g >= 90) return "text-success";
     if (g >= 75) return "text-primary";
@@ -361,20 +412,108 @@ const TeacherGradesPage = () => {
   };
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
-      <motion.div variants={item}>
-        <h1 className="text-2xl font-heading font-bold flex items-center gap-2">
-          <BarChart3 className="h-7 w-7 text-primary" />ציונים וסטטיסטיקות
-        </h1>
-        <p className="text-sm text-muted-foreground font-body mt-1">הזנת ציונים, ניתוח התפלגות וזיהוי תלמידים</p>
+    <motion.div variants={container} initial="hidden" animate="show" className="max-w-6xl mx-auto flex flex-col gap-[22px]">
+      <motion.div variants={item} className="flex items-end justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3.5">
+          <ToolSticker id="chart" size={52} className="max-md:w-10 max-md:h-10" />
+          <div className="flex flex-col gap-1.5">
+            <h1 className="font-heading font-black text-2xl md:text-[30px] leading-none">דוחות וציונים</h1>
+            <p className="font-body font-semibold text-[13px] md:text-sm leading-none text-muted-foreground">
+              {[subjectLine, book && `${book.students.length} תלמידים`].filter(Boolean).join(" · ") || "הזנת ציונים, ניתוח התפלגות וזיהוי תלמידים"}
+            </p>
+          </div>
+        </div>
+        {classes.length > 0 && (
+          <div className="flex p-1 rounded-[13px] bg-muted gap-0.5 max-w-full overflow-x-auto" role="tablist" aria-label="כיתה">
+            {classes.map((c) => {
+              const on = c.id === selectedClass;
+              return (
+                <button key={c.id} type="button" role="tab" aria-selected={on} onClick={() => setSelectedClass(c.id)}
+                  className={`px-3.5 py-[9px] rounded-[10px] font-body font-extrabold text-[13px] leading-none whitespace-nowrap ${on ? "bg-card text-foreground shadow-[0_3px_8px_-4px_rgba(40,30,15,.35)]" : "text-muted-foreground"}`}>
+                  {c.grade}'-{c.number}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </motion.div>
+
+      <motion.div variants={item} className="grid grid-cols-3 gap-2 md:gap-3">
+        {[
+          { v: bookStats.classAvg ?? "—", label: "ממוצע הכיתה", cls: "bg-info-soft text-info -rotate-2" },
+          { v: bookStats.pending, label: "ממתינים לבדיקה", cls: "bg-warning-soft text-warning rotate-2" },
+          { v: bookStats.below60, label: "תלמידים מתחת ל-60", cls: "bg-destructive-soft text-destructive -rotate-1" },
+        ].map((s) => (
+          <div key={s.label} className={`flex flex-col gap-2 p-3 md:p-4 rounded-[20px] border-[3px] border-white dark:border-card shadow-[0_8px_16px_-11px_rgba(40,30,15,.45)] ${s.cls}`}>
+            <span className="font-heading font-black text-2xl md:text-[30px] leading-none">{s.v}</span>
+            <span className="font-body font-extrabold text-xs md:text-[13.5px] leading-tight">{s.label}</span>
+          </div>
+        ))}
       </motion.div>
 
       <motion.div variants={item}>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full md:w-auto">
-            <TabsTrigger value="grade" className="font-heading">הזנת ציונים</TabsTrigger>
-            <TabsTrigger value="analytics" className="font-heading">אנליטיקה</TabsTrigger>
+          <TabsList className="w-full md:w-auto rounded-[13px] p-1 h-auto">
+            <TabsTrigger value="book" className="font-body font-extrabold rounded-[10px] py-2">יומן ציונים</TabsTrigger>
+            <TabsTrigger value="grade" className="font-body font-extrabold rounded-[10px] py-2">בדיקה לפי מטלה</TabsTrigger>
+            <TabsTrigger value="analytics" className="font-body font-extrabold rounded-[10px] py-2">אנליטיקה</TabsTrigger>
           </TabsList>
+
+          {/* GRADEBOOK TAB */}
+          <TabsContent value="book" className="mt-4">
+            {!book ? (
+              <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+            ) : bookCols.length === 0 || bookRows.length === 0 ? (
+              <div className="py-12 text-center rounded-[22px] border-2 border-dashed border-input font-body font-bold text-muted-foreground">
+                {bookRows.length === 0 ? "אין תלמידים בכיתה זו" : "עדיין אין מטלות לכיתה זו"}
+              </div>
+            ) : (
+              <div className="rounded-[22px] bg-card shadow-card overflow-x-auto">
+                <table className="w-full border-collapse min-w-[560px]">
+                  <thead>
+                    <tr className="bg-soft border-b border-border">
+                      <th scope="col" className="sticky right-0 bg-soft text-right px-4 md:px-[18px] py-3.5 font-body font-extrabold text-[12.5px] text-muted-foreground">תלמיד/ה</th>
+                      {bookCols.map((a) => (
+                        <th key={a.id} scope="col" className="px-1.5 py-3 align-bottom">
+                          <button type="button" onClick={() => openGrading(a.id)} title={`בדיקה: ${a.title}`}
+                            className="flex flex-col items-center gap-1 mx-auto max-w-[110px] hover:underline">
+                            <span className="font-heading font-extrabold text-[12.5px] leading-tight text-center line-clamp-2">{a.title}</span>
+                            <span className="font-body font-bold text-[11px] leading-none text-hint">{a.weight ? `${a.weight}%` : TYPE_LABELS[a.type] || a.type}</span>
+                          </button>
+                        </th>
+                      ))}
+                      <th scope="col" className="px-3 py-3.5 font-body font-extrabold text-[12.5px] text-muted-foreground">ממוצע</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bookRows.map((r) => (
+                      <tr key={r.id} className="border-b border-border/60 last:border-0">
+                        <th scope="row" className="sticky right-0 bg-card px-4 md:px-[18px] py-2 text-right font-normal">
+                          <button type="button" onClick={() => navigate(`/dashboard/report/${r.id}`)} className="flex items-center gap-2.5 min-w-0 text-right" title="תעודה">
+                            <span className="w-9 h-9 flex-none rounded-full overflow-hidden border-[2.5px] border-white dark:border-card shadow-[0_2px_5px_rgba(40,30,15,.25)] bg-soft flex items-center justify-center">
+                              {r.avatar ? <AvatarPreview config={r.avatar} size={36} /> : <span className="font-heading font-black text-sm text-muted-foreground">{r.name.charAt(0)}</span>}
+                            </span>
+                            <span className="font-heading font-extrabold text-sm leading-tight truncate max-w-[150px]">{r.name}</span>
+                          </button>
+                        </th>
+                        {r.cells.map(({ a, norm, pending }) => (
+                          <td key={a.id} className="px-1.5 py-2 text-center">
+                            <button type="button" onClick={() => openGrading(a.id)}
+                              aria-label={`${r.name}, ${a.title}: ${norm ?? (pending ? "לבדוק" : "אין ציון")}`}
+                              className={`min-w-[46px] px-1.5 py-2 rounded-[11px] font-heading font-black text-[15px] leading-none ${
+                                norm != null ? toneCls(norm) : pending ? "bg-warning-soft text-warning border-2 border-dashed border-[#E8C766] text-xs" : "text-hint"}`}>
+                              {norm ?? (pending ? "לבדוק" : "—")}
+                            </button>
+                          </td>
+                        ))}
+                        <td className="px-3 py-2 text-center font-heading font-black text-base">{r.avg ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </TabsContent>
 
           {/* GRADE TAB */}
           <TabsContent value="grade" className="space-y-4 mt-4">
@@ -752,5 +891,13 @@ const TeacherGradesPage = () => {
     </motion.div>
   );
 };
+
+// Score chip colors per the "Grades" design.
+function toneCls(v: number): string {
+  if (v >= 90) return "bg-success-soft text-success";
+  if (v >= 75) return "bg-info-soft text-info";
+  if (v >= 60) return "bg-warning-soft text-warning";
+  return "bg-destructive-soft text-destructive";
+}
 
 export default TeacherGradesPage;

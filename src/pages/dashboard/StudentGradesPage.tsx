@@ -1,24 +1,15 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useOutletContext, useParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  FileText, TrendingUp, TrendingDown, Award, BarChart3,
-  BookOpen, Loader2, MessageSquare, Send,
-  BrainCircuit, Trophy, CheckCircle2, AlertCircle, Info, ArrowUpRight, Users
-} from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { computeWeightedAverage } from "@/lib/gradeMath";
-import {
-  AreaChart, Area, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
-} from "recharts";
+import { Loader2 } from "lucide-react";
+import { SubjectSticker } from "@/components/SubjectSticker";
+import { ToolSticker } from "@/components/ToolSticker";
 
 /* ─── Types ───────────────────────────────────────────── */
 interface GradeEntry {
@@ -63,6 +54,7 @@ const StudentGradesPage = () => {
   const [loading, setLoading] = useState(true);
   const [selectedSubject, setSelectedSubject] = useState("all");
   const [appealGrade, setAppealGrade] = useState<GradeEntry | null>(null);
+  const [feedbackGrade, setFeedbackGrade] = useState<GradeEntry | null>(null);
   const [appealText, setAppealText] = useState("");
   const [sendingAppeal, setSendingAppeal] = useState(false);
   const [studentName, setStudentName] = useState<string>("");
@@ -70,8 +62,6 @@ const StudentGradesPage = () => {
   const [distribution, setDistribution] = useState<{ bucket_label: string; bucket_min: number; student_count: number }[]>([]);
   const [distributionLoading, setDistributionLoading] = useState(false);
 
-  const container = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
-  const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } };
 
   /* ── Academic Pulse (NO FILLERS) ────────────────────── */
   useEffect(() => {
@@ -243,276 +233,225 @@ const StudentGradesPage = () => {
     setSendingAppeal(false);
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center bg-background font-black text-primary animate-pulse">Loading Academic Records...</div>;
+  if (loading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
+
+  const classAvgAll = (() => {
+    const xs = subjectSummaries.filter(s => s.classAverage !== null);
+    return xs.length ? Math.round(xs.reduce((a, s) => a + (s.classAverage || 0), 0) / xs.length) : null;
+  })();
+  const vsClass = classAvgAll !== null ? overallAvg - classAvgAll : null;
+  const fmt = (d: string) => new Date(d).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" });
+  const me = isParentView ? "הילד/ה" : "אני";
+
+  // Learning curve: last 10 graded items vs. the class average, on a 400x150 canvas.
+  const lo = Math.min(60, ...chartData.flatMap(d => [d.grade, d.avg || 100])), span = Math.max(10, 100 - lo);
+  const pt = (v: number, i: number) => [chartData.length > 1 ? i * 400 / (chartData.length - 1) : 200, 150 - (v - lo) / span * 140];
+  const path = (vals: number[]) => vals.map((v, i) => (i ? "L" : "M") + pt(v, i).map(n => n.toFixed(1)).join(" ")).join(" ");
+  const withAvg = chartData.filter(d => d.avg);
+  const maxBucket = Math.max(1, ...bellCurveData.map(b => b.count));
 
   return (
-    <div className="min-h-screen font-body p-4 md:p-12 pb-40">
-      <motion.div variants={container} initial="hidden" animate="show" className="max-w-6xl mx-auto space-y-12">
+    <div className="max-w-6xl mx-auto flex flex-col gap-4 md:gap-[22px]">
+      {/* Header */}
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3.5">
+          <ToolSticker id="grades" size={52} className="max-md:w-10 max-md:h-10" />
+          <div className="flex flex-col gap-1.5">
+            <h1 className="font-heading font-black text-[26px] md:text-[30px] leading-none">{isParentView ? `הציונים של ${studentName}` : "הציונים שלי"}</h1>
+            <p className="font-body font-semibold text-sm leading-none text-muted-foreground max-md:hidden">כל המטלות והמבחנים שנבדקו השנה</p>
+          </div>
+        </div>
+        <button type="button" onClick={() => navigate(`/dashboard/report/${studentId}`)}
+          className="max-md:hidden px-4 py-3 rounded-xl bg-primary text-primary-foreground font-body font-extrabold text-sm leading-none">
+          הפק גיליון ציונים
+        </button>
+      </div>
 
-        {/* HEADER */}
-        <motion.div variants={item} className="flex flex-col md:flex-row justify-between items-end gap-10">
-           <div className="space-y-2">
-              <h1 className="text-4xl font-heading font-black tracking-tightest flex items-center gap-4 text-foreground">
-                 <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center text-primary-foreground"><Award className="h-6 w-6" /></div>
-                 הישגים פדגוגיים
-              </h1>
-              <p className="text-sm text-muted-foreground font-bold italic">
-                 {isParentView ? `דוח מפורט עבור ${studentName}` : "סקירה היסטורית של כלל המשימות והמבחנים"}
-              </p>
-           </div>
-           <div className="flex gap-4">
-              <Button variant="outline" className="rounded-lg gap-2 font-bold h-12 px-6" onClick={() => navigate(-1)}>חזרה</Button>
-              <Button className="bg-primary text-primary-foreground rounded-lg gap-2 font-black h-12 px-8" onClick={() => navigate(`/dashboard/report/${studentId}`)}>
-                 הפק גיליון ציונים
-              </Button>
-           </div>
-        </motion.div>
-
-        {/* TOP SUMMARY */}
-        <motion.div variants={item} className="grid grid-cols-1 md:grid-cols-4 gap-8">
-           <Card className="md:col-span-1 bg-primary text-primary-foreground rounded-lg p-10 flex flex-col items-center justify-center text-center space-y-3">
-              <p className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">ממוצע שנתי</p>
-              <p className="text-8xl font-heading font-black tracking-tighter tabular-nums leading-none">{overallAvg}%</p>
-           </Card>
-
-           <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-8">
-              {subjectSummaries.slice(0, 3).map((ss, i) => (
-                <Card key={ss.subject} className="bg-card rounded-lg p-8 flex flex-col justify-between relative overflow-hidden group">
-                   <div className="flex justify-between items-start">
-                      <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
-                         {ss.isTopPerformer ? <Trophy className="h-6 w-6 text-success" /> : <BookOpen className="h-6 w-6 text-primary" />}
-                      </div>
-                      <Badge className={ss.trend === "up" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}>
-                         {ss.trend === "up" ? "בשיפור" : "יציב"}
-                      </Badge>
-                   </div>
-                   <div className="mt-4">
-                      <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">{ss.subject}</p>
-                      <div className="flex items-end gap-3 mt-1">
-                         <p className="text-4xl font-black">{ss.average}</p>
-                         {ss.classAverage && (
-                           <p className={`text-[10px] font-bold mb-1.5 ${ss.average > ss.classAverage ? "text-success" : "text-destructive"}`}>
-                              ({ss.average > ss.classAverage ? `+${ss.average - ss.classAverage}` : `-${ss.classAverage - ss.average}`} מהכיתה)
-                           </p>
-                         )}
-                      </div>
-                   </div>
-                </Card>
-              ))}
-           </div>
-        </motion.div>
-
-        {/* COMPARATIVE TREND CHART */}
-        <motion.div variants={item}>
-           <Card className="bg-card rounded-lg p-12 relative overflow-hidden">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-12">
-                 <div>
-                    <h3 className="text-xl font-black flex items-center gap-4">
-                       <BarChart3 className="h-6 w-6 text-primary" /> עקומת למידה השוואתית
-                    </h3>
-                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">ביצועים אישיים מול ממוצע הכיתה (10 מטלות אחרונות)</p>
-                 </div>
-                 <div className="flex gap-6">
-                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-primary" /> <span className="text-[10px] font-black uppercase">{isParentView ? "הילד/ה" : "אני"}</span></div>
-                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-muted-foreground/40" /> <span className="text-[10px] font-black uppercase">ממוצע כיתה</span></div>
-                 </div>
-              </div>
-              <div className="h-64">
-                 <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData}>
-                       <defs>
-                          <linearGradient id="colorChild" x1="0" y1="0" x2="0" y2="1">
-                             <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
-                             <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                          </linearGradient>
-                       </defs>
-                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                       <XAxis dataKey="name" hide />
-                       <YAxis domain={[0, 100]} hide />
-                       <Tooltip
-                         contentStyle={{ borderRadius: '0.5rem', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))' }}
-                         labelFormatter={(label, payload) => payload[0]?.payload?.title || ""}
-                       />
-                       <Area type="monotone" dataKey="grade" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#colorChild)" />
-                       <Area type="monotone" dataKey="avg" stroke="hsl(var(--muted-foreground))" strokeWidth={2} strokeDasharray="10 5" fill="none" />
-                    </AreaChart>
-                 </ResponsiveContainer>
-              </div>
-           </Card>
-        </motion.div>
-
-        {/* ANONYMOUS BELL CURVE (Grade Benchmark) */}
-        {subjectSummaries.length > 0 && (
-          <motion.div variants={item}>
-             <Card className="bg-card rounded-lg p-12 relative overflow-hidden">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
-                   <div>
-                      <h3 className="text-xl font-black flex items-center gap-4">
-                         <Users className="h-6 w-6 text-primary" /> התפלגות ציונים אנונימית
-                      </h3>
-                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">
-                         כמה תלמידים בכיתה נמצאים בכל טווח ציונים — ללא חשיפת זהויות
-                      </p>
-                   </div>
-                   <div className="flex flex-wrap gap-2">
-                      {subjectSummaries.map(ss => (
-                        <button
-                          key={ss.subject}
-                          onClick={() => setSelectedSubject(ss.subject)}
-                          className={`px-4 py-2 rounded-lg text-xs font-black transition-colors ${
-                            selectedSubject === ss.subject
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted text-muted-foreground hover:bg-muted/70"
-                          }`}
-                        >
-                          {ss.subject}
-                        </button>
-                      ))}
-                   </div>
-                </div>
-
-                {trendInsight && (
-                  <div className="mb-8 p-5 rounded-lg bg-primary/10 flex items-center gap-4">
-                     <Info className="h-5 w-5 text-primary shrink-0" />
-                     <p className="text-sm font-bold text-primary">{trendInsight}</p>
-                  </div>
+      {grades.length === 0 ? (
+        <div className="py-16 text-center rounded-[22px] border-2 border-dashed border-input font-body font-bold text-muted-foreground">עדיין אין ציונים שנבדקו</div>
+      ) : (
+        <>
+          {/* Average + top subjects */}
+          <div className="grid grid-cols-1 md:grid-cols-[200px_repeat(3,minmax(0,1fr))] gap-3.5">
+            <div className="flex md:flex-col md:justify-center items-center md:items-start gap-4 md:gap-2 px-5 py-[18px] md:p-5 rounded-[22px] md:rounded-[22px] bg-[#1B2333] text-white shadow-raised">
+              <span className="font-body font-extrabold text-[13px] leading-none text-white/75 max-md:hidden">ממוצע שנתי</span>
+              <span className="font-heading font-black text-[52px] md:text-[60px] leading-none">{overallAvg}</span>
+              <div className="flex flex-col gap-1.5">
+                <span className="md:hidden font-heading font-extrabold text-[15px] leading-none">ממוצע שנתי</span>
+                {vsClass !== null && (
+                  <span className="font-body font-semibold text-[13px] leading-snug text-white/80">
+                    {vsClass === 0 ? "בדיוק כמו ממוצע הכיתה" : `${vsClass > 0 ? "+" : ""}${vsClass} מממוצע הכיתה`}
+                  </span>
                 )}
-
-                <div className="h-64">
-                   {distributionLoading ? (
-                     <div className="h-full flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-                   ) : (
-                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={bellCurveData}>
-                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                           <XAxis dataKey="bucket" tick={{ fontSize: 11, fontWeight: 700 }} />
-                           <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                           <Tooltip
-                             contentStyle={{ borderRadius: '0.5rem', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))' }}
-                             formatter={(v: number) => [`${v} תלמידים`, "כמות"]}
-                           />
-                           <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                              {bellCurveData.map((d, i) => (
-                                <Cell key={i} fill={d.isMine ? "hsl(var(--primary))" : "hsl(var(--muted))"} />
-                              ))}
-                           </Bar>
-                        </BarChart>
-                     </ResponsiveContainer>
-                   )}
+              </div>
+            </div>
+            {/* Desktop: top 3 subjects with trend */}
+            {subjectSummaries.slice(0, 3).map(ss => {
+              const diff = ss.classAverage !== null ? ss.average - ss.classAverage : null;
+              const tag = ss.trend === "up" ? { t: "בשיפור", c: "bg-success-soft text-success" } : ss.trend === "down" ? { t: "בירידה", c: "bg-destructive-soft text-destructive" } : { t: "יציב", c: "bg-muted text-muted-foreground" };
+              return (
+                <div key={ss.subject} className="max-md:hidden flex flex-col gap-2.5 p-[18px] rounded-[22px] bg-card shadow-card">
+                  <div className="flex items-start justify-between">
+                    <SubjectSticker subject={ss.subject} size={46} />
+                    <span className={`px-[9px] py-[5px] rounded-[9px] border-2 border-white dark:border-card font-body font-extrabold text-xs leading-none rotate-2 shadow-sticker ${tag.c}`}>{tag.t}</span>
+                  </div>
+                  <span className="font-heading font-extrabold text-sm leading-none text-text-secondary">{ss.subject}</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-heading font-black text-4xl leading-none">{ss.average}</span>
+                    {diff !== null && <span className={`font-body font-extrabold text-[13px] ${diff >= 0 ? "text-success" : "text-destructive"}`}>{diff > 0 ? "+" : ""}{diff} מהכיתה</span>}
+                  </div>
                 </div>
-                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-4 flex items-center gap-2">
-                   <div className="w-2.5 h-2.5 rounded-full bg-primary" /> העמודה הכהה מציינת את הטווח שבו נמצא/ת {isParentView ? "הילד/ה" : "אתה/את"}
-                </p>
-             </Card>
-          </motion.div>
-        )}
+              );
+            })}
+          </div>
 
-        {/* DETAILED GRADE TABLE */}
-        <motion.div variants={item} className="space-y-8">
-           <div className="flex items-center justify-between px-4">
-              <h3 className="text-xl font-black">פירוט ציונים מלא</h3>
-              <div className="flex gap-4">
-                 <Badge variant="outline" className="rounded-lg px-4 py-1.5 font-bold h-9 bg-card">סה"כ {grades.length} מטלות</Badge>
+          {/* Phone: every subject as a small tile */}
+          <div className="md:hidden grid grid-cols-3 gap-2">
+            {subjectSummaries.map(ss => (
+              <div key={ss.subject} className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-[18px] bg-card shadow-[0_6px_14px_-10px_rgba(40,30,15,.45)]">
+                <SubjectSticker subject={ss.subject} size={38} />
+                <span className="font-heading font-black text-xl leading-none">{ss.average}</span>
+                <span className="font-body font-bold text-[11.5px] leading-none text-muted-foreground truncate max-w-full px-1">{ss.subject}</span>
               </div>
-           </div>
+            ))}
+          </div>
 
-           <div className="space-y-4">
-              {grades.map(g => (
-                <Card key={g.id} className="bg-card rounded-lg p-8 transition-all overflow-hidden relative">
-                   <div className="flex flex-col md:flex-row items-center gap-10">
-
-                      {/* Score Indicator */}
-                      <div className="w-20 h-20 shrink-0 relative flex items-center justify-center">
-                         <div className={`absolute inset-0 rounded-lg ${g.normalizedGrade >= 90 ? "bg-success/10" : "bg-primary/10"}`} />
-                         <p className={`text-4xl font-heading font-black ${g.normalizedGrade >= 90 ? "text-success" : "text-primary"}`}>{g.normalizedGrade}</p>
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 text-center md:text-right">
-                         <div className="flex items-center justify-center md:justify-end gap-3 mb-1">
-                            <Badge className="bg-muted text-muted-foreground border-none text-[8px] font-black uppercase tracking-widest">{TYPE_LABELS[g.type] || g.type}</Badge>
-                            <h4 className="text-xl font-black tracking-tight">{g.title}</h4>
-                         </div>
-                         <div className="flex items-center justify-center md:justify-end gap-4 text-xs font-bold text-muted-foreground">
-                            <span>{g.subject}</span>
-                            <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40" />
-                            <span>{new Date(g.gradedAt).toLocaleDateString("he-IL")}</span>
-                         </div>
-                      </div>
-
-                      {/* Comparison Metrics */}
-                      <div className="flex items-center gap-8 md:border-r border-border md:pr-10">
-                         <div className="text-center">
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">ממוצע כיתה</p>
-                            <p className="text-2xl font-black">{g.classAvg ?? "—"}</p>
-                         </div>
-                         {g.classAvg && (
-                           <div className="text-center">
-                              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">סטייה</p>
-                              <div className={`flex items-center gap-1 font-black ${g.normalizedGrade >= g.classAvg ? "text-success" : "text-destructive"}`}>
-                                 {g.normalizedGrade >= g.classAvg ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                                 <span className="text-xl">{Math.abs(g.normalizedGrade - g.classAvg)}</span>
-                              </div>
-                           </div>
-                         )}
-                      </div>
-
-                      {/* Active Insights / Feedback */}
-                      <div className="flex items-center gap-3">
-                         {g.feedback && (
-                           <Button variant="ghost" size="icon" className="rounded-lg hover:bg-primary/10" onClick={() => toast({ title: "משוב מורה", description: g.feedback })}>
-                              <FileText className="h-5 w-5 text-primary" />
-                           </Button>
-                         )}
-                         <Button variant="ghost" size="icon" className="rounded-lg hover:bg-muted" onClick={() => setAppealGrade(g)}>
-                            <MessageSquare className="h-5 w-5 text-muted-foreground" />
-                         </Button>
-                      </div>
-                   </div>
-                </Card>
-              ))}
-           </div>
-        </motion.div>
-        
-        {/* MODAL: PEDAGOGICAL APPEAL */}
-        <Dialog open={!!appealGrade} onOpenChange={o => !o && setAppealGrade(null)}>
-           <DialogContent className="rounded-lg p-10 max-w-lg text-right" dir="rtl">
-              <DialogHeader className="mb-8">
-                 <DialogTitle className="text-3xl font-heading font-black flex items-center gap-4">
-                    <BrainCircuit className="h-8 w-8 text-primary" /> הגשת ערעור פדגוגי
-                 </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-8">
-                 <div className="p-6 bg-muted rounded-lg border border-border flex items-center justify-between">
-                    <div>
-                       <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-1">מטלה נבחרת</p>
-                       <p className="text-lg font-black">{appealGrade?.title}</p>
-                    </div>
-                    <Badge className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-lg font-black">{appealGrade?.grade}/{appealGrade?.maxGrade}</Badge>
-                 </div>
-                 <div className="space-y-3">
-                    <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest px-4">הסבר מפורט לבחינה חוזרת</p>
-                    <Textarea
-                       value={appealText}
-                       onChange={e => setAppealText(e.target.value)}
-                       placeholder="הסבירו מדוע לדעתכם חלה טעות בבדיקה או בציון..."
-                       className="rounded-lg border-border bg-muted/50 min-h-[160px] p-6 text-sm font-bold"
-                    />
-                 </div>
-                 <div className="flex gap-4">
-                    <Button onClick={() => setAppealGrade(null)} variant="ghost" className="rounded-lg flex-1 h-14 font-black">ביטול</Button>
-                    <Button onClick={sendAppeal} disabled={sendingAppeal || !appealText.trim()} className="rounded-lg flex-1 h-14 bg-primary hover:bg-primary/90 text-primary-foreground font-black gap-3 transition-colors">
-                       {sendingAppeal ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5 rotate-180" />}
-                       שלח לבדיקה
-                    </Button>
-                 </div>
+          <div className="max-md:hidden grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-3.5">
+            {/* Learning curve */}
+            <div className="flex flex-col gap-3.5 p-5 rounded-[22px] bg-card shadow-card">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col gap-[5px]">
+                  <h2 className="font-heading font-black text-[17px] leading-tight">עקומת למידה</h2>
+                  <p className="font-body font-semibold text-[12.5px] leading-none text-muted-foreground">{chartData.length} המטלות האחרונות, מול ממוצע הכיתה</p>
+                </div>
+                <div className="flex gap-3">
+                  <span className="flex items-center gap-1.5 font-body font-extrabold text-xs"><span className="w-3.5 h-1 rounded-sm bg-foreground" />{me}</span>
+                  <span className="flex items-center gap-1.5 font-body font-extrabold text-xs text-muted-foreground"><span className="w-3.5 border-t-[3px] border-dashed border-[#B5AA98]" />הכיתה</span>
+                </div>
               </div>
-           </DialogContent>
-        </Dialog>
+              <svg viewBox="0 0 400 150" className="w-full h-[170px] overflow-visible" role="img" aria-label={`עקומת ציונים: ${chartData.map(d => d.grade).join(", ")}`}>
+                <path d="M0 30 H400 M0 75 H400 M0 120 H400" className="stroke-border" strokeWidth="1.5" fill="none" />
+                {withAvg.length > 1 && <path d={path(chartData.map(d => d.avg || d.grade))} stroke="#B5AA98" strokeWidth="3" strokeDasharray="8 6" fill="none" strokeLinecap="round" />}
+                <path d={path(chartData.map(d => d.grade))} className="stroke-foreground" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                {chartData.map((d, i) => { const [x, y] = pt(d.grade, i); return <circle key={i} cx={x} cy={y} r="5" className="fill-card stroke-foreground" strokeWidth="3"><title>{`${d.title}: ${d.grade}`}</title></circle>; })}
+              </svg>
+            </div>
 
-      </motion.div>
+            {/* Anonymous distribution */}
+            <div className="flex flex-col gap-3.5 p-5 rounded-[22px] bg-card shadow-card">
+              <div className="flex flex-col gap-[5px]">
+                <h2 className="font-heading font-black text-[17px] leading-tight">{isParentView ? "איפה הילד/ה בכיתה" : "איפה אני בכיתה"}</h2>
+                <p className="font-body font-semibold text-[12.5px] leading-snug text-muted-foreground">כמה תלמידים בכל טווח. בלי שמות.</p>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {subjectSummaries.map(ss => (
+                  <button key={ss.subject} type="button" onClick={() => setSelectedSubject(ss.subject)} aria-pressed={selectedSubject === ss.subject}
+                    className={`px-[11px] py-[7px] rounded-full font-body font-extrabold text-[12.5px] leading-none ${selectedSubject === ss.subject ? "bg-primary text-primary-foreground" : "bg-muted text-text-secondary"}`}>
+                    {ss.subject}
+                  </button>
+                ))}
+              </div>
+              {trendInsight && <p className="font-body font-bold text-[12.5px] leading-snug text-info">{trendInsight}</p>}
+              <div className="flex-1 flex items-end gap-2.5 min-h-[120px]">
+                {distributionLoading ? (
+                  <div className="w-full flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                ) : bellCurveData.map(b => (
+                  <div key={b.bucket} className="flex-1 flex flex-col items-center gap-1.5">
+                    <span className={`font-heading font-black text-[13px] leading-none ${b.isMine ? "text-link" : "text-muted-foreground"}`}>{b.count}</span>
+                    <div className={`w-full rounded-t-[9px] rounded-b ${b.isMine ? "bg-[#1268E8]" : "bg-muted"}`} style={{ height: Math.max(10, b.count / maxBucket * 110) }} title={b.isMine ? "הטווח שלך" : undefined} />
+                    <span className="font-body font-bold text-[11.5px] leading-none text-muted-foreground" dir="ltr">{b.bucket.replace("מתחת ל-60", "<60").replace("90-100", "90+")}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* All grades */}
+          <div className="flex items-center justify-between px-1">
+            <h2 className="font-heading font-black text-[17px] md:text-lg leading-none"><span className="md:hidden">אחרונים</span><span className="max-md:hidden">כל הציונים</span></h2>
+            <span className="font-body font-bold text-[13px] leading-none text-hint">{grades.length} מטלות</span>
+          </div>
+          <div className="flex flex-col gap-2">
+            {grades.map(g => {
+              const diff = g.classAvg != null ? g.normalizedGrade - g.classAvg : null;
+              return (
+                <div key={g.id} className="grid grid-cols-[40px_minmax(0,1fr)_48px] md:grid-cols-[44px_minmax(0,1fr)_54px_80px_200px] items-center gap-3 md:gap-4 px-3.5 md:px-4 py-3 rounded-[20px] bg-card shadow-[0_8px_16px_-12px_rgba(40,30,15,.4)]">
+                  <SubjectSticker subject={g.subject} size={42} />
+                  <div className="flex flex-col gap-[5px] min-w-0">
+                    <span className="font-heading font-extrabold text-[15px] md:text-[15.5px] leading-tight truncate">{g.title}</span>
+                    <span className="font-body font-semibold text-[12.5px] leading-none text-muted-foreground truncate">
+                      <span className="max-md:hidden">{g.subject} · </span>{TYPE_LABELS[g.type] || g.type} · {fmt(g.gradedAt)}
+                      {g.classAvg != null && <span className="md:hidden"> · כיתה {g.classAvg}</span>}
+                    </span>
+                  </div>
+                  <span className={`w-12 md:w-[54px] h-12 md:h-[46px] rounded-[15px] md:rounded-[14px] flex items-center justify-center font-heading font-black text-[21px] md:text-[22px] leading-none ${toneCls(g.normalizedGrade)}`}>{g.normalizedGrade}</span>
+                  <div className="max-md:hidden flex flex-col gap-1">
+                    <span className="font-body font-bold text-[11.5px] leading-none text-hint">כיתה</span>
+                    <span className="font-heading font-extrabold text-[15px] leading-none">
+                      {g.classAvg ?? "—"}{" "}
+                      {diff !== null && <span className={`font-body text-[12.5px] ${diff >= 0 ? "text-success" : "text-destructive"}`}>{diff > 0 ? "+" : ""}{diff}</span>}
+                    </span>
+                  </div>
+                  <div className="max-md:col-span-3 flex gap-1.5 justify-end">
+                    {g.feedback && (
+                      <button type="button" onClick={() => setFeedbackGrade(g)} className="px-3 py-[9px] rounded-xl bg-card border-[1.5px] border-input font-body font-extrabold text-[13px] leading-none whitespace-nowrap">משוב המורה</button>
+                    )}
+                    <button type="button" onClick={() => setAppealGrade(g)} className="px-3 py-[9px] rounded-xl text-text-secondary font-body font-extrabold text-[13px] leading-none whitespace-nowrap hover:bg-muted">ערעור</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* Teacher feedback */}
+      <Dialog open={!!feedbackGrade} onOpenChange={o => !o && setFeedbackGrade(null)}>
+        <DialogContent className="rounded-[22px] max-w-md text-right" dir="rtl">
+          <DialogHeader className="text-right">
+            <DialogTitle className="font-heading font-black">משוב המורה · {feedbackGrade?.title}</DialogTitle>
+          </DialogHeader>
+          <p className="font-body text-sm leading-relaxed whitespace-pre-wrap text-text-secondary">{feedbackGrade?.feedback}</p>
+        </DialogContent>
+      </Dialog>
+
+      {/* Appeal */}
+      <Dialog open={!!appealGrade} onOpenChange={o => !o && setAppealGrade(null)}>
+        <DialogContent className="rounded-[22px] max-w-lg text-right gap-4" dir="rtl">
+          <DialogHeader className="text-right">
+            <DialogTitle className="font-heading font-black text-xl">ערעור על ציון</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-[14px] bg-soft">
+            <span className="font-heading font-extrabold">{appealGrade?.title}</span>
+            <span className={`px-3 py-2 rounded-xl font-heading font-black ${toneCls(appealGrade?.normalizedGrade ?? null)}`}>{appealGrade?.grade}/{appealGrade?.maxGrade}</span>
+          </div>
+          <Textarea
+            value={appealText}
+            onChange={e => setAppealText(e.target.value)}
+            aria-label="נימוק הערעור"
+            placeholder="למה לדעתך כדאי לבדוק שוב את הציון?"
+            className="rounded-[14px] min-h-[140px] text-sm"
+          />
+          <div className="flex gap-2">
+            <Button onClick={() => setAppealGrade(null)} variant="ghost" className="flex-1 h-12 rounded-xl font-extrabold">ביטול</Button>
+            <Button onClick={sendAppeal} disabled={sendingAppeal || !appealText.trim()} className="flex-1 h-12 rounded-xl font-extrabold gap-2">
+              {sendingAppeal && <Loader2 className="h-5 w-5 animate-spin" />}
+              שליחה למורה
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
+// Score chip colors per the "Grades" design.
+function toneCls(v: number | null): string {
+  if (v == null) return "bg-muted text-muted-foreground";
+  if (v >= 90) return "bg-success-soft text-success";
+  if (v >= 75) return "bg-info-soft text-info";
+  if (v >= 60) return "bg-warning-soft text-warning";
+  return "bg-destructive-soft text-destructive";
+}
 
 export default StudentGradesPage;

@@ -1,17 +1,8 @@
 import { useState, useEffect } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  PenLine, Folders, MessageSquare, Layers,
-  FileSpreadsheet, Mountain, Dice5, Flame, Sparkles, Code2,
-  Gamepad2, Plus, Wand2, ChevronRight, Target, Sprout, GraduationCap, Search, Cpu
-} from "lucide-react";
+import { ToolSticker } from "@/components/ToolSticker";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import ManualQuestionEditor from "@/components/task-studio/ManualQuestionEditor";
@@ -36,31 +27,38 @@ interface StudioMode {
   id: string;
   title: string;
   description: string;
-  icon: React.ReactNode;
+  /** Tool sticker id. */
+  icon: string;
   category: "create" | "game" | "ai" | "tools";
-  color: string;
-  badge?: string;
+  ai?: boolean;
 }
 
+// Texts and stickers per the "Task Studio" design.
 const STUDIO_MODES: StudioMode[] = [
-  { id: "manual", title: "הזנה ידנית", description: "כתיבת בנק שאלות ותשובות במגוון פורמטים", icon: <PenLine className="h-6 w-6" />, category: "create", color: "bg-primary/10 text-primary" },
-  { id: "folder-scan", title: "סריקת תיקייה (AI)", description: "הפיכת מצגות וקבצי PDF למשימה אוטומטית", icon: <Folders className="h-6 w-6" />, category: "ai", color: "bg-accent/10 text-accent", badge: "AI" },
-  { id: "live-feedback", title: "Live Feedback", description: "הפיכת שאלות מהשיעור האחרון למטלת חזרה", icon: <MessageSquare className="h-6 w-6" />, category: "create", color: "bg-info/10 text-info" },
-  { id: "flashcards", title: "Flashcards", description: "כרטיסיות שינון אוטומטיות מהחומר", icon: <Layers className="h-6 w-6" />, category: "create", color: "bg-success/10 text-success" },
-  { id: "smart-template", title: "טמפלטים חכמים", description: "בניית מבחן/דף עבודה עם ייבוא מ-PDF", icon: <FileSpreadsheet className="h-6 w-6" />, category: "create", color: "bg-primary/10 text-primary" },
-  { id: "adaptive-tier", title: "מסלול מותאם אישית", description: "שאלה אחת, שלוש רמות - כל תלמיד מקבל אוטומטית את הרמה שמתאימה לו, בלי עבודת שיבוץ ידנית", icon: <Sprout className="h-6 w-6" />, category: "create", color: "bg-success/10 text-success", badge: "AI" },
-  { id: "misconception-coach", title: "בוחן עם מאמן AI", description: "כשתלמיד טועה, ה-AI מסביר את התפיסה השגויה שלו ומוודא הבנה לפני שממשיכים - ומייצר לך דוח טעויות נפוצות", icon: <GraduationCap className="h-6 w-6" />, category: "create", color: "bg-accent/10 text-accent", badge: "AI" },
-  { id: "mountain-climb", title: "טיפוס על הר", description: "תשובות נכונות מקדמות את האווטאר להצלת נסיכה", icon: <Mountain className="h-6 w-6" />, category: "game", color: "bg-success/10 text-success" },
-  { id: "snakes-ladders", title: "נחשים וסולמות", description: "לוח משחק אינטראקטיבי מותנה בפתרון תרגילים", icon: <Dice5 className="h-6 w-6" />, category: "game", color: "bg-destructive/10 text-destructive" },
-  { id: "coop-game", title: "בן האש ובת המים", description: "משימת Co-op זוגית עם שיתוף פעולה", icon: <Flame className="h-6 w-6" />, category: "game", color: "bg-warning/10 text-warning" },
-  { id: "game-prompt", title: "Game Prompt (AI)", description: "תיאור חופשי לבוט שימציא ויבנה משחק ייעודי", icon: <Sparkles className="h-6 w-6" />, category: "ai", color: "bg-accent/10 text-accent", badge: "AI" },
-  { id: "blank-html", title: "בונה משימות אינטראקטיביות", description: "עורך קוד מלא (HTML/CSS/JS/Python), Live Preview, וסייען AI", icon: <Code2 className="h-6 w-6" />, category: "tools", color: "bg-muted text-muted-foreground", badge: "AI" },
-  { id: "ai-prompt-builder", title: "בונה פרומפט ל-AI חיצוני", description: "תארו את המשימה וקבלו פרומפט מדויק להעתקה ל-ChatGPT/Claude, כולל חוזה השילוב עם המערכת", icon: <Wand2 className="h-6 w-6" />, category: "ai", color: "bg-accent/10 text-accent", badge: "AI" },
-  { id: "data-hook", title: "Data Hook (ציונים)", description: "משיכת נתונים ממשחק והזנה אוטומטית כציונים", icon: <Gamepad2 className="h-6 w-6" />, category: "tools", color: "bg-success/10 text-success" },
-  { id: "bagrut-coverage", title: "בר הספק לבגרות", description: "אחוז החיפוי של חומר הבגרות שהמשימות מכסות", icon: <Target className="h-6 w-6" />, category: "tools", color: "bg-warning/10 text-warning" },
-  { id: "bagrut-hunter", title: "ציד שאלות בגרות (AI)", description: "חיפוש שאלות בסגנון בגרות לפי מקצוע ונושא, עם ייבוא ישיר למשימה", icon: <Search className="h-6 w-6" />, category: "ai", color: "bg-accent/10 text-accent", badge: "AI" },
-  { id: "ai-optimization", title: "אופטימיזציית קוד (AI)", description: "שיפור קוד HTML/JS קיים: רספונסיביות, RTL ואנימציות UX", icon: <Cpu className="h-6 w-6" />, category: "tools", color: "bg-muted text-muted-foreground", badge: "AI" },
+  { id: "manual", title: "הזנה ידנית", description: "כתיבת בנק שאלות ותשובות במגוון פורמטים", icon: "quiz", category: "create" },
+  { id: "folder-scan", title: "סריקת תיקייה", description: "הופך מצגות וקבצי PDF למשימה", icon: "folder", category: "ai", ai: true },
+  { id: "live-feedback", title: "Live Feedback", description: "שאלות מהשיעור האחרון הופכות למטלת חזרה", icon: "chat", category: "create" },
+  { id: "flashcards", title: "Flashcards", description: "כרטיסיות שינון מהחומר", icon: "cards", category: "create" },
+  { id: "smart-template", title: "טמפלטים חכמים", description: "מבחן או דף עבודה, עם ייבוא מ-PDF", icon: "docs", category: "create" },
+  { id: "adaptive-tier", title: "מסלול מותאם אישית", description: "שאלה אחת בשלוש רמות. כל תלמיד/ה מקבל/ת את הרמה שמתאימה", icon: "learn_stack", category: "ai", ai: true },
+  { id: "misconception-coach", title: "בוחן עם מאמן AI", description: "כשטועים, ה-AI מסביר את הטעות לפני שממשיכים", icon: "learn_cap", category: "ai", ai: true },
+  { id: "mountain-climb", title: "טיפוס על הר", description: "תשובה נכונה מקדמת את האווטאר לפסגה", icon: "mountain", category: "game" },
+  { id: "snakes-ladders", title: "נחשים וסולמות", description: "לוח משחק שמתקדמים בו בפתרון תרגילים", icon: "dice", category: "game" },
+  { id: "coop-game", title: "בן האש ובת המים", description: "משימה זוגית בשיתוף פעולה", icon: "flame", category: "game" },
+  { id: "game-prompt", title: "Game Prompt", description: "מתארים במילים, הבוט בונה משחק", icon: "ai", category: "ai", ai: true },
+  { id: "blank-html", title: "בונה משימות אינטראקטיביות", description: "עורך קוד מלא עם תצוגה חיה ועוזר AI", icon: "code", category: "tools", ai: true },
+  { id: "ai-prompt-builder", title: "בונה פרומפט ל-AI חיצוני", description: "תיאור המשימה הופך לפרומפט מדויק ל-ChatGPT או Claude", icon: "wand", category: "ai", ai: true },
+  { id: "data-hook", title: "Data Hook", description: "ציונים ממשחק נכנסים ישר לגיליון", icon: "gamepad", category: "tools" },
+  { id: "bagrut-coverage", title: "בר הספק לבגרות", description: "כמה מחומר הבגרות המשימות שלך מכסות", icon: "target", category: "tools" },
+  { id: "bagrut-hunter", title: "ציד שאלות בגרות", description: "חיפוש שאלות בסגנון בגרות לפי נושא", icon: "search", category: "ai", ai: true },
+  { id: "ai-optimization", title: "אופטימיזציית קוד", description: "שיפור קוד HTML/JS קיים: רספונסיביות, RTL ואנימציות", icon: "gear", category: "tools", ai: true },
 ];
+
+const CATEGORIES = [["all", "הכל"], ["create", "יצירה"], ["game", "משחקים"], ["ai", "AI"], ["tools", "כלים"]] as const;
+
+const AiTag = ({ small }: { small?: boolean }) => (
+  <span className={`rounded-[9px] border-2 border-white dark:border-card bg-[#D9F6F1] text-[#0F6B66] font-body font-extrabold leading-none rotate-3 shadow-sticker ${small ? "px-[7px] py-1 text-[11px]" : "px-[9px] py-[5px] text-xs"}`}>AI</span>
+);
 
 const TaskStudioPage = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
@@ -132,72 +130,67 @@ const TaskStudioPage = () => {
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-heading font-bold flex items-center gap-2">
-            <Wand2 className="h-7 w-7 text-primary" />
-            סטודיו משימות
-          </h1>
-          <p className="text-sm text-muted-foreground font-body mt-1">
-            בחר מצב יצירה כדי לבנות משימה, משחק או בוחן
-          </p>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-6xl mx-auto flex flex-col gap-5">
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3.5">
+          <ToolSticker id="wand" size={52} className="max-md:w-10 max-md:h-10" />
+          <div className="flex flex-col gap-1.5">
+            <h1 className="font-heading font-black text-2xl md:text-[30px] leading-none">סטודיו משימות</h1>
+            <p className="font-body font-semibold text-sm leading-none text-muted-foreground max-md:hidden">בחר/י איך לבנות את המשימה הבאה</p>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-left">
-            <Label className="text-xs text-muted-foreground font-heading">משימה פעילה</Label>
+        <div className="flex gap-2 items-center flex-wrap">
+          <div className="flex flex-col gap-1 px-3 py-2 rounded-xl bg-card border-[1.5px] border-input min-w-[200px]">
+            <span className="font-body font-bold text-[11px] leading-none text-hint">משימה פעילה</span>
             <Select value={selectedAssignment || ""} onValueChange={setSelectedAssignment}>
-              <SelectTrigger className="w-[220px] h-9 text-xs">
-                <SelectValue placeholder="בחר משימה קיימת..." />
+              <SelectTrigger className="h-auto p-0 border-0 shadow-none bg-transparent font-body font-extrabold text-[13.5px] focus:ring-0" aria-label="משימה פעילה">
+                <SelectValue placeholder="בחר/י משימה קיימת..." />
               </SelectTrigger>
               <SelectContent>
                 {assignments.map((a) => (
                   <SelectItem key={a.id} value={a.id} className="text-xs">
-                    {a.title} ({a.subject})
+                    {a.title} · {a.subject}{a.classes ? ` · ${a.classes.grade}'-${a.classes.class_number}` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          <Button size="sm" variant="outline" className="mt-4 gap-1 font-heading text-xs" onClick={() => navigate("/dashboard/teacher-assignments")}>
-            <Plus className="h-3.5 w-3.5" /> משימה חדשה
-          </Button>
+          <button type="button" onClick={() => navigate("/dashboard/teacher-assignments")}
+            className="px-4 py-[13px] rounded-xl bg-primary text-primary-foreground font-body font-extrabold text-sm leading-none">
+            משימה חדשה
+          </button>
         </div>
       </div>
 
-      <Tabs value={filterCategory} onValueChange={setFilterCategory}>
-        <TabsList className="grid grid-cols-5 w-full max-w-lg">
-          <TabsTrigger value="all" className="font-heading text-xs">הכל</TabsTrigger>
-          <TabsTrigger value="create" className="font-heading text-xs">יצירה</TabsTrigger>
-          <TabsTrigger value="game" className="font-heading text-xs">משחקים</TabsTrigger>
-          <TabsTrigger value="ai" className="font-heading text-xs">AI</TabsTrigger>
-          <TabsTrigger value="tools" className="font-heading text-xs">כלים</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="flex gap-1.5 md:gap-0.5 md:p-1 md:rounded-[13px] md:bg-muted md:self-start overflow-x-auto [scrollbar-width:none]" role="tablist" aria-label="סוג מצב">
+        {CATEGORIES.map(([k, label]) => {
+          const on = filterCategory === k;
+          return (
+            <button key={k} type="button" role="tab" aria-selected={on} onClick={() => setFilterCategory(k)}
+              className={`flex-none px-[13px] md:px-3.5 py-2 md:py-[9px] rounded-full md:rounded-[10px] font-body font-extrabold text-[13px] leading-none max-md:shadow-[0_3px_8px_-5px_rgba(40,30,15,.35)] ${
+                on ? "max-md:bg-primary max-md:text-primary-foreground md:bg-card md:shadow-[0_3px_8px_-4px_rgba(40,30,15,.35)]" : "max-md:bg-card md:text-muted-foreground"}`}>
+              {label}
+            </button>
+          );
+        })}
+      </div>
 
-      <motion.div
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-        initial="hidden" animate="show"
-        variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04 } } }}
-      >
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 md:gap-3.5">
         {filteredModes.map((mode) => (
-          <motion.div key={mode.id} variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }}>
-            <Card className="cursor-pointer group hover:border-primary/30 transition-colors h-full" onClick={() => setActiveMode(mode.id)}>
-              <CardContent className="p-5 flex flex-col h-full">
-                <div className="flex items-start justify-between mb-3">
-                  <div className={`p-2.5 rounded-xl ${mode.color}`}>{mode.icon}</div>
-                  {mode.badge && <Badge variant="secondary" className="text-[10px] font-heading bg-accent/20 text-accent border-0">{mode.badge}</Badge>}
-                </div>
-                <h3 className="font-heading font-bold text-sm mb-1">{mode.title}</h3>
-                <p className="text-xs text-muted-foreground font-body flex-1">{mode.description}</p>
-                <div className="flex items-center justify-end mt-3 text-xs text-primary font-heading opacity-0 group-hover:opacity-100 transition-opacity">
-                  התחל <ChevronRight className="h-3.5 w-3.5 mr-0.5" />
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+          <button key={mode.id} type="button" onClick={() => setActiveMode(mode.id)}
+            className="text-right flex sm:flex-col items-center sm:items-stretch gap-3 sm:gap-2.5 px-3.5 py-3 sm:px-4 sm:pt-[18px] sm:pb-4 rounded-[20px] sm:rounded-[22px] bg-card shadow-card hover:shadow-raised transition-shadow">
+            <div className="flex sm:items-start sm:justify-between flex-none">
+              <ToolSticker id={mode.icon} size={54} className="max-sm:w-11 max-sm:h-11" />
+              {mode.ai && <span className="max-sm:hidden"><AiTag /></span>}
+            </div>
+            <div className="flex-1 min-w-0 flex flex-col gap-[5px] sm:gap-2.5">
+              <span className="font-heading font-extrabold sm:font-black text-[15px] sm:text-[15.5px] leading-tight">{mode.title}</span>
+              <span className="font-body font-semibold text-[12.5px] sm:text-[13px] leading-snug text-muted-foreground sm:text-text-secondary [text-wrap:pretty]">{mode.description}</span>
+            </div>
+            {mode.ai && <span className="sm:hidden flex-none"><AiTag small /></span>}
+          </button>
         ))}
-      </motion.div>
+      </div>
     </motion.div>
   );
 };

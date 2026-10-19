@@ -74,6 +74,8 @@
     --sidebar-accent-foreground: 220 31% 15%;
     --sidebar-border: 39 35% 87%;
     --sidebar-ring: 220 31% 15%;
+    --menu: 217 72% 94%;           /* side menu, sky #E6EEFB */
+    --menu-dots: 218 55% 88%;      /* #CFDCF3 */
 
     --shadow-card: 0 8px 20px -14px rgba(40, 30, 15, 0.45);
     --shadow-raised: 0 14px 30px -18px rgba(27, 35, 51, 0.8);
@@ -133,6 +135,8 @@
     --sidebar-accent-foreground: 38 50% 95%;
     --sidebar-border: 220 20% 22%;
     --sidebar-ring: 38 50% 95%;
+    --menu: 220 32% 12%;
+    --menu-dots: 220 28% 19%;
 
     --shadow-card: 0 8px 20px -14px rgba(0, 0, 0, 0.8);
     --shadow-raised: 0 14px 30px -18px rgba(0, 0, 0, 0.9);

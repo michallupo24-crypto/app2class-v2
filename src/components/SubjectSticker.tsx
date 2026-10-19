@@ -1,4 +1,4 @@
-import { STICKERS, STICKER_GROUPS, type El } from "@/lib/subjectStickers";
+import { STICKERS, STICKER_GROUPS, type El, type StickerArt } from "@/lib/subjectStickers";
 import { SUBJECT_GLYPHS, SUBJECT_TILES } from "@/lib/subjectTiles";
 
 const NAME_TO_ID: Record<string, string> = Object.fromEntries([
@@ -147,6 +147,19 @@ export function SubjectSticker({ subject, size = 40, tilt = false, flat = false,
     );
   }
 
+  return <StickerArtSvg art={art} size={size} tilt={tilt} flat={flat} className={className} />;
+}
+
+interface StickerArtSvgProps {
+  art: StickerArt;
+  size?: number | string;
+  tilt?: boolean;
+  flat?: boolean;
+  className?: string;
+}
+
+/** Draws sticker artwork (subject or tool): silhouette with a white rim, then details. */
+export function StickerArtSvg({ art, size = 40, tilt = false, flat = false, className }: StickerArtSvgProps) {
   const [m, d, l] = art.pal;
   const pal: Record<string, string> = { m, d, l };
   const col = (v: unknown) => (typeof v === "string" && v !== "none" ? pal[v] || v : v);

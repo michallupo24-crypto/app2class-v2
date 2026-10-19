@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { SubjectSticker, subjectColor } from "@/components/SubjectSticker";
+import { SubjectFolder } from "@/components/SubjectFolder";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { getSchoolGuidelines } from "@/hooks/useSchoolGuidelines";
@@ -150,9 +151,9 @@ const TeacherSubjectsPage = () => {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-[18px]">
         <div className="px-1">
-          <h1 className="font-heading text-[27px] font-black leading-[1.05]">המקצועות שלי</h1>
+          <h1 className="font-heading text-[26px] md:text-[30px] font-black leading-none">המקצועות שלי</h1>
           <p className="mt-[5px] font-body text-[13px] font-semibold text-muted-foreground">
-            תיקייה לכל כיתה ומקצוע · {folders.length} תיקיות
+            כל קבוצה היא תיקייה עם חומרים, משימות וציונים · {folders.length} תיקיות
           </p>
         </div>
         {folders.length === 0 ? (
@@ -160,7 +161,7 @@ const TeacherSubjectsPage = () => {
             עדיין לא שובצת למקצוע בכיתה. אחרי שיבוץ במערכת השעות או ע״י רכז/ת המקצוע, התיקיות יופיעו כאן.
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-5 pt-3 sm:grid-cols-3 md:gap-x-[18px] md:gap-y-[30px] xl:grid-cols-4">
             {folders.map((f, i) => (
               <FolderCard key={f.key} folder={f} bells={bells} index={i} onOpen={() => setOpen(f.key)} />
             ))}
@@ -186,41 +187,15 @@ const TeacherSubjectsPage = () => {
 
 /* ── Folder card ─────────────────────────────────────── */
 function FolderCard({ folder, bells, index, onOpen }: { folder: Folder; bells: Bell[]; index: number; onOpen: () => void }) {
-  const color = subjectColor(folder.subject);
   const next = nextLesson(folder, bells);
   return (
-    <motion.button
-      type="button"
-      onClick={onOpen}
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.03 }}
-      whileHover={{ y: -3 }}
-      className="group relative pt-[14px] text-right"
-      aria-label={`${folder.subject} ${folder.classLabel}`}
-    >
-      {/* folder tab */}
-      <span
-        className="absolute right-3 top-0 h-[22px] w-[46%] rounded-t-[12px]"
-        style={{ background: color, opacity: 0.85 }}
-      />
-      <div
-        className="relative flex h-full flex-col gap-2 rounded-[18px] rounded-tr-[6px] border-[2.5px] border-white p-3 shadow-[0_8px_18px_-10px_rgba(27,35,51,0.45)] dark:border-card"
-        style={{ background: `linear-gradient(160deg, ${color}26, ${color}0d), hsl(var(--card))` }}
-      >
-        <div className="flex items-start justify-between gap-2">
-          <SubjectSticker subject={folder.subject} size={42} tilt />
-          <span className="rounded-full bg-card px-2 py-[3px] font-heading text-[12px] font-black text-foreground shadow-sm">
-            {folder.classLabel}
-          </span>
-        </div>
-        <p className="font-heading text-[15px] font-extrabold leading-tight text-foreground">{folder.subject}</p>
-        <p className="flex items-center gap-1 font-body text-[11.5px] font-semibold text-muted-foreground">
-          <Clock className="h-3 w-3 shrink-0" />
-          {next ? `${DAY_NAMES[next.at.getDay()]} · שיעור ${next.slot.lesson}` : "אין שיעור במערכת"}
-        </p>
-      </div>
-    </motion.button>
+    <SubjectFolder
+      subject={folder.subject}
+      title={`${folder.subject} · ${folder.classLabel}`}
+      subtitle={next ? `${DAY_NAMES[next.at.getDay()]} · שיעור ${next.slot.lesson}${next.slot.room ? ` · חדר ${next.slot.room}` : ""}` : "אין שיעור במערכת"}
+      index={index}
+      onOpen={onOpen}
+    />
   );
 }
 

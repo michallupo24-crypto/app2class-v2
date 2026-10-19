@@ -41,6 +41,7 @@ export default {
         hint: "hsl(var(--hint))",
         link: "hsl(var(--link))",
         dots: "hsl(var(--dots))",
+        menu: { DEFAULT: "hsl(var(--menu))", dots: "hsl(var(--menu-dots))" },
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
