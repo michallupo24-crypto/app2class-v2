@@ -1,29 +1,21 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useOutletContext, useLocation } from "react-router-dom";
-import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from "framer-motion";
-import { Card, CardContent } from "@/components/ui/card";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ClipboardList, Check, X, Clock, Send, Undo2, Cake, MoreHorizontal, LayoutGrid, List, Save, Loader2 } from "lucide-react";
+import { Undo2, Cake, Loader2 } from "lucide-react";
 import { SUBJECTS } from "@/lib/constants";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
 import type { UserProfile } from "@/hooks/useAuth";
 import type { AvatarConfig } from "@/components/avatar/AvatarStudio";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useSmartSeat } from "@/hooks/useSmartSeat";
 import { ClassroomGrid } from "@/components/smartseat/ClassroomGrid";
 import { avatarFromRow } from "@/components/avatar/avatarModel";
+import { ToolSticker } from "@/components/ToolSticker";
 
 interface StudentCard {
   id: string;
@@ -34,7 +26,6 @@ interface StudentCard {
   isBirthday: boolean;
 }
 
-const SWIPE_THRESHOLD = 60;
 const LONG_PRESS_MS = 550;
 
 const NOTE_CATEGORIES: { value: string; label: string; group: "discipline" | "positive" }[] = [
@@ -48,124 +39,70 @@ const NOTE_CATEGORIES: { value: string; label: string; group: "discipline" | "po
   { value: "excellence", label: "הצטיינות", group: "positive" },
 ];
 
-const STATUS_LABELS: Record<NonNullable<StudentCard["status"]>, string> = {
-  present: "נוכח/ת", absent: "חיסור", late: "איחור", excused: "מוצדק",
+// Per the "Attendance" design: status tag colors and the ring on a marked card.
+const TILE_STATUS: Record<NonNullable<StudentCard["status"]>, { label: string; cls: string; ring: string }> = {
+  present: { label: "נוכח/ת", cls: "bg-success-soft text-success", ring: "#23B26D" },
+  late: { label: "איחור", cls: "bg-warning-soft text-warning", ring: "#F0A21A" },
+  absent: { label: "חסר/ה", cls: "bg-destructive-soft text-destructive", ring: "#E5484D" },
+  excused: { label: "מוצדק", cls: "bg-info-soft text-info", ring: "#2F5FB8" },
 };
 
-const SwipeableStudentRow = ({
-  student,
-  isMobile,
-  onSwipe,
-  onLongPress,
-}: {
+// Quick lesson notes in the side panel (a subset of NOTE_CATEGORIES).
+const QUICK_NOTES = [
+  { value: "positive_participation", label: "ציון לשבח", icon: "star" },
+  { value: "helped_peer", label: "עזרה לחבר/ה", icon: "people" },
+  { value: "disruption", label: "הפרעה", icon: "alert" },
+  { value: "phone", label: "שימוש בטלפון", icon: "chat" },
+  { value: "no_homework", label: "חסרים ש״ב", icon: "tasks" },
+  { value: "excellence", label: "הצטיינות", icon: "trophy" },
+];
+
+const StudentTile = ({ student, selected, onTap, onNotes }: {
   student: StudentCard;
-  isMobile: boolean;
-  onSwipe: (id: string, direction: "left" | "right" | "late") => void;
-  onLongPress: (id: string) => void;
+  selected: boolean;
+  onTap: () => void;
+  onNotes: () => void;
 }) => {
-  const x = useMotionValue(0);
-  const leftBgOpacity = useTransform(x, [-150, -SWIPE_THRESHOLD, 0], [1, 0.6, 0]);
-  const rightBgOpacity = useTransform(x, [0, SWIPE_THRESHOLD, 150], [0, 0.6, 1]);
-  const leftScale = useTransform(x, [-150, -SWIPE_THRESHOLD, 0], [1.15, 0.9, 0.5]);
-  const rightScale = useTransform(x, [0, SWIPE_THRESHOLD, 150], [0.5, 0.9, 1.15]);
-  const cardScale = useTransform(x, [-150, 0, 150], [0.97, 1, 0.97]);
-
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressed = useRef(false);
+  const st = student.status ? TILE_STATUS[student.status] : null;
+  const first = student.name.trim().split(/\s+/)[0];
+
   const startPress = () => {
-    pressTimer.current = setTimeout(() => onLongPress(student.id), LONG_PRESS_MS);
+    longPressed.current = false;
+    pressTimer.current = setTimeout(() => { longPressed.current = true; onNotes(); }, LONG_PRESS_MS);
   };
-  const cancelPress = () => {
-    if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; }
-  };
-
-  const handleDragEnd = (_: any, info: PanInfo) => {
-    if (info.offset.x < -SWIPE_THRESHOLD) onSwipe(student.id, "left");
-    else if (info.offset.x > SWIPE_THRESHOLD) onSwipe(student.id, "right");
-  };
-
-  const statusConfig = student.status === "present"
-    ? { bg: "bg-success/10 border-success/30", accent: "bg-success", text: "text-success", icon: Check }
-    : student.status === "absent"
-      ? { bg: "bg-destructive/10 border-destructive/30", accent: "bg-destructive", text: "text-destructive", icon: X }
-      : student.status === "late"
-        ? { bg: "bg-warning/10 border-warning/30", accent: "bg-warning", text: "text-warning-foreground", icon: Clock }
-        : { bg: "bg-card border-border/60 hover:border-border", accent: "bg-muted-foreground/30", text: "text-muted-foreground", icon: null };
-
-  const hasDisciplineNote = student.notes.some(n => NOTE_CATEGORIES.find(c => c.value === n.category)?.group === "discipline");
-  const hasPositiveNote = student.notes.some(n => NOTE_CATEGORIES.find(c => c.value === n.category)?.group === "positive");
+  const cancelPress = () => { if (pressTimer.current) clearTimeout(pressTimer.current); };
 
   return (
-    <div className="relative overflow-hidden rounded-lg shadow-sm">
-      <motion.div className="absolute inset-0 flex items-center justify-start pr-6 bg-success/30" style={{ opacity: leftBgOpacity }}>
-        <motion.div style={{ scale: leftScale }} className="flex items-center gap-1.5 text-success font-heading font-bold">
-          <Check className="h-5 w-5" /> נוכח
-        </motion.div>
-      </motion.div>
-      <motion.div className="absolute inset-0 flex items-center justify-end pl-6 bg-destructive/30" style={{ opacity: rightBgOpacity }}>
-        <motion.div style={{ scale: rightScale }} className="flex items-center gap-1.5 text-destructive font-heading font-bold">
-          חסר <X className="h-5 w-5" />
-        </motion.div>
-      </motion.div>
-      <motion.div
-        drag={isMobile ? "x" : false}
-        dragConstraints={{ left: 0, right: 0 }}
-        onDragStart={cancelPress}
-        onDragEnd={handleDragEnd}
-        onPointerDown={startPress}
-        onPointerUp={cancelPress}
-        onPointerLeave={cancelPress}
-        onContextMenu={(e) => e.preventDefault()}
-        style={{ x, scale: cardScale }}
-        className={`relative z-10 flex items-center gap-3.5 p-3 pr-4 rounded-lg border select-none transition-colors duration-200 ${statusConfig.bg} ${!isMobile ? "hover:shadow-md" : ""}`}
-      >
-        {/* Status accent strip */}
-        <div className={`absolute inset-y-2 right-0 w-1 rounded-full ${statusConfig.accent} opacity-70`} />
-
-        <div className="relative shrink-0">
-          <div className={`rounded-lg ring-2 ring-offset-2 ring-offset-background transition-all ${student.status ? statusConfig.accent.replace("bg-", "ring-") + "/40" : "ring-transparent"}`}>
-            {student.avatar
-              ? <AvatarPreview config={student.avatar} size={48} />
-              : <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center text-lg">👤</div>}
-          </div>
-          {student.status && statusConfig.icon && (
-            <div className={`absolute -bottom-1.5 -left-1.5 w-6 h-6 rounded-full ${statusConfig.accent} text-white flex items-center justify-center border-2 border-background shadow-sm`}>
-              <statusConfig.icon className="h-3.5 w-3.5" strokeWidth={3} />
-            </div>
-          )}
-          {student.isBirthday && (
-            <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-accent text-white flex items-center justify-center border-2 border-background shadow-sm" title="יום הולדת שמח!">
-              <Cake className="h-3.5 w-3.5" />
-            </div>
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0 text-right">
-          <p className="font-heading font-bold text-sm truncate">{student.name}</p>
-          <div className="flex items-center justify-end gap-1.5 mt-0.5 min-h-[16px]">
-            {student.status && (
-              <span className={`text-[10px] font-bold ${statusConfig.text}`}>{STATUS_LABELS[student.status]}</span>
-            )}
-            {hasDisciplineNote && (
-              <span className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive font-medium">
-                <MoreHorizontal className="h-2.5 w-2.5" /> הערה
-              </span>
-            )}
-            {hasPositiveNote && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-success/10 text-success font-medium">חיובי</span>
-            )}
-          </div>
-        </div>
-
-        {!isMobile && (
-          <div className="flex gap-1 shrink-0">
-            <Button size="sm" variant="outline" onClick={() => onSwipe(student.id, "left")} className={`h-8 w-8 p-0 ${student.status === "present" ? "bg-success/20 border-success/40 text-success" : ""}`}><Check className="h-4 w-4" /></Button>
-            <Button size="sm" variant="outline" onClick={() => onSwipe(student.id, "right")} className={`h-8 w-8 p-0 ${student.status === "absent" ? "bg-destructive/20 border-destructive/40 text-destructive" : ""}`}><X className="h-4 w-4" /></Button>
-            <Button size="sm" variant="outline" onClick={() => onSwipe(student.id, "late")} className={`h-8 w-8 p-0 ${student.status === "late" ? "bg-warning/20 border-warning/40" : ""}`}><Clock className="h-4 w-4" /></Button>
-            <Button size="sm" variant="outline" onClick={() => onLongPress(student.id)} className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
-          </div>
-        )}
-      </motion.div>
-    </div>
+    <button
+      type="button"
+      onClick={() => { if (!longPressed.current) onTap(); }}
+      onPointerDown={startPress}
+      onPointerUp={cancelPress}
+      onPointerLeave={cancelPress}
+      onContextMenu={(e) => { e.preventDefault(); onNotes(); }}
+      aria-label={`${student.name}: ${st ? st.label : "לא סומן"}`}
+      className={`relative flex flex-col items-center gap-[7px] md:gap-2 px-1 md:px-1.5 pt-3 md:pt-3.5 pb-2.5 md:pb-3 rounded-[20px] bg-card select-none ${selected ? "outline outline-2 outline-offset-2 outline-foreground/30" : ""}`}
+      style={{ boxShadow: st ? `0 0 0 2.5px ${st.ring}, 0 10px 18px -12px rgba(27,35,51,.5)` : "0 8px 16px -12px rgba(40,30,15,.4)" }}
+    >
+      {student.isBirthday && <Cake className="absolute top-2 left-2 h-4 w-4 text-accent" aria-label="יום הולדת" />}
+      {student.notes.length > 0 && (
+        <span className="absolute top-2 right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground font-heading font-black text-[10px] leading-[18px]" aria-label={`${student.notes.length} הערות`}>
+          {student.notes.length}
+        </span>
+      )}
+      <span className="w-[52px] h-[52px] md:w-[58px] md:h-[58px] rounded-full overflow-hidden border-[3px] border-white dark:border-card shadow-[0_2px_6px_rgba(40,30,15,.25)] bg-soft flex items-center justify-center"
+        style={{ opacity: student.status === "absent" ? 0.45 : 1 }}>
+        {student.avatar ? <AvatarPreview config={student.avatar} size={52} /> : <span className="font-heading font-black text-lg text-muted-foreground">{first.charAt(0)}</span>}
+      </span>
+      <span className="font-heading font-extrabold text-[13px] md:text-[13.5px] leading-tight text-center w-full truncate px-1">
+        <span className="md:hidden">{first}</span><span className="max-md:hidden">{student.name}</span>
+      </span>
+      <span className={`px-2 py-1 md:px-[9px] md:py-[5px] rounded-lg font-body font-extrabold text-[11.5px] md:text-xs leading-none ${st ? st.cls : "bg-muted text-muted-foreground"}`}>
+        {st ? st.label : "לא סומן"}
+      </span>
+    </button>
   );
 };
 
@@ -174,7 +111,6 @@ const RollCallPage = () => {
   const location = useLocation();
   const navState = location.state as { classId?: string } | null;
   const { toast } = useToast();
-  const isMobile = useIsMobile();
   const [students, setStudents] = useState<StudentCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -187,6 +123,7 @@ const RollCallPage = () => {
   const [markTopicCompleted, setMarkTopicCompleted] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [noteStudentId, setNoteStudentId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [lastAction, setLastAction] = useState<{ id: string; name: string; prevStatus: StudentCard["status"]; label: string } | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [counselorReason, setCounselorReason] = useState("");
@@ -450,193 +387,226 @@ const RollCallPage = () => {
   const absentCount = students.filter(s => s.status === "absent").length;
   const lateCount = students.filter(s => s.status === "late").length;
   const unmarkedCount = students.length - presentCount - absentCount - lateCount;
+  const selectedStudent = students.find(s => s.id === selectedId);
+  const cls = classes.find(c => c.id === selectedClass);
+
+  const summary = [
+    { label: "נוכחים", v: presentCount, cls: "bg-success-soft text-success" },
+    { label: "איחורים", v: lateCount, cls: "bg-warning-soft text-warning" },
+    { label: "חסרים", v: absentCount, cls: "bg-destructive-soft text-destructive" },
+  ];
+
+  const requestSave = () => {
+    const hasAny = students.some(s => s.status || s.notes.length > 0);
+    if (!hasAny) {
+      toast({ variant: "destructive", title: "לא סומנה נוכחות", description: "סמן/י לפחות תלמיד/ה אחד/ת לפני השמירה." });
+      return;
+    }
+    if (!subject) {
+      toast({ variant: "destructive", title: "בחר/י מקצוע", description: "יש לבחור את המקצוע שנלמד בשיעור זה." });
+      return;
+    }
+    setShowConfirm(true);
+  };
+
+  const tapStudent = (id: string) => {
+    setSelectedId(id);
+    const s = students.find(st => st.id === id);
+    handleSwipe(id, s?.status === "present" ? "late" : s?.status === "late" ? "right" : "left");
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <ClipboardList className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-heading font-bold leading-tight">הקראת שמות</h1>
-            {!loading && students.length > 0 && (
-              <p className="text-xs text-muted-foreground font-body">{students.length} תלמידים בכיתה</p>
-            )}
+    <div className="max-w-6xl mx-auto flex flex-col gap-[18px]">
+      {/* Header */}
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3.5">
+          <ToolSticker id="attendance" size={52} className="max-md:w-10 max-md:h-10" />
+          <div className="flex flex-col gap-1.5">
+            <h1 className="font-heading font-black text-2xl md:text-[30px] leading-none">הקראת שמות</h1>
+            <p className="font-body font-semibold text-[13px] md:text-sm leading-none text-muted-foreground">
+              {[cls && `${cls.grade}'-${cls.number}`, subject, !loading && students.length > 0 && `${students.length} תלמידים`].filter(Boolean).join(" · ")}
+            </p>
           </div>
         </div>
         <div className="flex gap-2 items-center flex-wrap">
-            <div className="flex bg-muted rounded-lg p-1">
-                <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="sm" onClick={() => setViewMode("list")} className="h-8 shadow-none"><List className="h-4 w-4 mr-2" /> רשימה</Button>
-                <Button variant={viewMode === "map" ? "secondary" : "ghost"} size="sm" onClick={() => setViewMode("map")} className="h-8 shadow-none"><LayoutGrid className="h-4 w-4 mr-2" /> מפה</Button>
-            </div>
-            <Select value={selectedClass} onValueChange={setSelectedClass}>
-                <SelectTrigger className="w-32 h-10"><SelectValue placeholder="בחר כיתה" /></SelectTrigger>
-                <SelectContent>{classes.map(c => <SelectItem key={c.id} value={c.id}>{c.grade}'{c.number}</SelectItem>)}</SelectContent>
-            </Select>
-            <Button variant="outline" size="sm" onClick={handleMarkAllPresent} disabled={students.length === 0}>
-              <Check className="h-4 w-4 mr-2" /> סמן הכל נוכח
-            </Button>
+          <div className="flex bg-muted rounded-xl p-1" role="tablist" aria-label="תצוגה">
+            <button type="button" role="tab" aria-selected={viewMode === "list"} onClick={() => setViewMode("list")}
+              className={`px-3 py-1.5 rounded-[9px] font-body font-extrabold text-[13px] ${viewMode === "list" ? "bg-card shadow-sm" : "text-muted-foreground"}`}>כרטיסים</button>
+            <button type="button" role="tab" aria-selected={viewMode === "map"} onClick={() => setViewMode("map")}
+              className={`px-3 py-1.5 rounded-[9px] font-body font-extrabold text-[13px] ${viewMode === "map" ? "bg-card shadow-sm" : "text-muted-foreground"}`}>מפה</button>
+          </div>
+          <Select value={selectedClass} onValueChange={setSelectedClass}>
+            <SelectTrigger className="w-28 h-10 rounded-xl bg-card"><SelectValue placeholder="בחר כיתה" /></SelectTrigger>
+            <SelectContent>{classes.map(c => <SelectItem key={c.id} value={c.id}>{c.grade}'{c.number}</SelectItem>)}</SelectContent>
+          </Select>
+          <button type="button" onClick={handleMarkAllPresent} disabled={students.length === 0}
+            className="px-4 py-3 rounded-xl bg-card border-[1.5px] border-input font-body font-extrabold text-sm leading-none disabled:opacity-50">
+            כולם נוכחים
+          </button>
+          <button type="button" onClick={requestSave} disabled={isSaving}
+            className="max-md:hidden flex items-center gap-2 px-4 py-3 rounded-xl bg-primary text-primary-foreground font-body font-extrabold text-sm leading-none disabled:opacity-60">
+            {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+            שמור נוכחות
+          </button>
         </div>
       </div>
 
+      {/* Phone: summary chips */}
       {!loading && students.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className={`flex items-center gap-1.5 text-xs font-heading font-bold px-3 py-1.5 rounded-full transition-colors ${unmarkedCount > 0 ? "bg-muted text-muted-foreground" : "bg-muted/50 text-muted-foreground/50"}`}>
-            <span className="w-2 h-2 rounded-full bg-muted-foreground/40" /> {unmarkedCount} טרם סומנו
-          </span>
-          <span className={`flex items-center gap-1.5 text-xs font-heading font-bold px-3 py-1.5 rounded-full transition-colors ${presentCount > 0 ? "bg-success/10 text-success" : "bg-muted/30 text-muted-foreground/40"}`}>
-            <Check className="h-3 w-3" /> {presentCount} נוכחים
-          </span>
-          <span className={`flex items-center gap-1.5 text-xs font-heading font-bold px-3 py-1.5 rounded-full transition-colors ${absentCount > 0 ? "bg-destructive/10 text-destructive" : "bg-muted/30 text-muted-foreground/40"}`}>
-            <X className="h-3 w-3" /> {absentCount} חיסורים
-          </span>
-          <span className={`flex items-center gap-1.5 text-xs font-heading font-bold px-3 py-1.5 rounded-full transition-colors ${lateCount > 0 ? "bg-warning/10 text-warning-foreground" : "bg-muted/30 text-muted-foreground/40"}`}>
-            <Clock className="h-3 w-3" /> {lateCount} איחורים
-          </span>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-3.5 p-3 rounded-lg border border-border/50 bg-card animate-pulse">
-              <div className="w-12 h-12 rounded-lg bg-muted shrink-0" />
-              <div className="flex-1 space-y-2">
-                <div className="h-3 bg-muted rounded w-2/3 mr-auto" />
-                <div className="h-2 bg-muted rounded w-1/3 mr-auto" />
-              </div>
+        <div className="flex gap-1.5 lg:hidden">
+          {summary.map(s => (
+            <div key={s.label} className={`flex-1 flex items-center justify-center gap-1.5 px-1.5 py-2.5 rounded-[14px] font-body font-extrabold text-[13px] leading-none ${s.cls}`}>
+              <span className="font-heading font-black text-[17px]">{s.v}</span>{s.label}
             </div>
           ))}
         </div>
-      ) :
-      viewMode === "list" ? (
-        students.length === 0 ? (
-          <div className="py-20 text-center text-muted-foreground">
-            <ClipboardList className="h-10 w-10 mx-auto mb-3 opacity-30" />
-            <p className="font-heading font-medium">אין תלמידים משויכים לכיתה זו</p>
-          </div>
-        ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
-            {students.map(s => <SwipeableStudentRow key={s.id} student={s} isMobile={isMobile} onSwipe={handleSwipe} onLongPress={setNoteStudentId} />)}
-        </div>
-        )
-      ) : (
-        <>
-          {ss.unseatedStudents.length === students.length && students.length > 0 ? (
-            <Card>
-              <CardContent className="py-10 text-center space-y-3">
-                <LayoutGrid className="h-10 w-10 mx-auto text-muted-foreground/30" />
-                <p className="font-heading font-medium text-muted-foreground">לכיתה הזו עדיין אין סידור הושבה</p>
-                <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                  אפשר לסמן נוכחות לתלמידים למטה, או להגדיר סידור הושבה כדי לראות אותם על גבי מפה
-                </p>
-                <Button variant="outline" size="sm" asChild>
-                  <a href="/dashboard/seating"><LayoutGrid className="h-4 w-4 mr-2" />הגדר/י מפת הושבה</a>
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-          <Card className="min-h-[500px]">
-              <CardContent className="p-0">
-                  <ClassroomGrid
-                      config={ss.config}
-                      students={students.map(s => {
-                          const seated = ss.students.find(st => st.id === s.id);
-                          return { ...s, attendance: s.status || 'none', seatRow: seated?.seatRow, seatCol: seated?.seatCol } as any;
-                      })}
-                      mode="lesson"
-                      highlightedId={null}
-                      getStudentAt={(r, c) => {
-                          const seated = ss.students.find(st => st.seatRow === r && st.seatCol === c);
-                          if (!seated) return undefined;
-                          const s = students.find(st => st.id === seated.id);
-                          return s ? ({ ...s, attendance: s.status || 'none', seatRow: r, seatCol: c } as any) : undefined;
-                      }}
-                      onCellClick={(r, c, student) => student && handleSwipe(student.id, student.attendance === 'present' ? 'right' : 'left')}
-                      onDrop={() => {}}
-                  />
-              </CardContent>
-          </Card>
-          )}
-
-          {ss.unseatedStudents.length > 0 && (
-            <Card>
-              <CardContent className="py-4">
-                <p className="text-xs font-heading font-bold text-muted-foreground mb-3">
-                  {ss.unseatedStudents.length === students.length ? "סימון נוכחות" : `ממתינים לשיבוץ במפה (${ss.unseatedStudents.length})`}
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  {ss.unseatedStudents.map(seatStudent => {
-                    const s = students.find(st => st.id === seatStudent.id);
-                    if (!s) return null;
-                    const isPresent = s.status === "present";
-                    const isAbsent = s.status === "absent";
-                    return (
-                      <button
-                        key={s.id}
-                        onClick={() => handleSwipe(s.id, isPresent ? "right" : "left")}
-                        onContextMenu={(e) => { e.preventDefault(); setNoteStudentId(s.id); }}
-                        className={`flex flex-col items-center gap-1.5 p-2.5 rounded-lg border transition-colors w-20 ${
-                          isPresent ? "bg-success/10 border-success/30" : isAbsent ? "bg-destructive/10 border-destructive/30" : "bg-card border-border/50 hover:border-primary/40"
-                        }`}
-                      >
-                        {s.avatar ? <AvatarPreview config={s.avatar} size={40} /> : <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">👤</div>}
-                        <span className="text-[10px] font-heading font-medium text-center leading-tight line-clamp-1 w-full">{s.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </>
       )}
 
-      <Card className="sticky bottom-4 z-40">
-        <CardContent className="py-3 space-y-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Select value={subject} onValueChange={v => { setSubject(v); setTopicChoice(""); setOtherTopicText(""); setMarkTopicCompleted(false); }}>
-              <SelectTrigger className="w-36 h-9 text-sm bg-muted border-0"><SelectValue placeholder="מקצוע..." /></SelectTrigger>
-              <SelectContent>{SUBJECTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-            </Select>
-            <Select value={topicChoice} onValueChange={setTopicChoice} disabled={!subject}>
-              <SelectTrigger className="flex-1 min-w-[160px] h-9 text-sm bg-muted border-0"><SelectValue placeholder="נושא השיעור..." /></SelectTrigger>
-              <SelectContent>
-                {syllabusTopics.map(t => <SelectItem key={t.id} value={t.id}>{t.topic}</SelectItem>)}
-                <SelectItem value="other">אחר...</SelectItem>
-              </SelectContent>
-            </Select>
-            {topicChoice === "other" && (
-              <input placeholder="נושא חופשי..." value={otherTopicText} onChange={e => setOtherTopicText(e.target.value)} className="flex-1 min-w-[140px] bg-muted rounded-lg px-3 py-2 text-sm outline-none" />
-            )}
-            <Button
-              onClick={() => {
-                const hasAny = students.some(s => s.status || s.notes.length > 0);
-                if (!hasAny) {
-                  toast({ variant: "destructive", title: "לא סומנה נוכחות", description: "סמן/י לפחות תלמיד/ה אחד/ת לפני השמירה." });
-                  return;
-                }
-                if (!subject) {
-                  toast({ variant: "destructive", title: "בחר/י מקצוע", description: "יש לבחור את המקצוע שנלמד בשיעור זה." });
-                  return;
-                }
-                setShowConfirm(true);
-              }}
-              disabled={isSaving}
-            >
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-              שמור
-            </Button>
-          </div>
-          {topicChoice && topicChoice !== "other" && (
-            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer w-fit">
-              <Checkbox checked={markTopicCompleted} onCheckedChange={v => setMarkTopicCompleted(!!v)} />
-              סמן נושא זה כהושלם בסילבוס
-            </label>
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_270px] gap-[18px] items-start">
+        <div className="flex flex-col gap-3 min-w-0">
+          {loading ? (
+            <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-2.5 md:gap-3">
+              {Array.from({ length: 10 }).map((_, i) => <div key={i} className="h-[132px] rounded-[20px] bg-card animate-pulse" />)}
+            </div>
+          ) : viewMode === "list" ? (
+            students.length === 0 ? (
+              <div className="py-20 text-center text-muted-foreground rounded-[20px] border-2 border-dashed border-input">
+                <p className="font-heading font-bold">אין תלמידים משויכים לכיתה זו</p>
+              </div>
+            ) : (
+              <>
+                <p className="font-body font-semibold text-[12.5px] md:text-[13px] leading-snug text-muted-foreground px-1">
+                  לחיצה על כרטיס מחליפה מצב: נוכח/ת ← איחור ← חסר/ה. לחיצה ארוכה (או קליק ימני) פותחת הערות.
+                  {unmarkedCount > 0 && ` ${unmarkedCount} טרם סומנו.`}
+                </p>
+                <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-2.5 md:gap-3">
+                  {students.map(s => (
+                    <StudentTile key={s.id} student={s} selected={s.id === selectedId} onTap={() => tapStudent(s.id)}
+                      onNotes={() => { setSelectedId(s.id); setNoteStudentId(s.id); }} />
+                  ))}
+                </div>
+              </>
+            )
+          ) : (
+            <>
+              {ss.unseatedStudents.length === students.length && students.length > 0 ? (
+                <div className="py-10 px-4 text-center space-y-3 rounded-[22px] bg-card shadow-card">
+                  <ToolSticker id="seats" size={44} className="mx-auto" />
+                  <p className="font-heading font-bold text-muted-foreground">לכיתה הזו עדיין אין סידור הושבה</p>
+                  <p className="text-xs text-muted-foreground max-w-xs mx-auto">אפשר לסמן נוכחות בתצוגת הכרטיסים, או להגדיר סידור הושבה כדי לראות את התלמידים על גבי מפה</p>
+                  <Button variant="outline" size="sm" asChild><a href="/dashboard/seating">הגדר/י מפת הושבה</a></Button>
+                </div>
+              ) : (
+                <div className="min-h-[500px] rounded-[22px] bg-card shadow-card overflow-hidden">
+                  <ClassroomGrid
+                    config={ss.config}
+                    students={students.map(s => {
+                      const seated = ss.students.find(st => st.id === s.id);
+                      return { ...s, attendance: s.status || 'none', seatRow: seated?.seatRow, seatCol: seated?.seatCol } as any;
+                    })}
+                    mode="lesson"
+                    highlightedId={null}
+                    getStudentAt={(r, c) => {
+                      const seated = ss.students.find(st => st.seatRow === r && st.seatCol === c);
+                      if (!seated) return undefined;
+                      const s = students.find(st => st.id === seated.id);
+                      return s ? ({ ...s, attendance: s.status || 'none', seatRow: r, seatCol: c } as any) : undefined;
+                    }}
+                    onCellClick={(r, c, student) => student && handleSwipe(student.id, student.attendance === 'present' ? 'right' : 'left')}
+                    onDrop={() => {}}
+                  />
+                </div>
+              )}
+
+              {ss.unseatedStudents.length > 0 && ss.unseatedStudents.length < students.length && (
+                <div className="flex flex-col gap-3 p-4 rounded-[22px] bg-card shadow-card">
+                  <p className="font-heading font-black text-sm">ממתינים לשיבוץ במפה ({ss.unseatedStudents.length})</p>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-2.5">
+                    {ss.unseatedStudents.map(seatStudent => {
+                      const s = students.find(st => st.id === seatStudent.id);
+                      return s ? <StudentTile key={s.id} student={s} selected={s.id === selectedId} onTap={() => tapStudent(s.id)} onNotes={() => setNoteStudentId(s.id)} /> : null;
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
           )}
-        </CardContent>
-      </Card>
+
+          {/* Lesson details for saving */}
+          <div className="flex flex-col gap-2 p-3 rounded-[18px] bg-card shadow-card">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Select value={subject} onValueChange={v => { setSubject(v); setTopicChoice(""); setOtherTopicText(""); setMarkTopicCompleted(false); }}>
+                <SelectTrigger className="w-36 h-10 text-sm bg-soft border-0 rounded-xl"><SelectValue placeholder="מקצוע..." /></SelectTrigger>
+                <SelectContent>{SUBJECTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+              </Select>
+              <Select value={topicChoice} onValueChange={setTopicChoice} disabled={!subject}>
+                <SelectTrigger className="flex-1 min-w-[160px] h-10 text-sm bg-soft border-0 rounded-xl"><SelectValue placeholder="נושא השיעור..." /></SelectTrigger>
+                <SelectContent>
+                  {syllabusTopics.map(t => <SelectItem key={t.id} value={t.id}>{t.topic}</SelectItem>)}
+                  <SelectItem value="other">אחר...</SelectItem>
+                </SelectContent>
+              </Select>
+              {topicChoice === "other" && (
+                <input placeholder="נושא חופשי..." aria-label="נושא חופשי" value={otherTopicText} onChange={e => setOtherTopicText(e.target.value)} className="flex-1 min-w-[140px] h-10 bg-soft rounded-xl px-3 text-sm outline-none" />
+              )}
+            </div>
+            {topicChoice && topicChoice !== "other" && (
+              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer w-fit">
+                <Checkbox checked={markTopicCompleted} onCheckedChange={v => setMarkTopicCompleted(!!v)} />
+                סמן נושא זה כהושלם בסילבוס
+              </label>
+            )}
+          </div>
+
+          {/* Phone: save */}
+          <button type="button" onClick={requestSave} disabled={isSaving}
+            className="md:hidden sticky bottom-3 z-30 flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] bg-primary text-primary-foreground font-body font-extrabold text-[15px] leading-none shadow-raised disabled:opacity-60">
+            {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+            שמור נוכחות
+          </button>
+        </div>
+
+        {/* Side panel */}
+        <aside className="flex flex-col gap-3 max-lg:order-first max-lg:hidden">
+          <div className="flex flex-col gap-2.5 p-4 rounded-[22px] bg-card shadow-card">
+            <h2 className="font-heading font-black text-base leading-none">סיכום</h2>
+            {summary.map(s => (
+              <div key={s.label} className={`flex items-center justify-between px-3 py-2.5 rounded-[13px] font-body font-extrabold text-sm leading-none ${s.cls}`}>
+                <span>{s.label}</span><span className="font-heading font-black text-lg">{s.v}</span>
+              </div>
+            ))}
+            {unmarkedCount > 0 && (
+              <div className="flex items-center justify-between px-3 py-2.5 rounded-[13px] bg-muted text-muted-foreground font-body font-extrabold text-sm leading-none">
+                <span>טרם סומנו</span><span className="font-heading font-black text-lg">{unmarkedCount}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col gap-2.5 p-4 rounded-[22px] bg-card shadow-card">
+            <h2 className="font-heading font-black text-base leading-none">הערה לשיעור</h2>
+            <p className="font-body font-semibold text-[12.5px] leading-snug text-muted-foreground">
+              {selectedStudent ? `הערה ל${selectedStudent.name}:` : "בחר/י תלמיד/ה ואז סוג הערה"}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {QUICK_NOTES.map(n => {
+                const on = !!selectedStudent?.notes.some(x => x.category === n.value);
+                return (
+                  <button key={n.value} type="button" disabled={!selectedStudent} aria-pressed={on}
+                    onClick={() => selectedStudent && handleToggleNote(selectedStudent.id, n.value)}
+                    className={`flex items-center gap-2 px-2.5 py-[9px] rounded-[13px] text-right disabled:opacity-50 ${on ? "bg-primary text-primary-foreground" : "bg-soft"}`}>
+                    <ToolSticker id={n.icon} size={26} />
+                    <span className="font-body font-extrabold text-[12.5px] leading-tight">{n.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {selectedStudent && (
+              <button type="button" onClick={() => setNoteStudentId(selectedStudent.id)} className="font-body font-bold text-[12.5px] text-link text-right">
+                כל ההערות והפניה ליועצת
+              </button>
+            )}
+          </div>
+        </aside>
+      </div>
 
       <AnimatePresence>
         {lastAction && (
@@ -644,7 +614,7 @@ const RollCallPage = () => {
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 30, opacity: 0 }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-foreground text-background rounded-lg px-5 py-3 flex items-center gap-4 text-sm"
+            className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 bg-foreground text-background rounded-[14px] px-5 py-3 flex items-center gap-4 text-sm"
           >
             <span>סימנת {lastAction.label} ל{lastAction.name}.</span>
             <Button size="sm" variant="secondary" className="h-7 px-3" onClick={handleUndoLast}>
@@ -655,21 +625,17 @@ const RollCallPage = () => {
       </AnimatePresence>
 
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-sm rounded-[22px]">
           <DialogHeader>
-            <DialogTitle>אישור שמירת נוכחות</DialogTitle>
+            <DialogTitle className="font-heading font-black">אישור שמירת נוכחות</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            סימנת {students.filter(s => s.status === "absent").length} חיסורים,{" "}
-            {students.filter(s => s.status === "late").length} איחורים ו-
+            סימנת {absentCount} חיסורים, {lateCount} איחורים ו-
             {students.reduce((sum, s) => sum + s.notes.length, 0)} הערות. לאשר?
           </p>
           <div className="flex gap-2 justify-end mt-4">
             <Button variant="outline" onClick={() => setShowConfirm(false)}>חזור</Button>
-            <Button
-              onClick={async () => { setShowConfirm(false); await performSave(); }}
-              disabled={isSaving}
-            >
+            <Button onClick={async () => { setShowConfirm(false); await performSave(); }} disabled={isSaving}>
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               אשר ושמור
             </Button>
@@ -678,46 +644,34 @@ const RollCallPage = () => {
       </Dialog>
 
       <Dialog open={!!noteStudentId} onOpenChange={(o) => !o && setNoteStudentId(null)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-sm rounded-[22px]">
           <DialogHeader>
-            <DialogTitle>הערה ל{noteStudent?.name}</DialogTitle>
+            <DialogTitle className="font-heading font-black">הערה ל{noteStudent?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <p className="text-xs font-bold text-muted-foreground mb-2">משמעת</p>
-              <div className="flex flex-wrap gap-2">
-                {NOTE_CATEGORIES.filter(c => c.group === "discipline").map(c => (
-                  <Button
-                    key={c.value}
-                    size="sm"
-                    variant={noteStudent?.notes.some(n => n.category === c.value) ? "destructive" : "outline"}
-                    onClick={() => noteStudentId && handleToggleNote(noteStudentId, c.value)}
-                  >
-                    {c.label}
-                  </Button>
-                ))}
+            {(["discipline", "positive"] as const).map(group => (
+              <div key={group}>
+                <p className="text-xs font-bold text-muted-foreground mb-2">{group === "discipline" ? "משמעת" : "חיובי"}</p>
+                <div className="flex flex-wrap gap-2">
+                  {NOTE_CATEGORIES.filter(c => c.group === group).map(c => {
+                    const on = !!noteStudent?.notes.some(n => n.category === c.value);
+                    return (
+                      <button key={c.value} type="button" aria-pressed={on}
+                        onClick={() => noteStudentId && handleToggleNote(noteStudentId, c.value)}
+                        className={`px-3 py-2 rounded-full font-body font-extrabold text-[13px] leading-none shadow-[0_3px_8px_-5px_rgba(40,30,15,.35)] ${
+                          on ? (group === "discipline" ? "bg-destructive text-destructive-foreground" : "bg-success text-success-foreground") : "bg-soft"}`}>
+                        {c.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-            <div>
-              <p className="text-xs font-bold text-muted-foreground mb-2">חיובי</p>
-              <div className="flex flex-wrap gap-2">
-                {NOTE_CATEGORIES.filter(c => c.group === "positive").map(c => (
-                  <Button
-                    key={c.value}
-                    size="sm"
-                    variant="outline"
-                    className={noteStudent?.notes.some(n => n.category === c.value) ? "bg-success text-white border-success" : ""}
-                    onClick={() => noteStudentId && handleToggleNote(noteStudentId, c.value)}
-                  >
-                    {c.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
+            ))}
             <div className="pt-3 border-t space-y-2">
               <p className="text-xs font-bold text-muted-foreground">הפניה ליועצת</p>
               <input
                 placeholder="סיבה קצרה (אופציונלי)..."
+                aria-label="סיבת ההפניה ליועצת"
                 value={counselorReason}
                 onChange={e => setCounselorReason(e.target.value)}
                 className="w-full bg-muted rounded-lg px-3 py-2 text-sm outline-none"

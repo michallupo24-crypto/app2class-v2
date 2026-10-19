@@ -1,6 +1,6 @@
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { useEffect, useState } from "react";
 import { AppSidebar } from "./AppSidebar";
-import { MobileBottomNav } from "./MobileBottomNav";
+import { useIsDesktop, useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
 import { useSchoolGuidelines } from "@/hooks/useSchoolGuidelines";
 import { disabledPages } from "@/lib/schoolSetup";
@@ -50,6 +50,21 @@ const DashboardLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const guidelines = useSchoolGuidelines(profile?.schoolId);
+  const isDesktop = useIsDesktop();
+  const isMobile = useIsMobile();
+  // Desktop: full menu unless the user folded it (remembered). Tablet: rail
+  // unless opened for this visit. Phone: a drawer behind the menu button.
+  const [railPref, setRailPref] = useState(() => { try { return localStorage.getItem("a2c-menu-rail") === "1"; } catch { return false; } });
+  const [tabletOpen, setTabletOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => { setDrawerOpen(false); setTabletOpen(false); }, [location.pathname]);
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setDrawerOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawerOpen]);
 
   if (loading) {
     return (
@@ -107,7 +122,7 @@ const DashboardLayout = () => {
   }
 
   return (
-    <SidebarProvider>
+    <>
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:right-2 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-primary focus:text-primary-foreground focus:font-heading"
@@ -115,27 +130,57 @@ const DashboardLayout = () => {
         דלג לתוכן הראשי
       </a>
       <div className="min-h-screen flex w-full" dir="rtl">
-        {/* Sidebar */}
-        <div className="hidden md:flex flex-col border-l border-border">
-          <div className="h-14 flex items-center justify-center border-b border-border bg-card/80 backdrop-blur-sm">
-            <SidebarTrigger />
+        {/* Side menu: full on desktop, rail on tablet */}
+        {!isMobile && (
+          <div className="sticky top-0 h-screen flex-none z-30">
+            <AppSidebar
+              profile={profile}
+              onLogout={logout}
+              mode={(isDesktop ? !railPref : tabletOpen) ? "full" : "rail"}
+              onToggle={() => {
+                if (!isDesktop) { setTabletOpen((o) => !o); return; }
+                setRailPref((r) => {
+                  try { localStorage.setItem("a2c-menu-rail", r ? "0" : "1"); } catch { /* private mode */ }
+                  return !r;
+                });
+              }}
+            />
           </div>
-          <AppSidebar profile={profile} onLogout={logout} />
-        </div>
+        )}
+
+        {/* Phone: the menu as a drawer */}
+        {isMobile && drawerOpen && (
+          <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="תפריט">
+            <div className="absolute inset-0 bg-[rgba(27,35,51,.42)]" onClick={() => setDrawerOpen(false)} />
+            <div className="absolute inset-y-0 right-0 w-[310px] max-w-[85vw] animate-in slide-in-from-right duration-200">
+              <AppSidebar profile={profile} onLogout={logout} mode="drawer" onClose={() => setDrawerOpen(false)} />
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 flex flex-col min-w-0">
 
           {/* Top Bar */}
           <header className="h-14 border-b border-border bg-background/85 backdrop-blur-sm flex items-center justify-between px-4 sticky top-0 z-20">
             <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(true)}
+                aria-label="פתיחת התפריט"
+                className="md:hidden w-[42px] h-[42px] rounded-[14px] bg-card flex flex-col items-center justify-center gap-1 shadow-[0_4px_10px_-6px_rgba(40,30,15,.4)]"
+              >
+                <span className="w-[18px] h-[2.5px] rounded-sm bg-foreground" />
+                <span className="w-[18px] h-[2.5px] rounded-sm bg-foreground" />
+                <span className="w-3 h-[2.5px] rounded-sm bg-foreground" />
+              </button>
               <img
                 src="/logo.png"
                 alt="App2Class"
-                className="h-8 w-8 object-contain cursor-pointer"
+                className="h-8 w-8 object-contain cursor-pointer md:hidden"
                 onClick={() => navigate("/dashboard")}
                 onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
               />
-              <span className="font-heading font-black text-lg hidden sm:block cursor-pointer" onClick={() => navigate("/dashboard")}>
+              <span className="font-heading font-black text-lg hidden sm:block md:hidden cursor-pointer" onClick={() => navigate("/dashboard")}>
                 App2Class
               </span>
             </div>
@@ -181,17 +226,14 @@ const DashboardLayout = () => {
           <AnnouncementBanner schoolId={profile.schoolId} />
 
           {/* Main Content */}
-          <main id="main-content" tabIndex={-1} className="flex-1 p-4 md:p-6 lg:p-8 pb-24 md:pb-8 overflow-auto">
+          <main id="main-content" tabIndex={-1} className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
             <ErrorBoundary>
               <Outlet context={{ profile, refresh }} />
             </ErrorBoundary>
           </main>
         </div>
-
-        {/* Mobile Bottom Navigation */}
-        <MobileBottomNav profile={profile} />
       </div>
-    </SidebarProvider>
+    </>
   );
 };
 

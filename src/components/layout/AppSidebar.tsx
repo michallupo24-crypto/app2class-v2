@@ -1,343 +1,194 @@
-import { useNavigate } from "react-router-dom";
-import {
-  LayoutDashboard,
-  Users,
-  Bell,
-  Settings,
-  GraduationCap,
-  UserCheck,
-  BookOpen,
-  BarChart3,
-  LogOut,
-  Shield,
-  Activity,
-  Trophy,
-  Calendar,
-  Brain,
-  ClipboardList,
-  Flame,
-  FileText,
-  MessageCircle,
-  Building2,
-  Lock,
-  User,
-  HeartPulse,
-  Landmark,
-  Newspaper,
-  Music,
-  FileSignature,
-  LifeBuoy,
-  Wallet,
-  Archive,
-  FileCheck2,
-  CalendarClock,
-  LayoutGrid,
-  Wand2,
-  FileEdit,
-  UserCog,
-  Presentation,
-} from "lucide-react";
-import { NavLink } from "@/components/NavLink";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
+import { ToolSticker } from "@/components/ToolSticker";
 import type { UserProfile } from "@/hooks/useAuth";
 import { useSchoolGuidelines } from "@/hooks/useSchoolGuidelines";
 import { disabledPages } from "@/lib/schoolSetup";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarFooter,
-  useSidebar,
-} from "@/components/ui/sidebar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { buildMenu, ROLE_LABELS, type MenuGroup } from "./menuConfig";
 
-const ROLE_LABELS: Record<string, string> = {
-  student: "תלמיד/ה",
-  parent: "הורה",
-  educator: "מחנך/ת",
-  professional_teacher: "מורה מקצועי/ת",
-  subject_coordinator: "רכז/ת מקצוע",
-  grade_coordinator: "רכז/ת שכבה",
-  counselor: "יועץ/ת",
-  management: "הנהלה",
-  system_admin: "מנהל/ת מערכת",
-  council_advisor: "אחראית מועצה",
-  exam_coordinator: "רכז/ת בגרויות ומבחנים",
-  secretary: "מזכירה/מזכיר",
-  parent_committee_rep: "נציג/ת ועד הורים",
-};
+// The side menu per the "Side Menu" design. One menu in three shapes:
+// "full" (desktop, 280px), "rail" (tablet / folded, 86px: group stickers only)
+// and "drawer" (phone, slides in from the right).
+
+export type SideMenuMode = "full" | "rail" | "drawer";
 
 interface AppSidebarProps {
   profile: UserProfile;
   onLogout: () => void;
+  mode: SideMenuMode;
+  /** Folds the full menu to a rail, or opens the rail. Not used by the drawer. */
+  onToggle?: () => void;
+  /** Closes the drawer (also called after navigating from it). */
+  onClose?: () => void;
 }
 
-export function AppSidebar({ profile, onLogout }: AppSidebarProps) {
+const FOLDED_KEY = "a2c-menu-folded";
+const readFolded = (): Record<string, boolean> => {
+  try { return JSON.parse(localStorage.getItem(FOLDED_KEY) || "{}"); } catch { return {}; }
+};
+
+const ring = (color: string) => `0 0 0 2.5px ${color}, 0 10px 18px -10px rgba(27,35,51,.5)`;
+
+function CountTag({ n, className }: { n: number; className?: string }) {
+  return (
+    <span
+      aria-label={`${n} חדשים`}
+      className={cn("min-w-5 px-1.5 py-1 rounded-full border-2 border-white dark:border-card bg-[#E5484D] text-white font-heading font-black text-[10.5px] leading-none text-center", className)}
+    >
+      {n > 99 ? "99+" : n}
+    </span>
+  );
+}
+
+export function AppSidebar({ profile, onLogout, mode, onToggle, onClose }: AppSidebarProps) {
   const guidelines = useSchoolGuidelines(profile.schoolId);
-  const { state } = useSidebar();
+  const location = useLocation();
   const navigate = useNavigate();
-  const collapsed = state === "collapsed";
-  const roles = profile.roles;
+  const [folded, setFolded] = useState<Record<string, boolean>>(readFolded);
+  const isDrawer = mode === "drawer";
+  const open = mode !== "rail";
 
-  const isStudent = roles.includes("student");
-  const isTeacher = roles.includes("professional_teacher") || roles.includes("educator");
-  const isGradeCoordinator = roles.includes("grade_coordinator");
-  const isSubjectCoordinator = roles.includes("subject_coordinator");
-  const isCounselor = roles.includes("counselor");
-  const isAdmin = roles.includes("system_admin");
-  const isManagement = roles.includes("management");
-  const isEducator = roles.includes("educator");
-  const isCouncilAdvisor = roles.includes("council_advisor");
-  const isExamCoordinator = roles.includes("exam_coordinator");
-  const isSecretary = roles.includes("secretary");
-  const hasApprovalPower = isAdmin || isManagement || isEducator || isSecretary || roles.includes("grade_coordinator");
+  useEffect(() => {
+    try { localStorage.setItem(FOLDED_KEY, JSON.stringify(folded)); } catch { /* private mode */ }
+  }, [folded]);
 
-  // Student navigation
-  const studentItems = [
-    { title: "דאשבורד", url: "/dashboard/student-home", icon: LayoutDashboard },
-    { title: "המקצועות שלי", url: "/dashboard/subjects", icon: BookOpen },
-    { title: "משימות", url: "/dashboard/tasks", icon: Activity },
-    { title: "הישגים", url: "/dashboard/badges", icon: Trophy },
-    { title: "ציונים", url: "/dashboard/grades", icon: FileText },
-    { title: "שיעור חי", url: "/dashboard/live-student", icon: Activity },
-    { title: "לוח זמנים", url: "/dashboard/schedule", icon: Calendar },
-    { title: "נוכחות", url: "/dashboard/attendance", icon: ClipboardList },
-    { title: "מגן זכויות", url: "/dashboard/rights", icon: Shield },
-    { title: "עוזר AI", url: "/dashboard/ai-tutor", icon: Brain },
-    { title: "מסמכים", url: "/dashboard/documents", icon: FileEdit },
-    { title: "מצגות", url: "/dashboard/presentations", icon: Presentation },
-    { title: "ארכיון מבחנים", url: "/dashboard/exam-archive", icon: Archive },
-    { title: "שיחות", url: "/dashboard/chat", icon: MessageCircle },
-    { title: "קהילה", url: "/dashboard/community", icon: Users },
-    { title: "מועצת תלמידים", url: "/dashboard/council", icon: Landmark },
-    { title: "עיתון בית הספר", url: "/dashboard/newspaper", icon: Newspaper },
-    { title: "הצבעה לצלצול", url: "/dashboard/bell-vote", icon: Music },
-  ];
+  const groups: MenuGroup[] = useMemo(() => {
+    const managesSchool = profile.roles.some((r) => ["management", "system_admin"].includes(r));
+    // Features the school turned off in its guidelines (management still sees them).
+    const hidden = managesSchool ? new Set<string>() : disabledPages(guidelines);
+    return buildMenu(profile)
+      .map((g) => ({ ...g, items: g.items.filter((i) => !hidden.has(i.url.replace("/dashboard/", ""))) }))
+      .filter((g) => g.items.length > 0);
+  }, [profile, guidelines]);
 
-  // Teacher navigation
-  const teacherItems: { title: string; url: string; icon: any }[] = [
-    { title: "דאשבורד", url: "/dashboard/teacher-home", icon: LayoutDashboard },
-    { title: "המקצועות שלי", url: "/dashboard/teaching", icon: BookOpen },
-    { title: "שיעור חי", url: "/dashboard/live-lesson", icon: Activity },
-    { title: "הקראת שמות", url: "/dashboard/roll-call", icon: ClipboardList },
-    { title: "הצדקות היעדרות", url: "/dashboard/absence-justifications", icon: FileCheck2 },
-    { title: "פגישות הורים", url: "/dashboard/meetings", icon: CalendarClock },
-    { title: "משימות", url: "/dashboard/teacher-assignments", icon: FileText },
-    { title: "סטודיו משימות", url: "/dashboard/task-studio", icon: Settings },
-    { title: "דוחות", url: "/dashboard/teacher-grades", icon: BarChart3 },
-    { title: "מפת הושבה", url: "/dashboard/seating", icon: LayoutGrid },
-    { title: "מסמכים", url: "/dashboard/documents", icon: FileEdit },
-    { title: "מצגות", url: "/dashboard/presentations", icon: Presentation },
-    { title: "לוח זמנים", url: "/dashboard/schedule", icon: Calendar },
-    { title: "הכיתות שלי", url: "/dashboard/my-classes", icon: Users },
-    { title: "אישורי טיולים", url: "/dashboard/event-approvals", icon: FileSignature },
-    { title: "ארכיון מבחנים", url: "/dashboard/exam-archive", icon: Archive },
-    { title: "שיחות", url: "/dashboard/chat", icon: MessageCircle },
-  ];
-  if (isCouncilAdvisor) teacherItems.push({ title: "מועצת תלמידים", url: "/dashboard/council", icon: Landmark });
-  if (isExamCoordinator) teacherItems.push({ title: "לוח מבחנים", url: "/dashboard/master-scheduler", icon: Calendar });
-
-  // Subject coordinator
-  const subjectCoordinatorItems: { title: string; url: string; icon: any }[] = [
-    { title: "דאשבורד", url: "/dashboard/subject-coordinator-home", icon: LayoutDashboard },
-    { title: "שיבוץ מורים", url: "/dashboard/assign-teachers", icon: GraduationCap },
-    { title: "תכנון סילבוס", url: "/dashboard/syllabus-planner", icon: BookOpen },
-    { title: "מסמכים", url: "/dashboard/documents", icon: FileEdit },
-    { title: "ארכיון מבחנים", url: "/dashboard/exam-archive", icon: Archive },
-    { title: "לוח זמנים", url: "/dashboard/schedule", icon: Calendar },
-    { title: "שיחות", url: "/dashboard/chat", icon: MessageCircle },
-  ];
-  if (isCouncilAdvisor) subjectCoordinatorItems.push({ title: "מועצת תלמידים", url: "/dashboard/council", icon: Landmark });
-  if (isExamCoordinator) subjectCoordinatorItems.push({ title: "לוח מבחנים", url: "/dashboard/master-scheduler", icon: Calendar });
-
-  // Grade coordinator
-  const gradeCoordinatorItems: { title: string; url: string; icon: any }[] = [
-    { title: "דאשבורד", url: "/dashboard/grade-coordinator-home", icon: LayoutDashboard },
-    { title: "בניית מערכת שעות", url: "/dashboard/timetable-builder", icon: Wand2 },
-    { title: "לוח מבחנים", url: "/dashboard/master-scheduler", icon: Calendar },
-    { title: "דופק שכבתי", url: "/dashboard/grade-progress", icon: BarChart3 },
-    { title: "אישורי טיולים", url: "/dashboard/event-approvals", icon: FileSignature },
-    { title: "מסמכים", url: "/dashboard/documents", icon: FileEdit },
-    { title: "לוח זמנים", url: "/dashboard/schedule", icon: Calendar },
-    { title: "שיחות", url: "/dashboard/chat", icon: MessageCircle },
-  ];
-  if (isCouncilAdvisor) gradeCoordinatorItems.push({ title: "מועצת תלמידים", url: "/dashboard/council", icon: Landmark });
-  if (isExamCoordinator) gradeCoordinatorItems.push({ title: "ארכיון מבחנים", url: "/dashboard/exam-archive", icon: Archive });
-
-  // Counselor navigation
-  const counselorItems: { title: string; url: string; icon: any }[] = [
-    { title: "דאשבורד", url: "/dashboard/counselor-home", icon: LayoutDashboard },
-    { title: "תיקי מעקב", url: "/dashboard/counselor-cases", icon: HeartPulse },
-    { title: "מפת הושבה", url: "/dashboard/seating", icon: LayoutGrid },
-    { title: "מסמכים", url: "/dashboard/documents", icon: FileEdit },
-    { title: "לוח זמנים", url: "/dashboard/schedule", icon: Calendar },
-    { title: "שיחות", url: "/dashboard/chat", icon: MessageCircle },
-  ];
-  if (isCouncilAdvisor) counselorItems.push({ title: "מועצת תלמידים", url: "/dashboard/council", icon: Landmark });
-  if (isExamCoordinator) {
-    counselorItems.push({ title: "לוח מבחנים", url: "/dashboard/master-scheduler", icon: Calendar });
-    counselorItems.push({ title: "ארכיון מבחנים", url: "/dashboard/exam-archive", icon: Archive });
-  }
-
-  // Parent Navigation (CLEAN & PREMIUM)
-  const parentItems = [
-    { title: "דף הבית", url: "/dashboard/my-child", icon: LayoutDashboard },
-    { title: "דוחות וציונים", url: "/dashboard/grades", icon: BarChart3 },
-    { title: "מערכת שעות", url: "/dashboard/schedule", icon: Calendar },
-    { title: "שיחות", url: "/dashboard/chat", icon: MessageCircle },
-    { title: "פגישות הורים", url: "/dashboard/meetings", icon: CalendarClock },
-    { title: "מגן זכויות", url: "/dashboard/rights", icon: Shield },
-    { title: "אישורי טיולים", url: "/dashboard/event-approvals", icon: FileSignature },
-    { title: "עיתון בית הספר", url: "/dashboard/newspaper", icon: Newspaper },
-    { title: "תשלומים", url: "/dashboard/finance-hub", icon: Wallet },
-  ];
-
-  // Admin/Management
-  const adminItems: { title: string; url: string; icon: any }[] = [
-    { title: "דאשבורד", url: "/dashboard", icon: LayoutDashboard },
-  ];
-
-  if (hasApprovalPower) adminItems.push({ title: "אישורים", url: "/dashboard/approvals", icon: UserCheck });
-  if (isManagement || isAdmin) {
-    adminItems.push({ title: "דאשבורד מנהלת", url: "/dashboard/principal", icon: User });
-  }
-  if (isAdmin) {
-    adminItems.push({ title: "ניהול מערכת", url: "/dashboard/admin", icon: Shield });
-    adminItems.push({ title: "עץ ארגוני - כלל המערכת", url: "/dashboard/system-org-tree", icon: Building2 });
-  }
-  adminItems.push({ title: "שיחות", url: "/dashboard/chat", icon: MessageCircle });
-  adminItems.push({ title: "מסמכים", url: "/dashboard/documents", icon: FileEdit });
-  adminItems.push({ title: "לוח זמנים", url: "/dashboard/schedule", icon: Calendar });
-  if (isManagement || isAdmin) {
-    adminItems.push({ title: "בניית מערכת שעות", url: "/dashboard/timetable-builder", icon: Wand2 });
-    adminItems.push({ title: "ניהול תפקידי צוות", url: "/dashboard/team-roles", icon: UserCog });
-    adminItems.push({ title: "הגדרות בית הספר", url: "/dashboard/school-settings", icon: Settings });
-    adminItems.push({ title: "מועצת תלמידים", url: "/dashboard/council", icon: Landmark });
-    adminItems.push({ title: "עיתון בית הספר", url: "/dashboard/newspaper", icon: Newspaper });
-    adminItems.push({ title: "מרכז תשלומים", url: "/dashboard/finance-hub", icon: Wallet });
-    adminItems.push({ title: "ארכיון מבחנים", url: "/dashboard/exam-archive", icon: Archive });
-  }
-
-  // SELECT ITEMS BASED ON ROLE PRIORITY
-  const getItems = () => {
-    if (roles.includes("parent")) return parentItems;
-    if (isStudent) return studentItems;
-    if (isGradeCoordinator) return gradeCoordinatorItems;
-    if (isSubjectCoordinator && !isManagement && !isAdmin) return subjectCoordinatorItems;
-    if (isCounselor && !isManagement && !isAdmin) return counselorItems;
-    if (isTeacher) return teacherItems;
-    return adminItems;
-  };
-
-  // Features the school turned off in its guidelines (management still sees them).
-  const hidden = isManagement || isAdmin ? new Set<string>() : disabledPages(guidelines);
-  const mainItems = getItems().filter((i) => !hidden.has(i.url.replace("/dashboard/", "")));
+  const isActive = (url: string) => location.pathname === url;
+  const roleLabel = profile.roles.map((r) => ROLE_LABELS[r]).filter(Boolean).slice(0, 2).join(" · ");
 
   return (
-    <Sidebar side="right" collapsible="icon" className="border-r-0 border-l border-border [&_[data-sidebar=sidebar]]:bg-card/80 [&_[data-sidebar=sidebar]]:backdrop-blur">
-      <SidebarContent>
-        {/* Brand + user profile card */}
-        <SidebarGroup className="gap-2.5">
-          {!collapsed && (
-            <div className="flex items-center gap-2 px-1.5 pt-1">
-              <img src="/logo.png" alt="" className="h-[34px] w-[34px] object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-              <span className="font-heading text-[17px] font-black text-foreground">App2Class</span>
-            </div>
-          )}
-          <button
-            type="button"
-            className={`w-full p-2.5 flex items-center gap-2.5 text-right bg-card hover:bg-soft rounded-[16px] shadow-[0_4px_12px_-9px_rgba(40,30,15,0.4)] transition-colors ${collapsed ? "justify-center" : ""}`}
-            onClick={() => navigate("/dashboard/avatar-edit")}
-            aria-label="ערוך אווטאר"
-            title="ערוך אווטאר"
-          >
-            {profile.avatar ? (
-              <AvatarPreview config={profile.avatar} size={collapsed ? 32 : 42} />
-            ) : (
-              <div
-                className="shrink-0 rounded-full border-[2.5px] border-white bg-info-soft shadow-[0_2px_6px_rgba(40,30,15,0.25)] flex items-center justify-center dark:border-card"
-                style={{ width: collapsed ? 32 : 42, height: collapsed ? 32 : 42 }}
-              >
-                <span className="font-heading font-black text-info text-base">{profile.fullName.trim().charAt(0)}</span>
-              </div>
-            )}
-            {!collapsed && (
-              <div className="min-w-0">
-                <p className="font-heading font-extrabold text-[13.5px] leading-none truncate">{profile.fullName}</p>
-                <div className="flex flex-wrap gap-1 mt-[5px]">
-                  {roles.slice(0, 2).map((r) => (
-                    <span key={r} className="text-[10.5px] leading-none bg-[#E3EEFD] text-link px-[7px] py-[3px] rounded-full font-body font-extrabold">
-                      {ROLE_LABELS[r] || r}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+    <nav
+      aria-label="תפריט ראשי"
+      className={cn(
+        "h-full flex-none flex flex-col gap-[18px] overflow-hidden bg-menu transition-[width] duration-200",
+        "bg-[radial-gradient(hsl(var(--menu-dots))_1.2px,transparent_1.4px)] [background-size:18px_18px]",
+        isDrawer ? "w-full pt-[58px] px-4 pb-6 shadow-[-20px_0_40px_-20px_rgba(11,17,32,.45)]"
+          : cn("pt-[22px] px-4 pb-[18px] shadow-[inset_1px_0_0_rgba(27,35,51,.06)]", open ? "w-[280px]" : "w-[86px]"),
+      )}
+    >
+      {/* Brand */}
+      <div className={cn("flex items-center gap-2 px-1.5", open ? "justify-between" : "justify-center")}>
+        <Link to="/dashboard" onClick={onClose} className="flex items-center gap-[9px]" aria-label="App2Class - דף הבית">
+          <img src="/logo.png" alt="" className="w-9 h-9 object-contain flex-none" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+          {open && <span className="font-heading font-black text-lg leading-none text-foreground whitespace-nowrap">App2Class</span>}
+        </Link>
+        {open && !isDrawer && onToggle && (
+          <button type="button" onClick={onToggle} aria-label="צמצום התפריט"
+            className="w-8 h-8 rounded-[11px] bg-card flex items-center justify-center shadow-[0_4px_10px_-6px_rgba(27,35,51,.4)]">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M9 6l6 6-6 6" /></svg>
           </button>
-        </SidebarGroup>
+        )}
+        {isDrawer && (
+          <button type="button" onClick={onClose} aria-label="סגירת התפריט"
+            className="w-[38px] h-[38px] rounded-xl bg-card flex items-center justify-center shadow-[0_4px_10px_-6px_rgba(27,35,51,.4)]">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        )}
+      </div>
 
-        {/* Navigation */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="font-body text-[11.5px] font-extrabold text-hint">תפריט ראשי</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {mainItems.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      end={true}
-                      className="flex items-center gap-3 px-3 py-2 rounded-[11px] font-bold text-text-secondary transition-colors hover:bg-muted"
-                      activeClassName="!bg-primary !text-primary-foreground shadow-[0_6px_12px_-6px_rgba(27,35,51,0.5)]"
+      {open ? (
+        <div className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:none] flex flex-col gap-[18px] py-1 px-0.5">
+          {groups.map((g) => {
+            const isFolded = !!folded[g.title];
+            return (
+              <div key={g.title} className="flex flex-col gap-[3px]">
+                <button
+                  type="button"
+                  aria-expanded={!isFolded}
+                  onClick={() => setFolded((f) => ({ ...f, [g.title]: !f[g.title] }))}
+                  className="flex items-center gap-2.5 px-1 pb-1.5 text-right"
+                >
+                  <ToolSticker id={g.icon} size={isDrawer ? 32 : 30} />
+                  <span className="flex-1 font-heading font-black text-[15px] leading-none text-foreground">{g.title}</span>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#5B6478" strokeWidth="3.5" strokeLinecap="round"
+                    style={{ transform: isFolded ? "rotate(90deg)" : undefined }}><path d="M6 9l6 6 6-6" /></svg>
+                </button>
+                {!isFolded && g.items.map((it) => {
+                  const on = isActive(it.url);
+                  return (
+                    <Link
+                      key={it.url}
+                      to={it.url}
+                      onClick={onClose}
+                      aria-current={on ? "page" : undefined}
+                      className={cn(
+                        "mr-[30px] flex items-center gap-2 rounded-[13px] font-body font-bold leading-none transition-transform",
+                        isDrawer ? "px-3 py-[11px] text-[15.5px]" : "px-3 py-[9px] text-[14.5px]",
+                        on ? "bg-card text-foreground -rotate-[1.5deg]" : "text-text-secondary hover:bg-card/60",
+                      )}
+                      style={on ? { boxShadow: ring(g.color) } : undefined}
                     >
-                      <item.icon className="h-4 w-4 shrink-0" />
-                      {!collapsed && (
-                        <span className="font-body text-[13.5px]">{item.title}</span>
-                      )}
-                      {!collapsed && item.url === "/dashboard/chat" && (profile as any).unreadChatCount > 0 && (
-                        <div className="mr-auto">
-                          <Badge className="text-[10px] leading-none px-1.5 py-[3px] h-auto border-0 bg-[#E5484D] hover:bg-[#E5484D] text-white font-heading font-black">
-                            {(profile as any).unreadChatCount}
-                          </Badge>
-                        </div>
-                      )}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <NavLink
-                to="/dashboard/support"
-                className="flex items-center gap-3 px-3 py-2 rounded-[11px] font-bold text-text-secondary transition-colors hover:bg-muted"
-                activeClassName="!bg-primary !text-primary-foreground"
+                      <span className="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">{it.title}</span>
+                      {!!it.badge && <CountTag n={it.badge} className="-rotate-[5deg]" />}
+                    </Link>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:none] flex flex-col items-center gap-3.5 py-1 -mx-4">
+          {groups.map((g) => {
+            const hasActive = g.items.some((i) => isActive(i.url));
+            const sum = g.items.reduce((a, i) => a + (i.badge || 0), 0);
+            return (
+              <button
+                key={g.title}
+                type="button"
+                title={g.title}
+                aria-label={`${g.title} - פתיחת התפריט`}
+                onClick={() => { setFolded((f) => ({ ...f, [g.title]: false })); onToggle?.(); }}
+                className={cn("relative w-[54px] h-[54px] rounded-[17px] flex items-center justify-center", hasActive && "bg-card")}
+                style={hasActive ? { boxShadow: ring(g.color) } : undefined}
               >
-                <LifeBuoy className="h-4 w-4 shrink-0" />
-                {!collapsed && <span className="font-body text-sm">עזרה ותמיכה</span>}
-              </NavLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={onLogout} className="font-bold text-destructive hover:bg-destructive-soft hover:text-destructive">
-              <LogOut className="h-4 w-4" />
-              {!collapsed && <span className="font-body text-sm">התנתק</span>}
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
-    </Sidebar>
+                <ToolSticker id={g.icon} size={34} />
+                {sum > 0 && <CountTag n={sum} className="absolute -top-1 -left-1" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Profile */}
+      <div className={cn("flex items-center gap-2.5 rounded-[18px] bg-card shadow-[0_8px_18px_-12px_rgba(27,35,51,.45)] justify-center", open ? "p-2.5" : "p-1.5")}>
+        <button
+          type="button"
+          onClick={() => { navigate("/dashboard/avatar-edit"); onClose?.(); }}
+          aria-label="עריכת אווטאר"
+          title="עריכת אווטאר"
+          className="flex-none -rotate-[5deg]"
+        >
+          {profile.avatar ? (
+            <AvatarPreview config={profile.avatar} size={40} />
+          ) : (
+            <span className="w-10 h-10 rounded-full border-[3px] border-white dark:border-card shadow-[0_2px_6px_rgba(27,35,51,.25)] bg-info flex items-center justify-center font-heading font-black text-sm text-white">
+              {profile.fullName.trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join("")}
+            </span>
+          )}
+        </button>
+        {open && (
+          <>
+            <div className="flex-1 min-w-0 flex flex-col gap-[5px]">
+              <span className="font-heading font-extrabold text-sm leading-none text-foreground truncate">{profile.fullName}</span>
+              {roleLabel && <span className="font-body font-semibold text-xs leading-none text-muted-foreground truncate">{roleLabel}</span>}
+            </div>
+            <button type="button" onClick={onLogout} className="font-body font-bold text-[12.5px] leading-none text-destructive hover:underline">
+              יציאה
+            </button>
+          </>
+        )}
+      </div>
+    </nav>
   );
 }

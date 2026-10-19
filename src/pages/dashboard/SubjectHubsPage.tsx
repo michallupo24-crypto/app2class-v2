@@ -1,16 +1,13 @@
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { BookOpen, Radio, FileText, MessageSquare } from "lucide-react";
+import { SubjectFolder, type FolderChip } from "@/components/SubjectFolder";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useStudentSubjects } from "@/hooks/useStudentSubjects";
 
 interface TimetableSubject {
   subject: string;
-  color: string | null;
+  teacher: string | null;
 }
 
 const SubjectHubsPage = () => {
@@ -20,8 +17,9 @@ const SubjectHubsPage = () => {
   const [timetableSubjects, setTimetableSubjects] = useState<TimetableSubject[]>([]);
   const [currentSubject, setCurrentSubject] = useState<string | null>(null);
 
-  const container = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
-  const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
+  // Per subject: open (unsubmitted, not yet due) tasks and the student's average.
+  const [openTasks, setOpenTasks] = useState<Record<string, number>>({});
+  const [averages, setAverages] = useState<Record<string, number>>({});
 
   // Fetch subjects from timetable
   useEffect(() => {
@@ -36,19 +34,37 @@ const SubjectHubsPage = () => {
 
       const { data: slots } = await supabase
         .from("timetable_slots")
-        .select("subject, color")
+        .select("subject, teacher_name")
         .eq("school_id", profile.schoolId!)
         .eq("class_id", p.class_id);
 
       if (slots) {
         const uniqueMap = new Map<string, string | null>();
-        slots.forEach((s: any) => {
-          if (!uniqueMap.has(s.subject)) uniqueMap.set(s.subject, s.color);
+        slots.forEach((s) => {
+          if (!uniqueMap.get(s.subject)) uniqueMap.set(s.subject, s.teacher_name);
         });
         setTimetableSubjects(
-          Array.from(uniqueMap.entries()).map(([subject, color]) => ({ subject, color }))
+          Array.from(uniqueMap.entries()).map(([subject, teacher]) => ({ subject, teacher }))
         );
       }
+
+      const [{ data: tasks }, { data: subs }] = await Promise.all([
+        supabase.from("assignments").select("id, subject, due_date").eq("class_id", p.class_id).eq("published", true)
+          .gte("due_date", new Date().toISOString()),
+        supabase.from("submissions").select("assignment_id, grade, status, assignments(subject, max_grade)").eq("student_id", profile.id),
+      ]);
+      const done = new Set((subs || []).filter((x) => x.status !== "draft").map((x) => x.assignment_id));
+      const open: Record<string, number> = {};
+      (tasks || []).forEach((t) => { if (!done.has(t.id)) open[t.subject] = (open[t.subject] || 0) + 1; });
+      setOpenTasks(open);
+      const sums: Record<string, [number, number]> = {};
+      (subs || []).forEach((x: any) => {
+        const a = Array.isArray(x.assignments) ? x.assignments[0] : x.assignments;
+        if (x.grade == null || !a?.subject) return;
+        const cur = sums[a.subject] || [0, 0];
+        sums[a.subject] = [cur[0] + (x.grade / (a.max_grade || 100)) * 100, cur[1] + 1];
+      });
+      setAverages(Object.fromEntries(Object.entries(sums).map(([k, [t, n]]) => [k, Math.round(t / n)])));
     };
     load();
   }, [profile.id, profile.schoolId]);
@@ -99,80 +115,52 @@ const SubjectHubsPage = () => {
     load();
   }, [profile.id, profile.schoolId]);
 
-  // Show only the student's personal subjects, with colors from timetable
+  // Show only the student's personal subjects, with teachers from the timetable
   const subjects = useMemo(() => {
-    const colorMap = new Map<string, string | null>();
-    timetableSubjects.forEach(ts => {
-      if (!colorMap.has(ts.subject)) colorMap.set(ts.subject, ts.color);
-    });
-
+    const teacherMap = new Map(timetableSubjects.map(ts => [ts.subject, ts.teacher]));
     return studentSubjects.map(s => ({
       name: s,
-      color: colorMap.get(s) || null,
+      teacher: teacherMap.get(s) || null,
       isLive: s === currentSubject,
     }));
   }, [timetableSubjects, studentSubjects, currentSubject]);
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
-      <motion.div variants={item}>
-        <h1 className="text-2xl font-heading font-bold flex items-center gap-2">
-          <BookOpen className="h-7 w-7 text-primary" />
-          המקצועות שלי
-        </h1>
-        <p className="text-sm text-muted-foreground font-body mt-1">לחצ/י על מקצוע לצפייה בחומרים, ציונים ושיעור חי</p>
-      </motion.div>
+    <div className="max-w-6xl mx-auto flex flex-col gap-6">
+      <div className="flex flex-col gap-1.5">
+        <h1 className="font-heading font-black text-[26px] md:text-[30px] leading-none">המקצועות שלי</h1>
+        <p className="font-body font-semibold text-[13px] md:text-sm leading-snug text-muted-foreground">לחצ/י על תיקייה לחומרים, משימות, ציונים וצ׳אט</p>
+      </div>
 
       {subjects.length === 0 ? (
-        <motion.div variants={item}>
-          <Card>
-            <CardContent className="py-10 text-center text-muted-foreground">
-              <BookOpen className="h-10 w-10 mx-auto mb-3 opacity-40" />
-              <p className="font-heading font-medium">אין מקצועות במערכת עדיין</p>
-              <p className="text-sm mt-1">המקצועות יופיעו כאן ברגע שמערכת השעות שלך תוזן</p>
-            </CardContent>
-          </Card>
-        </motion.div>
+        <div className="py-12 px-4 text-center rounded-[22px] border-2 border-dashed border-input">
+          <p className="font-heading font-bold text-muted-foreground">אין מקצועות במערכת עדיין</p>
+          <p className="font-body text-sm text-muted-foreground mt-1">המקצועות יופיעו כאן ברגע שמערכת השעות שלך תוזן</p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {subjects.map((subject) => (
-            <motion.div key={subject.name} variants={item}>
-              <Card
-                className="cursor-pointer hover:shadow-lg transition-all hover:-translate-y-1 group relative overflow-hidden"
-                onClick={() => navigate(
-                  `/dashboard/subjects/${encodeURIComponent(subject.name)}${subject.isLive ? "?tab=live" : ""}`
-                )}
-              >
-                {subject.isLive && (
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-success animate-pulse" />
-                )}
-                <CardContent className="py-5">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: subject.color || "hsl(var(--primary))" }}
-                      />
-                      <h3 className="font-heading font-bold text-lg">{subject.name}</h3>
-                    </div>
-                    {subject.isLive && (
-                      <Badge className="bg-success/10 text-success border-success/20 gap-1" variant="outline">
-                        <Radio className="h-3 w-3" />
-                        LIVE
-                      </Badge>
-                    )}
-                  </div>
-
-                  <p className="text-sm text-muted-foreground">
-                    חומרי לימוד · ציונים · צ'אט כיתתי
-                  </p>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-x-3 gap-y-5 md:gap-x-[18px] md:gap-y-[30px] pt-3">
+          {subjects.map((subject, i) => {
+            const open = openTasks[subject.name] || 0;
+            const avg = averages[subject.name];
+            const chips: FolderChip[] = [
+              ...(open ? [{ text: `${open} משימות פתוחות`, tone: "info" as const }] : []),
+              ...(avg != null ? [{ text: `ממוצע ${avg}`, tone: "neutral" as const }] : []),
+            ];
+            return (
+              <SubjectFolder
+                key={subject.name}
+                index={i}
+                subject={subject.name}
+                subtitle={subject.teacher || undefined}
+                chips={chips}
+                live={subject.isLive}
+                onOpen={() => navigate(`/dashboard/subjects/${encodeURIComponent(subject.name)}${subject.isLive ? "?tab=live" : ""}`)}
+              />
+            );
+          })}
         </div>
       )}
-    </motion.div>
+    </div>
   );
 };
 
