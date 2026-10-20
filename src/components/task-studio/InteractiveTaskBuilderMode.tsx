@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, type TouchEvent } from "react";
 import { Code2, Sparkles, BookOpen, Save, Loader2, Layers, BarChart3, ShieldAlert, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -15,6 +15,7 @@ import { CommunityGallery } from "./ide/CommunityGallery";
 import { TeacherAnalyticsDashboard } from "./ide/TeacherAnalyticsDashboard";
 import { buildSandboxHtml } from "./ide/sandboxBuilder";
 import type { TaskLanguage, TaskMode, ConsoleLog, InteractiveTask } from "./ide/types";
+import { displayName } from "@/lib/displayName";
 
 interface Props {
   profile: UserProfile;
@@ -61,6 +62,25 @@ const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGene
   const { toast } = useToast();
 
   const [taskId, setTaskId] = useState<string | null>(null);
+  // Phone: editor and preview are full-size panes you swipe (or tap) between.
+  // Only the active pane is displayed: a horizontal scroller or transform slider
+  // left the preview iframe unpainted (blank) in Chromium.
+  const [mobilePane, setMobilePane] = useState<0 | 1>(0);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const onPanesTouchStart = (e: TouchEvent) => {
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+  const onPanesTouchEnd = (e: TouchEvent) => {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start) return;
+    const dx = e.changedTouches[0].clientX - start.x;
+    const dy = e.changedTouches[0].clientY - start.y;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    // RTL: the editor sits on the right, so a left-to-right swipe reveals the preview.
+    setMobilePane(dx > 0 ? 1 : 0);
+  };
+
   const [title, setTitle] = useState("משימה אינטראקטיבית חדשה");
   const [description, setDescription] = useState("");
   const [subject, setSubject] = useState("מתמטיקה");
@@ -255,12 +275,12 @@ const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGene
     const rows = data || [];
     const authorIds = Array.from(new Set(rows.map((r: any) => r.author_id)));
     const { data: authors, error: authorsError } = authorIds.length
-      ? await supabase.from("profiles").select("id, full_name").in("id", authorIds)
+      ? await supabase.from("profiles").select("id, full_name, display_name").in("id", authorIds)
       : { data: [] as any[], error: null };
     if (authorsError) {
       toast({ variant: "destructive", title: "שגיאה בטעינת פרטי המחברים", description: authorsError.message });
     }
-    const nameMap = new Map((authors || []).map((a: any) => [a.id, a.full_name]));
+    const nameMap = new Map((authors || []).map((a: any) => [a.id, displayName(a)]));
 
     setGalleryTasks(
       rows.map((r: any) => ({
@@ -337,7 +357,7 @@ const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGene
       badge="AI + IDE"
       onBack={onBack}
     >
-      <div className="flex flex-col h-[calc(100vh-220px)] min-h-[600px] gap-3">
+      <div className="flex flex-col md:h-[calc(100vh-220px)] md:min-h-[600px] gap-3">
         {/* Compact toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-2 bg-card border rounded-xl px-3 py-2">
           <div className="flex items-center gap-2 flex-wrap">
@@ -429,15 +449,25 @@ const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGene
         ) : panelView === "analytics" && taskId ? (
           <TeacherAnalyticsDashboard taskId={taskId} classId={classId} taskTitle={title} onBack={() => setPanelView("editor")} />
         ) : (
-          <div className="flex-1 flex flex-col gap-3 overflow-hidden">
+          <div className="flex-1 flex flex-col gap-3 md:overflow-hidden">
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={taskMode === "solve" ? "הוראות למשימת התכנות (מה על התלמיד לכתוב/לפתור)..." : "תיאור קצר של המשימה (אופציונלי)..."}
               className="bg-muted rounded-lg px-3 py-2 text-xs outline-none resize-none h-14"
             />
-            <div className="flex-1 flex flex-col md:flex-row gap-3 overflow-hidden">
-              <div className="w-full md:w-1/2 h-1/2 md:h-full flex flex-col">
+            <div className="md:hidden flex p-1 rounded-xl bg-muted self-center" role="tablist" aria-label="עורך או תצוגה">
+              {(["קוד", "תצוגה חיה"] as const).map((label, i) => (
+                <button key={label} type="button" role="tab" aria-selected={mobilePane === i}
+                  onClick={() => setMobilePane(i as 0 | 1)}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold ${mobilePane === i ? "bg-card shadow-sm" : "text-muted-foreground"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div onTouchStart={onPanesTouchStart} onTouchEnd={onPanesTouchEnd}
+              className="h-[75vh] flex gap-3 md:h-auto md:flex-1 md:overflow-hidden">
+              <div className={`w-full md:w-1/2 h-full flex flex-col ${mobilePane !== 0 ? "max-md:hidden" : ""}`}>
                 <MonacoCodeEditor
                   languageMode={taskMode === "solve" ? "python" : language}
                   htmlCode={htmlCode}
@@ -452,7 +482,7 @@ const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGene
                   autosavedAt={autosavedAt}
                 />
               </div>
-              <div className="w-full md:w-1/2 h-1/2 md:h-full flex flex-col">
+              <div className={`w-full md:w-1/2 h-full flex flex-col ${mobilePane !== 1 ? "max-md:hidden" : ""}`}>
                 <LivePreviewPanel
                   srcDoc={debouncedSrcDoc}
                   consoleLogs={consoleLogs}

@@ -34,7 +34,6 @@ const ParentRegistration = () => {
   const [childId, setChildId] = useState("");
   const [childSchoolId, setChildSchoolId] = useState("");
   const [childVerified, setChildVerified] = useState<boolean | null>(null);
-  const [verifiedStudentId, setVerifiedStudentId] = useState<string | null>(null);
 
   // Avatar
   const [avatar, setAvatar] = useState<AvatarConfig>({
@@ -52,38 +51,27 @@ const ParentRegistration = () => {
     });
   }, []);
 
+  // The child's ID number and name must both match. The answer is yes/no
+  // only - the form never reveals a student's details to whoever fills it.
   const verifyChild = async () => {
-    if (!childSchoolId || (!childId && !childName)) return;
+    if (!childSchoolId || !childId || !childName.trim()) return;
 
     try {
-      let data: { id: string; full_name: string }[] | null = null;
+      const { data, error } = await supabase.rpc("check_child_registration" as any, {
+        p_id_number: childId,
+        p_child_name: childName.trim(),
+        p_school_id: childSchoolId,
+      });
+      if (error) throw error;
 
-      if (childId) {
-        const { data: rpcData } = await supabase.rpc("find_student_by_id_number", {
-          p_id_number: childId,
-          p_school_id: childSchoolId,
-        });
-        data = rpcData;
-      } else {
-        const { data: queryData } = await supabase
-          .from("profiles")
-          .select("id, full_name")
-          .eq("school_id", childSchoolId)
-          .ilike("full_name", `%${childName.trim()}%`)
-          .limit(1);
-        data = queryData;
-      }
-
-      if (data && data.length > 0) {
+      if (data === true) {
         setChildVerified(true);
-        setVerifiedStudentId(data[0].id);
-        toast({ title: `הילד/ה ${data[0].full_name} אומת/ה` });
+        toast({ title: "הילד/ה אומת/ה" });
       } else {
         setChildVerified(false);
-        setVerifiedStudentId(null);
         toast({
           title: "הילד/ה לא נמצא/ה",
-          description: "ודא שהתלמיד/ה רשום/ה במערכת ושם בית הספר נכון",
+          description: "בדקו שמספר תעודת הזהות והשם של הילד/ה תואמים לרישום בבית הספר",
           variant: "destructive",
         });
       }
@@ -133,14 +121,15 @@ const ParentRegistration = () => {
 
       if (roleError) throw roleError;
 
-      // Link parent to student
-      if (verifiedStudentId) {
-        const { error: linkError } = await supabase.from("parent_student").insert({
-          parent_id: userId,
-          student_id: verifiedStudentId,
-        });
-        if (linkError) throw linkError;
-      }
+      // Link parent to student. The server re-checks ID number + name; the
+      // link grants access only after the school approves the parent.
+      const { data: linked, error: linkError } = await supabase.rpc("link_my_child" as any, {
+        p_id_number: childId,
+        p_child_name: childName.trim(),
+        p_school_id: childSchoolId,
+      });
+      if (linkError) throw linkError;
+      if (linked !== true) throw new Error("לא ניתן היה לקשר את הילד/ה");
 
       // Save avatar
       await saveAvatar(supabase, userId, avatar);
@@ -254,7 +243,7 @@ const ParentRegistration = () => {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="font-heading">שם הילד/ה</Label>
-                <Input value={childName} onChange={(e) => setChildName(e.target.value)} required />
+                <Input value={childName} onChange={(e) => { setChildName(e.target.value); setChildVerified(null); }} required />
               </div>
 
               <div className="space-y-2">
@@ -274,7 +263,7 @@ const ParentRegistration = () => {
                 </Select>
               </div>
 
-              {(childId || childName) && childSchoolId && childVerified === null && (
+              {childId.length === 9 && childName.trim() && childSchoolId && childVerified === null && (
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}

@@ -6,6 +6,7 @@ import type { UserProfile } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { displayName } from "@/lib/displayName";
 
 interface FlaggedStudent {
   id: string;
@@ -48,7 +49,7 @@ const CounselorDashboard = () => {
           .gte("created_at", monthStart.toISOString()),
         supabase
           .from("profiles")
-          .select("id, full_name, class_id")
+          .select("id, full_name, display_name, class_id")
           .eq("school_id", profile.schoolId)
           .not("class_id", "is", null),
       ]);
@@ -129,7 +130,7 @@ const CounselorDashboard = () => {
 
       const flaggedList: FlaggedStudent[] = Array.from(riskMap.entries()).map(([sid, signals]) => {
         const s = students.find((st) => st.id === sid);
-        return { id: sid, full_name: s?.full_name || "תלמיד/ה", signals: Array.from(signals) };
+        return { id: sid, full_name: displayName(s) || "תלמיד/ה", signals: Array.from(signals) };
       });
 
       setStats({
@@ -194,8 +195,8 @@ const CounselorDashboard = () => {
             <HomeRow
               key={f.id}
               index={i}
-              person={f.full_name}
-              title={f.full_name}
+              person={displayName(f)}
+              title={displayName(f)}
               meta={f.signals.join(" · ")}
               action={{ label: "פתיחת תיק", onClick: () => openCase(f.id) }}
             />

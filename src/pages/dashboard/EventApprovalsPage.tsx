@@ -9,6 +9,7 @@ import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { displayName } from "@/lib/displayName";
 
 interface GradeEvent {
   id: string;
@@ -61,11 +62,11 @@ const EventApprovalsPage = () => {
     }
     const { data: kids } = await supabase
       .from("profiles")
-      .select("id, full_name, school_id, classes(grade)")
+      .select("id, full_name, display_name, school_id, classes(grade)")
       .in("id", studentIds);
 
     const kidsList: ChildLite[] = (kids || []).map((k: any) => ({
-      id: k.id, fullName: k.full_name, grade: k.classes?.grade || null, schoolId: k.school_id,
+      id: k.id, fullName: displayName(k), grade: k.classes?.grade || null, schoolId: k.school_id,
     }));
     setChildren(kidsList);
 
@@ -123,7 +124,7 @@ const EventApprovalsPage = () => {
         const { data: classes } = await supabase.from("classes").select("id").eq("school_id", profile.schoolId!).eq("grade", grade as any);
         const classIds = (classes || []).map((c: any) => c.id);
         if (classIds.length) {
-          const { data: students } = await supabase.from("profiles").select("id, full_name").in("class_id", classIds);
+          const { data: students } = await supabase.from("profiles").select("id, full_name, display_name").in("class_id", classIds);
           gradeMap[grade] = students || [];
         }
       }
@@ -268,7 +269,7 @@ const EventApprovalsPage = () => {
                       ) : (
                         notSigned.map((s) => (
                           <span key={s.id} className="text-[11px] px-2 py-1 rounded-full bg-warning/10 text-warning-foreground border border-warning/30">
-                            {s.full_name}
+                            {displayName(s)}
                           </span>
                         ))
                       )}

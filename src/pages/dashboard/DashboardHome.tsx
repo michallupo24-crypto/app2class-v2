@@ -1,6 +1,6 @@
 import { useOutletContext, Navigate, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Users, Calendar, UserCheck, BarChart3, Building2, Newspaper, Wallet } from "lucide-react";
+import { Users, Calendar, UserCheck, BarChart3, Building2, Newspaper } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -260,7 +260,6 @@ const DashboardHome = () => {
               { icon: Users, label: "תפקידי צוות", path: "/dashboard/team-roles", color: "#9257EC" },
               { icon: Building2, label: "מבנה בית הספר", path: "/dashboard/org-tree", color: "#1592B3" },
               { icon: Newspaper, label: "עיתון בית הספר", path: "/dashboard/newspaper", color: "#EE5A8F" },
-              { icon: Wallet, label: "מרכז תשלומים", path: "/dashboard/finance-hub", color: "#23B26D" },
               { icon: Calendar, label: "לוח זמנים", path: "/dashboard/schedule", color: "#3B7BF2" },
             ].map((a) => (
               <button key={a.path} type="button" onClick={() => navigate(a.path)}

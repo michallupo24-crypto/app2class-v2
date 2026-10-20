@@ -2656,6 +2656,7 @@ export type Database = {
           class_id: string | null
           created_at: string
           date_of_birth: string | null
+          display_name: string | null
           email: string
           full_name: string
           id: string
@@ -2672,6 +2673,7 @@ export type Database = {
           class_id?: string | null
           created_at?: string
           date_of_birth?: string | null
+          display_name?: string | null
           email: string
           full_name: string
           id: string
@@ -2688,6 +2690,7 @@ export type Database = {
           class_id?: string | null
           created_at?: string
           date_of_birth?: string | null
+          display_name?: string | null
           email?: string
           full_name?: string
           id?: string
@@ -4220,6 +4223,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      can_set_display_name: { Args: { p_user_id: string }; Returns: boolean }
       cancel_meeting_slot: { Args: { p_slot_id: string }; Returns: undefined }
       check_and_award_badge: {
         Args: {
@@ -4373,6 +4377,10 @@ export type Database = {
       send_submission_reminders: {
         Args: { p_assignment_id: string }
         Returns: number
+      }
+      set_display_name: {
+        Args: { p_display_name: string | null; p_user_id: string }
+        Returns: string | null
       }
       update_user_streak: { Args: { p_user_id: string }; Returns: undefined }
     }

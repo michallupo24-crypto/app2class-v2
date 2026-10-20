@@ -33,6 +33,7 @@ import { avatarFromRow } from "@/components/avatar/avatarModel";
 import { SubjectSticker, subjectStickerId } from "@/components/SubjectSticker";
 import { STICKER_GROUPS } from "@/lib/subjectStickers";
 import { useSchoolGuidelines } from "@/hooks/useSchoolGuidelines";
+import { displayName, nameSearchFilter } from "@/lib/displayName";
 
 /* ─── Types ───────────────────────────────────────────── */
 type ConversationType = 
@@ -240,6 +241,10 @@ const ChatPage = () => {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionedIds, setMentionedIds] = useState<Set<string>>(new Set());
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Set when the user sends, so the composer gets focus back once the send
+  // settles (WhatsApp-style) - but never on its own, so mobile keyboards
+  // don't pop up when the user didn't just send.
+  const refocusComposerRef = useRef(false);
 
   // Attachments
   const [pendingAttachment, setPendingAttachment] = useState<{ path: string; name: string; type: string; extractedText: string | null } | null>(null);
@@ -328,8 +333,8 @@ const ChatPage = () => {
       .eq("conversation_id", conversationId);
     if (!parts?.length) { setSelectedParticipants([]); return; }
     const ids = parts.map((p: any) => p.user_id);
-    const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", ids);
-    const nameMap = new Map((profs || []).map((p: any) => [p.id, p.full_name || "משתמש"]));
+    const { data: profs } = await supabase.from("profiles").select("id, full_name, display_name").in("id", ids);
+    const nameMap = new Map((profs || []).map((p: any) => [p.id, displayName(p, "משתמש")]));
     setSelectedParticipants(parts.map((p: any) => ({
       user_id: p.user_id,
       full_name: nameMap.get(p.user_id) || "משתמש",
@@ -404,31 +409,28 @@ const ChatPage = () => {
     if (!myParts?.length) { setConversations([]); setLoadingConvos(false); return; }
 
     const convoIds = myParts.map((p: any) => p.conversation_id);
-    const lastReadMap = new Map<string, string>(
-      myParts.map((p: any) => [p.conversation_id, p.last_read_at])
-    );
     const mutedMap = new Map<string, boolean>(
       myParts.map((p: any) => [p.conversation_id, Boolean(p.muted)])
     );
 
     // 2. Fetch conversations + messages + participant rows (ללא embed — אין FK מ-user_id ל-profiles ב-PostgREST)
-    const [convosRes, lastMsgsRes, participantsRawRes, unreadRes] = await Promise.all([
+    // Last message and unread count come from one server-side summary per
+    // conversation - fetching every message to count them got heavy with
+    // the automatic class groups, and a row limit hid quiet conversations'
+    // last message.
+    const [convosRes, summariesRes, participantsRawRes] = await Promise.all([
       supabase.from("conversations").select("*").in("id", convoIds).order("updated_at", { ascending: false }),
-      supabase.from("messages").select("conversation_id, content, created_at, is_flagged, is_deleted")
-        .in("conversation_id", convoIds)
-        .order("created_at", { ascending: false })
-        .limit(convoIds.length * 3),
+      supabase.rpc("get_my_conversation_summaries" as any),
       supabase.from("conversation_participants")
         .select("conversation_id, user_id")
-        .in("conversation_id", convoIds),
-      supabase.from("messages")
-        .select("conversation_id, created_at")
         .in("conversation_id", convoIds),
     ]);
 
     const convos = convosRes.data || [];
-    const allMsgs = lastMsgsRes.data || [];
-    const allMsgTimes = unreadRes.data || [];
+    const summaries = ((summariesRes.data as any[]) || []) as {
+      conversation_id: string; last_content: string | null; last_created_at: string | null;
+      last_is_flagged: boolean; last_is_deleted: boolean; unread_count: number;
+    }[];
 
     if (participantsRawRes.error) {
       console.error("conversation_participants:", participantsRawRes.error);
@@ -450,7 +452,7 @@ const ChatPage = () => {
 
     if (participantUserIds.length > 0) {
       const [profRes, rolesRes, avatarMap] = await Promise.all([
-        supabase.from("profiles").select("id, full_name").in("id", participantUserIds),
+        supabase.from("profiles").select("id, full_name, display_name").in("id", participantUserIds),
         supabase.from("user_roles").select("user_id, role").in("user_id", participantUserIds),
         fetchAvatarsByUserIds(participantUserIds),
       ]);
@@ -458,7 +460,7 @@ const ChatPage = () => {
       if (rolesRes.error) console.error("user_roles (chat participants):", rolesRes.error);
       for (const p of profRes.data || []) {
         profileMap.set(p.id, {
-          full_name: p.full_name,
+          full_name: displayName(p),
           avatars: avatarMap.get(p.id) ?? null,
         });
       }
@@ -476,19 +478,16 @@ const ChatPage = () => {
       user_roles: rolesByUser.get(row.user_id) || [],
     }));
 
-    // Build last message map
-    const lastMsgMap = new Map<string, typeof allMsgs[0]>();
-    for (const msg of allMsgs) {
-      if (!lastMsgMap.has(msg.conversation_id)) lastMsgMap.set(msg.conversation_id, msg);
-    }
-
-    // Build unread count map
+    const lastMsgMap = new Map<string, { content: string; created_at: string; is_flagged: boolean; is_deleted: boolean }>();
     const unreadMap = new Map<string, number>();
-    for (const msg of allMsgTimes) {
-      const lastRead = lastReadMap.get(msg.conversation_id);
-      if (lastRead && msg.created_at > lastRead) {
-        unreadMap.set(msg.conversation_id, (unreadMap.get(msg.conversation_id) || 0) + 1);
+    for (const s of summaries) {
+      if (s.last_created_at) {
+        lastMsgMap.set(s.conversation_id, {
+          content: s.last_content ?? "", created_at: s.last_created_at,
+          is_flagged: s.last_is_flagged, is_deleted: s.last_is_deleted,
+        });
       }
+      if (s.unread_count > 0) unreadMap.set(s.conversation_id, s.unread_count);
     }
 
     // Build participants map
@@ -506,11 +505,11 @@ const ChatPage = () => {
       const other = otherParts[0];
       const roles = (other?.user_roles || []).map((r: any) => r.role);
       const roleLabel = roles.map((r: string) => ROLE_LABELS[r] || r).join(", ");
-      const lastName = otherParts.map((p: any) => (p.profiles as any)?.full_name || "").filter(Boolean).join(", ");
+      const lastName = otherParts.map((p: any) => displayName(p.profiles as any)).filter(Boolean).join(", ");
       const otherUserId = c.type === "private" && other ? (other.user_id as string) : null;
 
       const participantNames = parts
-        .map((p: any) => (p.profiles as any)?.full_name)
+        .map((p: any) => displayName(p.profiles as any))
         .filter(Boolean) as string[];
       const participantPreview =
         participantNames.length > 0
@@ -628,13 +627,13 @@ const ChatPage = () => {
     const profById = new Map<string, { full_name: string | null; avatars: unknown }>();
     if (senderIds.length > 0) {
       const [profRes, avatarMap] = await Promise.all([
-        supabase.from("profiles").select("id, full_name").in("id", senderIds),
+        supabase.from("profiles").select("id, full_name, display_name").in("id", senderIds),
         fetchAvatarsByUserIds(senderIds),
       ]);
       if (profRes.error) console.error("profiles (messages):", profRes.error);
       for (const p of profRes.data || []) {
         profById.set(p.id, {
-          full_name: p.full_name,
+          full_name: displayName(p),
           avatars: avatarMap.get(p.id) ?? null,
         });
       }
@@ -709,7 +708,7 @@ const ChatPage = () => {
         // Fetch sender info
         const { data: prof } = await supabase
           .from("profiles")
-          .select("full_name")
+          .select("full_name, display_name")
           .eq("id", m.sender_id)
           .maybeSingle();
         const avMap = await fetchAvatarsByUserIds([m.sender_id]);
@@ -717,7 +716,7 @@ const ChatPage = () => {
         const newMsg: Message = {
           id: m.id,
           sender_id: m.sender_id,
-          sender_name: ((prof as any)?.full_name && String((prof as any).full_name).trim()) || "משתמש",
+          sender_name: displayName(prof as any, "משתמש"),
           sender_avatar: avatarFromRow(avRow ?? null),
           content: m.content,
           created_at: m.created_at,
@@ -875,8 +874,8 @@ const ChatPage = () => {
       if (error || !rows?.length) { setMessageSearchResults([]); return; }
 
       const senderIds = [...new Set(rows.map((r) => r.sender_id))];
-      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", senderIds);
-      const nameMap = new Map((profs || []).map((p) => [p.id, p.full_name || "משתמש"]));
+      const { data: profs } = await supabase.from("profiles").select("id, full_name, display_name").in("id", senderIds);
+      const nameMap = new Map((profs || []).map((p) => [p.id, displayName(p, "משתמש")]));
       const titleMap = new Map(conversations.map((c) => [c.id, c.otherName]));
 
       setMessageSearchResults(
@@ -906,10 +905,10 @@ const ChatPage = () => {
       const term = searchQuery.trim();
       let q = supabase
         .from("profiles")
-        .select("id, full_name")
+        .select("id, full_name, display_name")
         .eq("is_approved", true)
         .neq("id", profile.id)
-        .ilike("full_name", `%${term}%`);
+        .or(nameSearchFilter(term));
       if (profile.schoolId) q = q.eq("school_id", profile.schoolId);
       const { data: profs, error } = await q.limit(25);
       if (error) {
@@ -933,9 +932,9 @@ const ChatPage = () => {
         roleLabelByUser.set(row.user_id, [roleLabelByUser.get(row.user_id), label].filter(Boolean).join(", "));
       }
       setSearchUsers(
-        profs.map((u: { id: string; full_name: string }) => ({
+        profs.map((u: { id: string; full_name: string; display_name: string | null }) => ({
           user_id: u.id,
-          full_name: u.full_name,
+          full_name: displayName(u),
           avatar: avatarFromRow(avatarMap.get(u.id) ?? null),
           roleLabel: roleLabelByUser.get(u.id) || "",
         })),
@@ -1033,6 +1032,7 @@ const ChatPage = () => {
   /* ── Send message ─────────────────────────────────────── */
   const sendMessage = async () => {
     if ((!input.trim() && !pendingAttachment) || !selectedId || sending) return;
+    refocusComposerRef.current = true;
 
     const convo = conversations.find(c => c.id === selectedId);
     // Block: creator of unaccepted request already sent 1 message
@@ -1042,6 +1042,8 @@ const ChatPage = () => {
         .eq("conversation_id", selectedId).eq("sender_id", profile.id);
       if ((count || 0) >= 1) {
         toast({ title: "ממתין לתגובה", description: "ניתן לשלוח הודעה אחת עד שיענו", variant: "destructive" });
+        refocusComposerRef.current = false;
+        textareaRef.current?.focus();
         return;
       }
     }
@@ -1064,10 +1066,63 @@ const ChatPage = () => {
     setMentionedIds(new Set());
 
     try {
+      type ModResponse = {
+        blocked?: boolean;
+        block_reason?: string | null;
+        flag?: boolean;
+        flag_reason?: string | null;
+        token?: string | null;
+      };
+
+      let blocked = false;
+      let flagged = false;
+      let flagReason: string | null = null;
+      let moderationToken: string | null = null;
+
+      if (content) {
+        const { data: modResult } = await supabase.functions.invoke("chat-moderate", {
+          body: {
+            message: content,
+            sender_name: profile.fullName,
+            sender_id: profile.id,
+            conversation_id: selectedId,
+          },
+        });
+
+        const mr = modResult as ModResponse | null;
+        blocked = mr?.blocked === true;
+        // The server's verdict is signed; the database rejects any other flag value.
+        flagged = !blocked && mr?.flag === true;
+        flagReason = mr?.flag_reason || null;
+        moderationToken = mr?.token ?? null;
+
+        if (blocked) {
+          toast({
+            title: "לא נשלחה",
+            description:
+              mr?.block_reason ||
+              "ההודעה שכתבת לא עומדת בסטנדרט הקהילה שלנו. נסה/י לנסח מחדש בנימוס ובכבוד.",
+            variant: "destructive",
+          });
+          setInput((draft) => draft.trim() ? draft : content);
+          setPendingAttachment(attachment);
+          return;
+        }
+        if (!moderationToken) {
+          toast({ title: "לא נשלחה", description: "לא הצלחנו לבדוק את ההודעה כרגע. נסה/י שוב בעוד רגע.", variant: "destructive" });
+          setInput(content);
+          setPendingAttachment(attachment);
+          return;
+        }
+      }
+
       const { data: inserted, error: insertError } = await supabase.from("messages").insert({
         conversation_id: selectedId,
         sender_id: profile.id,
         content: content || "",
+        is_flagged: flagged,
+        flag_reason: flagged ? flagReason : null,
+        moderation_token: moderationToken,
         reply_to_id: replyToId,
         mentioned_user_ids: mentions,
         attachment_path: attachment?.path ?? null,
@@ -1112,14 +1167,30 @@ const ChatPage = () => {
         .update({ updated_at: new Date().toISOString() })
         .eq("id", selectedId);
 
+      if (flagged) {
+        toast({
+          title: "הודעה נשלחה לבדיקה",
+          description: flagReason || "התוכן סומן לצוות",
+          variant: "destructive",
+        });
+      }
     } catch (err: any) {
       toast({ title: "שגיאה", description: err.message, variant: "destructive" });
-      setInput(content);
+      setInput((draft) => draft.trim() ? draft : content);
       setPendingAttachment(attachment);
     } finally {
       setSending(false);
     }
   };
+
+  useEffect(() => {
+    if (sending || !refocusComposerRef.current) return;
+    refocusComposerRef.current = false;
+    // Don't yank focus back if the user moved on to another field mid-send.
+    const active = document.activeElement;
+    if (active && active !== document.body && active !== textareaRef.current) return;
+    textareaRef.current?.focus();
+  }, [sending]);
 
   /* ── Schedule message for later ───────────────────────── */
   const scheduleMessage = async () => {
@@ -1134,11 +1205,45 @@ const ChatPage = () => {
     const content = input.trim();
 
     try {
+      // Same moderation gate as an immediate send - a plpgsql function can't
+      // call the chat-moderate edge function, so this has to happen now,
+      // at schedule time, with the result stored for delivery time.
+      const { data: modResult } = await supabase.functions.invoke("chat-moderate", {
+        body: {
+          message: content,
+          sender_name: profile.fullName,
+          sender_id: profile.id,
+          conversation_id: selectedId,
+        },
+      });
+      const mr = modResult as {
+        blocked?: boolean; block_reason?: string | null;
+        flag?: boolean; flag_reason?: string | null;
+        token?: string | null;
+      } | null;
+      const blocked = mr?.blocked === true;
+      if (blocked) {
+        toast({
+          title: "לא ניתן לתזמן",
+          description: mr?.block_reason || "ההודעה שכתבת לא עומדת בסטנדרט הקהילה שלנו. נסה/י לנסח מחדש בנימוס ובכבוד.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!mr?.token) {
+        toast({ title: "לא ניתן לתזמן", description: "לא הצלחנו לבדוק את ההודעה כרגע. נסה/י שוב בעוד רגע.", variant: "destructive" });
+        return;
+      }
+      const flagged = mr.flag === true;
+      const flagReason = mr.flag_reason || null;
+
+      // The token signed at scheduling time is what lets delivery insert it later.
       const { data, error } = await supabase.from("scheduled_chat_messages")
         .insert({
           conversation_id: selectedId, sender_id: profile.id, content,
-          send_at: sendAtDate.toISOString(),
-        })
+          send_at: sendAtDate.toISOString(), is_flagged: flagged, flag_reason: flagged ? flagReason : null,
+          moderation_token: mr.token,
+        } as any)
         .select("id, content, send_at").single();
       if (error || !data) throw error;
 
@@ -1179,14 +1284,46 @@ const ChatPage = () => {
     setEditingId(null);
     setEditText("");
 
+    // An edited message never went through send-time moderation again -
+    // someone could post something innocuous and edit it into something
+    // that should have been blocked/flagged, skipping chat-moderate
+    // entirely. Same gate as a fresh send.
+    const { data: modResult } = await supabase.functions.invoke("chat-moderate", {
+      body: { message: text, sender_name: profile.fullName, sender_id: profile.id, conversation_id: selectedId },
+    });
+    const mr = modResult as {
+      blocked?: boolean; block_reason?: string | null;
+      flag?: boolean; flag_reason?: string | null;
+      token?: string | null;
+    } | null;
+    if (mr?.blocked === true) {
+      toast({
+        title: "לא ניתן לשמור",
+        description: mr.block_reason || "התוכן אינו עומד בסטנדרט הקהילה שלנו. נסה/י לנסח מחדש בנימוס ובכבוד.",
+        variant: "destructive",
+      });
+      setEditingId(id);
+      setEditText(text);
+      return;
+    }
+    if (!mr?.token) {
+      toast({ title: "לא ניתן לשמור", description: "לא הצלחנו לבדוק את ההודעה כרגע. נסה/י שוב בעוד רגע.", variant: "destructive" });
+      setEditingId(id);
+      setEditText(text);
+      return;
+    }
+    const flagged = mr.flag === true;
+    const flagReason = mr.flag_reason || null;
+
     const editedAt = new Date().toISOString();
     setMessages((prev) => prev.map((m) => m.id === id
-      ? { ...m, content: text, edited_at: editedAt }
+      ? { ...m, content: text, edited_at: editedAt, is_flagged: flagged, flag_reason: flagged ? flagReason : null }
       : m));
     const { error } = await supabase.from("messages")
-      .update({ content: text, edited_at: editedAt })
+      .update({ content: text, edited_at: editedAt, is_flagged: flagged, flag_reason: flagged ? flagReason : null, moderation_token: mr.token } as any)
       .eq("id", id);
     if (error) toast({ title: "שגיאה בעריכת ההודעה", description: error.message, variant: "destructive" });
+    else if (flagged) toast({ title: "ההודעה המעודכנת נשלחה לבדיקה", description: flagReason || "התוכן סומן לצוות", variant: "destructive" });
   };
 
   const deleteMessage = async (id: string) => {
@@ -1338,14 +1475,14 @@ const ChatPage = () => {
     if (!showGroupInfo || !groupAddQuery.trim()) { setGroupAddResults([]); return; }
     const timer = setTimeout(async () => {
       const term = groupAddQuery.trim();
-      let q = supabase.from("profiles").select("id, full_name").eq("is_approved", true).ilike("full_name", `%${term}%`);
+      let q = supabase.from("profiles").select("id, full_name, display_name").eq("is_approved", true).or(nameSearchFilter(term));
       if (profile.schoolId) q = q.eq("school_id", profile.schoolId);
       const { data: profs } = await q.limit(15);
       const existingIds = new Set(selectedParticipants.map((p) => p.user_id));
       setGroupAddResults(
         (profs || [])
           .filter((p: any) => !existingIds.has(p.id))
-          .map((p: any) => ({ user_id: p.id, full_name: p.full_name, avatar: null, roleLabel: "" })),
+          .map((p: any) => ({ user_id: p.id, full_name: displayName(p), avatar: null, roleLabel: "" })),
       );
     }, 280);
     return () => clearTimeout(timer);
@@ -2254,7 +2391,6 @@ const ChatPage = () => {
                           if (e.key === "Enter" && !e.shiftKey && mentionQuery === null) { e.preventDefault(); sendMessage(); }
                         }}
                         placeholder={quietHours ? "שעות שקטות — כתוב הודעה..." : "כתוב הודעה..."}
-                        disabled={sending}
                         rows={1}
                         className="flex-1 resize-none font-body text-[14.5px] font-semibold min-h-[38px] max-h-24 py-2 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
@@ -2298,6 +2434,8 @@ const ChatPage = () => {
                         type="submit"
                         size="icon"
                         className="h-9 w-9 shrink-0 rounded-xl"
+                        // Keep focus in the textarea when tapping send.
+                        onMouseDown={e => e.preventDefault()}
                         disabled={(!input.trim() && !pendingAttachment) || sending}
                       >
                         {sending

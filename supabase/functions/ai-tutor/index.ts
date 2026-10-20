@@ -304,12 +304,17 @@ ${studentContext}
 תן המלצה מעשית אחת אם רלוונטית. כתוב בעברית, בטון חם, תומך ולא שיפוטי. אל תמציא נתונים שלא סופקו.`;
 
       let msg = "לא ניתן לטעון תובנה כרגע";
+      // Flag a failed model call instead of passing the canned sentence off
+      // as an insight (the parent page falls back to its own data-driven one).
+      let aiFailed = false;
       try {
-        msg = (await callGemini(systemPrompt, userInput)) || msg;
+        const text = await callGemini(systemPrompt, userInput);
+        if (text) msg = text; else { aiFailed = true; console.error("parent_insight: empty model response"); }
       } catch (e) {
+        aiFailed = true;
         console.error("parent_insight error:", e);
       }
-      return new Response(JSON.stringify({ message: msg }), {
+      return new Response(JSON.stringify({ message: msg, aiFailed }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

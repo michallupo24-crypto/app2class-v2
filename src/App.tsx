@@ -60,6 +60,7 @@ const ChatPage = lazy(() => import("./pages/dashboard/ChatPage"));
 const SystemAdminPage = lazy(() => import("./pages/dashboard/SystemAdminPage"));
 const PrincipalDashboardPage = lazy(() => import("./pages/dashboard/PrincipalDashboardPage"));
 const SchoolOrgTreePage = lazy(() => import("./pages/dashboard/SchoolOrgTreePage"));
+const DisplayNamesPage = lazy(() => import("./pages/dashboard/DisplayNamesPage"));
 const SystemAdminOrgTreePage = lazy(() => import("./pages/dashboard/SystemAdminOrgTreePage"));
 const SchedulePage = lazy(() => import("./pages/dashboard/SchedulePage"));
 const CommunityPage = lazy(() => import("./pages/dashboard/CommunityPage"));
@@ -74,7 +75,6 @@ const BellVotePage = lazy(() => import("./pages/dashboard/BellVotePage"));
 const EventApprovalsPage = lazy(() => import("./pages/dashboard/EventApprovalsPage"));
 const SubjectCoordinatorDashboard = lazy(() => import("./pages/dashboard/SubjectCoordinatorDashboard"));
 const SupportPage = lazy(() => import("./pages/dashboard/SupportPage"));
-const FinanceHubPage = lazy(() => import("./pages/dashboard/FinanceHubPage"));
 const ExamArchivePage = lazy(() => import("./pages/dashboard/ExamArchivePage"));
 const MyClassesPage = lazy(() => import("./pages/dashboard/MyClassesPage"));
 const TeacherSubjectsPage = lazy(() => import("./pages/dashboard/TeacherSubjectsPage"));
@@ -118,6 +118,7 @@ const App = () => (
               <Route path="admin" element={<SystemAdminPage />} />
               <Route path="principal" element={<PrincipalDashboardPage />} />
               <Route path="org-tree" element={<SchoolOrgTreePage />} />
+              <Route path="display-names" element={<DisplayNamesPage />} />
               <Route path="system-org-tree" element={<SystemAdminOrgTreePage />} />
               <Route path="schedule" element={<SchedulePage />} />
               <Route path="timetable" element={<SchedulePage />} />
@@ -161,7 +162,6 @@ const App = () => (
               <Route path="assign-teachers" element={<TeacherAssignmentPage />} />
               <Route path="subject-coordinator-home" element={<SubjectCoordinatorDashboard />} />
               <Route path="support" element={<SupportPage />} />
-              <Route path="finance-hub" element={<FinanceHubPage />} />
               <Route path="exam-archive" element={<ExamArchivePage />} />
               {/* Grade Coordinator routes */}
               <Route path="grade-coordinator-home" element={<GradeCoordinatorDashboard />} />

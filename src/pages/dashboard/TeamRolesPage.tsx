@@ -24,6 +24,7 @@ import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { GRADES } from "@/lib/constants";
+import { displayName, nameSearchFilter } from "@/lib/displayName";
 
 const STAFF_ROLE_SET = ["educator", "professional_teacher", "subject_coordinator", "grade_coordinator", "counselor", "management", "exam_coordinator", "secretary"];
 
@@ -87,7 +88,7 @@ const TeamRolesPage = () => {
     }
     setLoading(true);
 
-    const { data: profs } = await supabase.from("profiles").select("id, full_name, email").eq("school_id", profile.schoolId);
+    const { data: profs } = await supabase.from("profiles").select("id, full_name, display_name, email").eq("school_id", profile.schoolId);
     const schoolProfileIds = (profs || []).map((p) => p.id);
     const { data: roleRows } = schoolProfileIds.length
       ? await supabase.from("user_roles").select("user_id, role").in("user_id", schoolProfileIds)
@@ -168,9 +169,9 @@ const TeamRolesPage = () => {
     setSearchingParents(true);
     const { data: matchingProfiles } = await supabase
       .from("profiles")
-      .select("id, full_name, email")
+      .select("id, full_name, display_name, email")
       .eq("school_id", profile.schoolId)
-      .ilike("full_name", `%${parentQuery.trim()}%`)
+      .or(nameSearchFilter(parentQuery.trim()))
       .limit(20);
     const ids = (matchingProfiles || []).map((p) => p.id);
     const { data: parentRoleRows } = ids.length
@@ -201,7 +202,7 @@ const TeamRolesPage = () => {
     return <div className="text-center py-12 text-muted-foreground">אין לך הרשאה לצפות בעמוד זה</div>;
   }
 
-  const filtered = staff.filter((s) => s.full_name.includes(search) || s.email.includes(search));
+  const filtered = staff.filter((s) => displayName(s).includes(search) || s.email.includes(search));
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
@@ -222,7 +223,7 @@ const TeamRolesPage = () => {
             <Card key={s.id}>
               <CardContent className="flex items-center justify-between flex-wrap gap-3 py-4">
                 <div>
-                  <p className="font-heading font-medium">{s.full_name}</p>
+                  <p className="font-heading font-medium">{displayName(s)}</p>
                   <p className="text-xs text-muted-foreground" dir="ltr">
                     {s.email}
                   </p>
@@ -272,7 +273,7 @@ const TeamRolesPage = () => {
             <div className="flex flex-wrap gap-1.5">
               {committeeReps.map((r) => (
                 <Badge key={r.id} className="text-[10px] gap-1.5 bg-primary/10 text-primary border-primary/30">
-                  {r.full_name}
+                  {displayName(r)}
                   <button onClick={() => toggleCommitteeRep(r.id, true)} className="hover:text-destructive">✕</button>
                 </Badge>
               ))}
@@ -295,7 +296,7 @@ const TeamRolesPage = () => {
             <div className="space-y-1.5">
               {parentResults.map((p) => (
                 <div key={p.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/30">
-                  <span className="text-sm">{p.full_name}</span>
+                  <span className="text-sm">{displayName(p)}</span>
                   <Button size="sm" variant={p.isRep ? "outline" : "secondary"} disabled={busyId === p.id} onClick={() => toggleCommitteeRep(p.id, p.isRep)}>
                     {p.isRep ? "בטל מינוי" : "מנה כנציג/ת ועד הורים"}
                   </Button>

@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Student, ClassroomConfig, AppMode, AttendanceStatus } from '@/types/smartseat';
 import { avatarFromRow } from "@/components/avatar/avatarModel";
+import { displayName } from "@/lib/displayName";
+import { clampConfig, MAX_SEAT_COLS, MAX_SEAT_ROWS } from '@/lib/seatingLimits';
+import { toast } from 'sonner';
 
 /**
  * useSmartSeat Hook - Real-time Classroom Seating and Attendance
@@ -9,11 +12,13 @@ import { avatarFromRow } from "@/components/avatar/avatarModel";
  */
 export function useSmartSeat(classId?: string, lessonId?: string) {
     const [students, setStudents] = useState<Student[]>([]);
-    const [config, setConfig] = useState<ClassroomConfig>({
+    const [config, setRawConfig] = useState<ClassroomConfig>({
         rows: 6,
         cols: 6,
         className: 'layout-grid'
     });
+    // Every grid-size change goes through the limits, so an oversized value can't freeze the page.
+    const setConfig = useCallback((c: ClassroomConfig) => setRawConfig(clampConfig(c)), []);
     const [mode, setMode] = useState<AppMode>('edit');
     const [loading, setLoading] = useState(true);
     const [highlightedId, setHighlightedId] = useState<string | null>(null);
@@ -28,7 +33,7 @@ export function useSmartSeat(classId?: string, lessonId?: string) {
             // 1. Fetch Students
             const { data: profiles } = await supabase
                 .from('profiles')
-                .select('id, full_name')
+                .select('id, full_name, display_name')
                 .eq('class_id', classId);
 
             if (!profiles) return;
@@ -49,6 +54,20 @@ export function useSmartSeat(classId?: string, lessonId?: string) {
 
             const seatMap = new Map((seats as any[] || []).map(s => [s.student_id, s]));
 
+            // Grow the grid to fit the saved layout, but never past the limits. Seats saved
+            // outside the limit show up as unseated (see unseatedStudents) instead of vanishing.
+            const placed = [...seatMap.values()].filter(s => s.row_index >= 0 && s.col_index >= 0);
+            const neededRows = Math.max(0, ...placed.map(s => s.row_index + 1));
+            const neededCols = Math.max(0, ...placed.map(s => s.col_index + 1));
+            if (neededRows > MAX_SEAT_ROWS || neededCols > MAX_SEAT_COLS) {
+                toast.warning(`סידור הישיבה השמור גדול מ־${MAX_SEAT_ROWS}×${MAX_SEAT_COLS}; תלמידים שמחוץ למפה הועברו לרשימת הממתינים לשיבוץ`, { id: 'seat-grid-limit' });
+            }
+            setRawConfig(prev => clampConfig({
+                ...prev,
+                rows: Math.max(prev.rows, neededRows),
+                cols: Math.max(prev.cols, neededCols),
+            }));
+
             // 4. Fetch Current Attendance for this lesson (if in lesson mode)
             let attendanceMap = new Map();
             if (lessonId) {
@@ -62,7 +81,7 @@ export function useSmartSeat(classId?: string, lessonId?: string) {
 
             setStudents(profiles.map(p => ({
                 id: p.id,
-                name: p.full_name,
+                name: displayName(p),
                 avatar: avatarMap.get(p.id) || null,
                 attendance: (attendanceMap.get(p.id) || 'none') as AttendanceStatus,
                 seatRow: seatMap.get(p.id)?.row_index,
@@ -192,7 +211,10 @@ export function useSmartSeat(classId?: string, lessonId?: string) {
 
     return {
         students,
-        unseatedStudents: students.filter(s => s.seatRow === undefined),
+        // Anyone without a seat inside the current grid (never seated, unassigned = -1, or outside the limits).
+        unseatedStudents: students.filter(s =>
+            s.seatRow === undefined || s.seatCol === undefined ||
+            s.seatRow < 0 || s.seatCol < 0 || s.seatRow >= config.rows || s.seatCol >= config.cols),
         config,
         setConfig,
         mode,

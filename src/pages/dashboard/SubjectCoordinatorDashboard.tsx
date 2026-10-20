@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { GRADES } from "@/lib/constants";
 import { format } from "date-fns";
 import { fetchGradeLessonPace, type GradeLessonPaceRow } from "@/lib/lessonPace";
+import { displayName } from "@/lib/displayName";
 
 interface Stats {
   teacherCount: number;
@@ -97,7 +98,7 @@ const SubjectCoordinatorDashboard = () => {
     const teacherIds = Array.from(new Set((teacherRolesRes.data || []).map((r: any) => r.user_id)));
     let teacherProfiles: { id: string; full_name: string }[] = [];
     if (teacherIds.length) {
-      const { data } = await supabase.from("profiles").select("id, full_name").in("id", teacherIds).eq("school_id", profile.schoolId);
+      const { data } = await supabase.from("profiles").select("id, full_name, display_name").in("id", teacherIds).eq("school_id", profile.schoolId);
       teacherProfiles = data || [];
     }
     setTeachers(teacherProfiles);
@@ -352,7 +353,7 @@ const SubjectCoordinatorDashboard = () => {
           <CardContent className="flex flex-wrap gap-2">
             {teachers.length === 0 && <p className="text-sm text-muted-foreground">לא נמצאו מורים משויכים למקצוע זה</p>}
             {teachers.map((t) => (
-              <Badge key={t.id} variant="outline" className="font-body">{t.full_name}</Badge>
+              <Badge key={t.id} variant="outline" className="font-body">{displayName(t)}</Badge>
             ))}
           </CardContent>
         </Card>

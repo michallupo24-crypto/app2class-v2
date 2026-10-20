@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
 import { avatarFromRow } from "@/components/avatar/avatarModel";
+import { displayName } from "@/lib/displayName";
 
 interface ClassMessage {
   id: string;
@@ -57,11 +58,11 @@ const ClassMessenger = ({ classId, userId, isTeacher }: { classId: string; userI
       const avatarById = new Map<string, any>();
       if (authorIds.length > 0) {
         const [{ data: profs }, { data: avatars }] = await Promise.all([
-          supabase.from("profiles").select("id, full_name").in("id", authorIds),
+          supabase.from("profiles").select("id, full_name, display_name").in("id", authorIds),
           // avatars.user_id -> auth.users, no FK to profiles for PostgREST to embed - fetch separately
           supabase.from("avatars").select("*").in("user_id", authorIds),
         ]);
-        for (const p of profs || []) nameById.set(p.id, p.full_name);
+        for (const p of profs || []) nameById.set(p.id, displayName(p));
         for (const a of avatars || []) avatarById.set(a.user_id, a);
       }
 

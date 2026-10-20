@@ -9,6 +9,7 @@ import { uploadPrivateFile } from "@/lib/privateFiles";
 import { useToast } from "@/hooks/use-toast";
 import { SubjectSticker } from "@/components/SubjectSticker";
 import { ToolSticker } from "@/components/ToolSticker";
+import { displayName } from "@/lib/displayName";
 
 const JUSTIFICATION_REASONS: { value: string; label: string }[] = [
   { value: "illness", label: "מחלה" },
@@ -60,8 +61,8 @@ export default function StudentAttendancePage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     
-    const { data: p } = await supabase.from("profiles").select("full_name, class_id").eq("id", studentId).single();
-    if (isParentView && p) setStudentName(p.full_name);
+    const { data: p } = await supabase.from("profiles").select("full_name, display_name, class_id").eq("id", studentId).single();
+    if (isParentView && p) setStudentName(displayName(p));
 
     // Real denominator for the attendance rate: how many lessons this
     // student's class actually had, not a made-up formula.
@@ -311,7 +312,7 @@ export default function StudentAttendancePage() {
   );
 }
 
-const POSITIVE = ["excellence", "positive_participation", "helped_peer"];
+const POSITIVE = ["excellence", "positive_participation", "helped_peer", "custom_positive"];
 
 const NOTE_KINDS: Record<string, { label: string; icon: string }> = {
   excellence: { label: "הצטיינות", icon: "trophy" },
@@ -320,6 +321,9 @@ const NOTE_KINDS: Record<string, { label: string; icon: string }> = {
   disruption: { label: "הפרעה", icon: "alert" },
   phone: { label: "שימוש בטלפון", icon: "chat" },
   no_homework: { label: "חסרים שיעורי בית", icon: "tasks" },
+  // Events a school added to its roll call menu; the event name is in the note.
+  custom_positive: { label: "הערה חיובית", icon: "star" },
+  custom_negative: { label: "הערת משמעת", icon: "alert" },
 };
 
 const TAGS = {

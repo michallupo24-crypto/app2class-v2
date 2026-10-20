@@ -19,7 +19,8 @@ export const LivePreviewPanel: React.FC<LivePreviewPanelProps> = ({
   onOpenAIDebugger
 }) => {
   const [device, setDevice] = useState<ResponsiveDevice>('desktop');
-  const [isConsoleOpen, setIsConsoleOpen] = useState<boolean>(true);
+  // Collapsed on phones so the preview gets the height; error/warning counts still show.
+  const [isConsoleOpen, setIsConsoleOpen] = useState<boolean>(() => window.matchMedia('(min-width: 768px)').matches);
   const [logFilter, setLogFilter] = useState<'all' | 'log' | 'warn' | 'error'>('all');
   const [key, setKey] = useState<number>(0);
 

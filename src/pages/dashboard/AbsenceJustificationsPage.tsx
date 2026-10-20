@@ -9,6 +9,7 @@ import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { openStoredFile } from "@/lib/privateFiles";
 import { useToast } from "@/hooks/use-toast";
+import { displayName } from "@/lib/displayName";
 
 const REASON_LABELS: Record<string, string> = {
   illness: "מחלה",
@@ -50,8 +51,8 @@ const AbsenceJustificationsPage = () => {
     const studentIds: string[] = Array.from(new Set<string>(list.map((r: any) => r.student_id)));
     let namesMap: Record<string, string> = {};
     if (studentIds.length > 0) {
-      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", studentIds);
-      (profs || []).forEach((p: any) => { namesMap[p.id] = p.full_name; });
+      const { data: profs } = await supabase.from("profiles").select("id, full_name, display_name").in("id", studentIds);
+      (profs || []).forEach((p: any) => { namesMap[p.id] = displayName(p); });
     }
 
     setRows(list.map((r: any) => ({

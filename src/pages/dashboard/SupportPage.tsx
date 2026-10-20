@@ -13,6 +13,7 @@ import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { displayName } from "@/lib/displayName";
 
 interface FaqItem {
   id: string;
@@ -75,9 +76,9 @@ const SupportPage = () => {
       setAllTickets(list);
       const userIds = Array.from(new Set(list.map((t) => t.user_id)));
       if (userIds.length) {
-        const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", userIds);
+        const { data: profs } = await supabase.from("profiles").select("id, full_name, display_name").in("id", userIds);
         const map: Record<string, string> = {};
-        (profs || []).forEach((p: any) => (map[p.id] = p.full_name));
+        (profs || []).forEach((p: any) => (map[p.id] = displayName(p)));
         setTicketAuthors(map);
       }
     }

@@ -25,6 +25,7 @@ import AvatarPreview from "@/components/avatar/AvatarPreview";
 import type { AvatarConfig } from "@/components/avatar/AvatarStudio";
 import { avatarFromRow } from "@/components/avatar/avatarModel";
 import { computeWeightedAverage } from "@/lib/gradeMath";
+import { displayName } from "@/lib/displayName";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   LineChart, Line, ReferenceLine,
@@ -121,7 +122,7 @@ const TeacherGradesPage = () => {
     if (!selectedAssignment || !selectedClass) return;
     const load = async () => {
       setLoading(true);
-      const { data: students } = await supabase.from("profiles").select("id, full_name").eq("class_id", selectedClass).order("full_name");
+      const { data: students } = await supabase.from("profiles").select("id, full_name, display_name").eq("class_id", selectedClass).order("full_name");
       const { data: submissions } = await supabase.from("submissions").select("id, student_id, grade, status, feedback, file_url, content, extracted_text, attempt_number, time_spent_seconds").eq("assignment_id", selectedAssignment);
       // Detect if this is a game assignment
       const thisAssignment = assignments.find(a => a.id === selectedAssignment) as any;
@@ -160,7 +161,7 @@ const TeacherGradesPage = () => {
           } catch { }
         }
         return {
-          submissionId: sub?.id || null, studentId: st.id, studentName: st.full_name,
+          submissionId: sub?.id || null, studentId: st.id, studentName: displayName(st),
           grade: sub?.grade ?? null, status: sub?.status || "draft", feedback: sub?.feedback || null,
           hasAppeal: sub?.feedback?.startsWith("[ערעור") || false,
           level: lvl,
@@ -365,7 +366,7 @@ const TeacherGradesPage = () => {
     const load = async () => {
       const ids = assignments.map((a) => a.id);
       const [{ data: students }, { data: subs }] = await Promise.all([
-        supabase.from("profiles").select("id, full_name").eq("class_id", selectedClass).order("full_name"),
+        supabase.from("profiles").select("id, full_name, display_name").eq("class_id", selectedClass).order("full_name"),
         ids.length
           ? supabase.from("submissions").select("student_id, assignment_id, grade, status").in("assignment_id", ids)
           : Promise.resolve({ data: [] as { student_id: string; assignment_id: string; grade: number | null; status: string }[] }),
@@ -376,7 +377,7 @@ const TeacherGradesPage = () => {
       const avatarBy = new Map((avatars || []).map((a: any) => [a.user_id, avatarFromRow(a)]));
       const cells: Record<string, { grade: number | null; status: string }> = {};
       (subs || []).forEach((s: any) => { cells[`${s.student_id}:${s.assignment_id}`] = { grade: s.grade, status: s.status }; });
-      setBook({ students: (students || []).map((s) => ({ id: s.id, name: s.full_name, avatar: avatarBy.get(s.id) || null })), cells });
+      setBook({ students: (students || []).map((s) => ({ id: s.id, name: displayName(s), avatar: avatarBy.get(s.id) || null })), cells });
     };
     load();
     return () => { cancelled = true; };

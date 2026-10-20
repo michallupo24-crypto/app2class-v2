@@ -29,6 +29,7 @@ import { useTeacherDay, type TeacherLesson } from "@/hooks/useTeacherDay";
 import { localIsoDate, REPORT_STYLE, rollCallUrl, useLessonReports, type LessonReportStatus } from "@/lib/lessonReports";
 import { formatClassName } from "@/hooks/useStudentDay";
 import { SubjectSticker, subjectColor } from "@/components/SubjectSticker";
+import { displayName } from "@/lib/displayName";
 import {
   HomeHeader, HeroCard, HomeSection, HomeColumns, StatTiles, BarList, HomeRow, HomeEmpty, PillSwitch, IconTile, PersonBadge, RowTag,
   greeting, longHebrewDate, firstName, type Tone,
@@ -114,7 +115,7 @@ const TeacherDashboard = () => {
 
         if (latestAssignment) {
           const [{ data: classStudents }, { data: subs }] = await Promise.all([
-            supabase.from("profiles").select("id, full_name").eq("class_id", latestAssignment.class_id),
+            supabase.from("profiles").select("id, full_name, display_name").eq("class_id", latestAssignment.class_id),
             supabase.from("submissions").select("student_id, status").eq("assignment_id", latestAssignment.id),
           ]);
           const submittedIds = new Set(
@@ -126,7 +127,7 @@ const TeacherDashboard = () => {
             assignmentId: latestAssignment.id,
             assignmentTitle: latestAssignment.title,
             className: cls ? `${cls.grade}'${cls.class_number}` : "",
-            students: missing.map((s: any) => ({ id: s.id, fullName: s.full_name })),
+            students: missing.map((s: any) => ({ id: s.id, fullName: displayName(s) })),
           });
         } else {
           setMissingSubmissions(null);
@@ -243,18 +244,18 @@ const TeacherDashboard = () => {
 
           const watchIds = Object.entries(absenceCountByStudent).filter(([, c]) => c >= 2).map(([id]) => id);
           if (watchIds.length > 0) {
-            const { data: watchProfiles } = await supabase.from("profiles").select("id, full_name").in("id", watchIds);
-            setAttendanceWatchList((watchProfiles || []).map((p: any) => ({ name: p.full_name, absences: absenceCountByStudent[p.id] })));
+            const { data: watchProfiles } = await supabase.from("profiles").select("id, full_name, display_name").in("id", watchIds);
+            setAttendanceWatchList((watchProfiles || []).map((p: any) => ({ name: displayName(p), absences: absenceCountByStudent[p.id] })));
           } else {
             setAttendanceWatchList([]);
           }
         }
 
         // ─── Discipline Pattern Detection ───
-        const { data: classStudents } = await supabase.from("profiles").select("id, full_name").eq("class_id", homeroomClassId);
+        const { data: classStudents } = await supabase.from("profiles").select("id, full_name, display_name").eq("class_id", homeroomClassId);
         const studentIds = (classStudents || []).map((s: any) => s.id);
         const nameMap: Record<string, string> = {};
-        (classStudents || []).forEach((s: any) => { nameMap[s.id] = s.full_name; });
+        (classStudents || []).forEach((s: any) => { nameMap[s.id] = displayName(s); });
 
         if (studentIds.length > 0) {
           const { data: notes } = await supabase.from("lesson_notes")

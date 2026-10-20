@@ -12,6 +12,7 @@ import { Trophy, Crown, Vote, Plus, UserPlus, Check, X, Undo2, ChevronLeft, Clip
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { displayName } from "@/lib/displayName";
 
 interface Campaign {
   id: string;
@@ -144,7 +145,7 @@ const CouncilTournament = ({ profile }: { profile: UserProfile }) => {
 
     const studentIds = cands.map((c) => c.student_id);
     const { data: profilesData } = studentIds.length
-      ? await supabase.from("profiles").select("id, full_name, class_id").in("id", studentIds)
+      ? await supabase.from("profiles").select("id, full_name, display_name, class_id").in("id", studentIds)
       : { data: [] };
     const pMap: Record<string, { full_name: string; class_id: string | null }> = {};
     (profilesData || []).forEach((p: any) => (pMap[p.id] = p));
@@ -379,7 +380,7 @@ const CouncilTournament = ({ profile }: { profile: UserProfile }) => {
             {pendingReview.map((c) => (
               <div key={c.id} className="p-3 rounded-row bg-soft space-y-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <p className="text-sm font-heading font-bold">{profiles[c.student_id]?.full_name || "מועמד/ת"}</p>
+                  <p className="text-sm font-heading font-bold">{displayName(profiles[c.student_id]) || "מועמד/ת"}</p>
                   <div className="flex gap-1.5">
                     <Button size="sm" variant="secondary" className="gap-1" onClick={() => reviewCandidate(c.id, "approved")}>
                       <Check className="h-3.5 w-3.5" /> אשר
@@ -427,7 +428,7 @@ const CouncilTournament = ({ profile }: { profile: UserProfile }) => {
                       <div className="min-w-0">
                         <p className="text-sm font-heading font-medium flex items-center gap-1.5">
                           {c.round_result === "advanced" && roundElection.status === "closed" && <Trophy className="h-3.5 w-3.5 text-success" />}
-                          {profiles[c.student_id]?.full_name || "מועמד/ת"}
+                          {displayName(profiles[c.student_id]) || "מועמד/ת"}
                         </p>
                         {c.statement && <p className="text-xs text-muted-foreground">{c.statement}</p>}
                       </div>

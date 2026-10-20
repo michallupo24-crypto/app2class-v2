@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Search, X } from "lucide-react";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
 import { ToolSticker } from "@/components/ToolSticker";
 import type { UserProfile } from "@/hooks/useAuth";
@@ -34,6 +35,11 @@ const ring = (color: string) => `0 0 0 2.5px ${color}, 0 10px 18px -10px rgba(27
 const activeGlow = (color: string) => `0 0 0 2.5px #fff, 0 10px 18px -8px ${color}`;
 const CHIP_SHADOW = "shadow-[0_3px_8px_-6px_rgba(27,35,51,.35)]";
 
+/** Lowercase, no niqqud / cantillation, collapsed spaces - so "שִׁיחוֹת" finds "שיחות". */
+const normalize = (s: string) => s.toLowerCase().replace(/[֑-ׇ]/g, "").replace(/\s+/g, " ").trim();
+
+const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join("");
+
 function CountTag({ n, className }: { n: number; className?: string }) {
   return (
     <span
@@ -50,6 +56,10 @@ export function AppSidebar({ profile, onLogout, mode, onToggle, onClose }: AppSi
   const location = useLocation();
   const navigate = useNavigate();
   const [folded, setFolded] = useState<Record<string, boolean>>(readFolded);
+  const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const focusSearchOnOpen = useRef(false);
   // The group whose rail sticker was clicked: once the menu opens, scroll to it.
   const [focusGroup, setFocusGroup] = useState<string | null>(null);
   const groupRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -63,7 +73,7 @@ export function AppSidebar({ profile, onLogout, mode, onToggle, onClose }: AppSi
   useEffect(() => {
     if (!open || !focusGroup) return;
     const el = groupRefs.current[focusGroup];
-    const list = el?.parentElement;
+    const list = listRef.current;
     // Scroll the menu list itself (scrollIntoView gets cut short while the menu is still widening).
     if (el && list) {
       list.scrollTop += el.getBoundingClientRect().top - list.getBoundingClientRect().top - 4;
@@ -71,6 +81,28 @@ export function AppSidebar({ profile, onLogout, mode, onToggle, onClose }: AppSi
     }
     setFocusGroup(null);
   }, [open, focusGroup]);
+
+  // The rail's search button opens the menu; focus the box once it is there.
+  useEffect(() => {
+    if (open && focusSearchOnOpen.current) {
+      focusSearchOnOpen.current = false;
+      searchRef.current?.focus();
+    }
+  }, [open]);
+
+  // Ctrl/Cmd+K jumps to the menu search from anywhere (opening the rail if needed).
+  useEffect(() => {
+    if (isDrawer) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K" || e.code === "KeyK")) {
+        e.preventDefault();
+        if (open) searchRef.current?.focus();
+        else { focusSearchOnOpen.current = true; onToggle?.(); }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, isDrawer, onToggle]);
 
   const groups: MenuGroup[] = useMemo(() => {
     const managesSchool = profile.roles.some((r) => ["management", "system_admin"].includes(r));
@@ -81,8 +113,49 @@ export function AppSidebar({ profile, onLogout, mode, onToggle, onClose }: AppSi
       .filter((g) => g.items.length > 0);
   }, [profile, guidelines]);
 
+  const q = normalize(query);
+  // Searching shows every match, ignoring folded groups. A group-name match keeps the whole group.
+  const shown: MenuGroup[] = useMemo(() => {
+    if (!q) return groups;
+    return groups
+      .map((g) => (normalize(g.title).includes(q) ? g : { ...g, items: g.items.filter((i) => normalize(i.title).includes(q)) }))
+      .filter((g) => g.items.length > 0);
+  }, [groups, q]);
+
   const isActive = (url: string) => location.pathname === url;
   const roleLabel = profile.roles.map((r) => ROLE_LABELS[r]).filter(Boolean).slice(0, 2).join(" · ");
+
+  const itemLinks = () => Array.from(listRef.current?.querySelectorAll<HTMLAnchorElement>("a[data-menu-item]") ?? []);
+
+  const go = (url: string) => {
+    setQuery("");
+    navigate(url);
+    onClose?.();
+  };
+
+  const onSearchKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      if (query) { e.preventDefault(); e.stopPropagation(); setQuery(""); }
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      itemLinks()[0]?.focus();
+    } else if (e.key === "Enter" && q) {
+      const first = shown[0]?.items[0];
+      if (first) { e.preventDefault(); go(first.url); }
+    }
+  };
+
+  // Up / down arrows walk the visible items; up from the first goes back to the search box.
+  const onListKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    const links = itemLinks();
+    const i = links.indexOf(document.activeElement as HTMLAnchorElement);
+    if (i < 0) return;
+    e.preventDefault();
+    if (e.key === "ArrowDown") links[Math.min(i + 1, links.length - 1)].focus();
+    else if (i === 0) searchRef.current?.focus();
+    else links[i - 1].focus();
+  };
 
   return (
     <nav
@@ -114,22 +187,80 @@ export function AppSidebar({ profile, onLogout, mode, onToggle, onClose }: AppSi
         )}
       </div>
 
+      {/* Search */}
       {open ? (
-        <div className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:none] flex flex-col gap-[18px] py-1 px-0.5">
-          {groups.map((g) => {
-            const isFolded = !!folded[g.title];
+        <div className="relative flex-none mx-0.5">
+          <Search size={16} aria-hidden className="absolute top-1/2 -translate-y-1/2 right-3 text-muted-foreground pointer-events-none" />
+          <input
+            ref={searchRef}
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={onSearchKey}
+            placeholder="חיפוש בתפריט"
+            aria-label="חיפוש בתפריט"
+            aria-controls="side-menu-items"
+            autoComplete="off"
+            enterKeyHint="go"
+            className={cn(
+              "w-full rounded-[13px] bg-card pr-9 pl-12 font-body font-bold text-sm text-foreground placeholder:text-muted-foreground placeholder:font-semibold",
+              "focus:outline-none focus:ring-2 focus:ring-primary/25 [&::-webkit-search-cancel-button]:hidden",
+              CHIP_SHADOW,
+              isDrawer ? "h-11" : "h-10",
+            )}
+          />
+          {query ? (
+            <button type="button" onClick={() => { setQuery(""); searchRef.current?.focus(); }} aria-label="ניקוי החיפוש"
+              className="absolute top-1/2 -translate-y-1/2 left-2 w-7 h-7 rounded-md text-muted-foreground hover:text-foreground flex items-center justify-center">
+              <X size={15} />
+            </button>
+          ) : !isDrawer && (
+            <kbd aria-hidden className="absolute top-1/2 -translate-y-1/2 left-2.5 px-1.5 py-0.5 rounded border border-border bg-background font-body text-[10.5px] leading-none text-muted-foreground" dir="ltr">
+              Ctrl K
+            </kbd>
+          )}
+        </div>
+      ) : (
+        <button
+          type="button"
+          title="חיפוש בתפריט (Ctrl+K)"
+          aria-label="חיפוש בתפריט"
+          onClick={() => { focusSearchOnOpen.current = true; onToggle?.(); }}
+          className={cn("flex-none mx-auto w-[54px] h-[54px] rounded-[17px] bg-card flex items-center justify-center", CHIP_SHADOW)}
+        >
+          <ToolSticker id="search" size={34} />
+        </button>
+      )}
+
+      {open ? (
+        <div
+          id="side-menu-items"
+          ref={listRef}
+          onKeyDown={onListKey}
+          className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:none] flex flex-col gap-[18px] py-1 px-0.5"
+        >
+          {shown.length === 0 && (
+            <p role="status" className="px-2 py-6 text-center font-body text-sm text-muted-foreground">
+              לא נמצאו פריטים עבור "{query.trim()}"
+            </p>
+          )}
+          {shown.map((g) => {
+            const isFolded = !q && !!folded[g.title];
             return (
-              <div key={g.title} ref={(el) => { groupRefs.current[g.title] = el; }} className="flex flex-col gap-[5px] scroll-mt-1">
+              <div key={g.title} ref={(el) => { groupRefs.current[g.title] = el; }} className="flex flex-col gap-[5px]">
                 <button
                   type="button"
                   aria-expanded={!isFolded}
+                  disabled={!!q}
                   onClick={() => setFolded((f) => ({ ...f, [g.title]: !f[g.title] }))}
-                  className="flex items-center gap-2.5 px-1 pb-1.5 text-right"
+                  className="flex items-center gap-2.5 px-1 pb-1.5 text-right disabled:cursor-default"
                 >
                   <ToolSticker id={g.icon} size={isDrawer ? 32 : 30} />
                   <span className="flex-1 font-heading font-black text-[15px] leading-none text-foreground">{g.title}</span>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#5B6478" strokeWidth="3.5" strokeLinecap="round"
-                    style={{ transform: isFolded ? "rotate(90deg)" : undefined }}><path d="M6 9l6 6 6-6" /></svg>
+                  {!q && (
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#5B6478" strokeWidth="3.5" strokeLinecap="round"
+                      style={{ transform: isFolded ? "rotate(90deg)" : undefined }}><path d="M6 9l6 6 6-6" /></svg>
+                  )}
                 </button>
                 {!isFolded && g.items.map((it) => {
                   const on = isActive(it.url);
@@ -137,10 +268,12 @@ export function AppSidebar({ profile, onLogout, mode, onToggle, onClose }: AppSi
                     <Link
                       key={it.url}
                       to={it.url}
-                      onClick={onClose}
+                      data-menu-item
+                      onClick={() => { setQuery(""); onClose?.(); }}
                       aria-current={on ? "page" : undefined}
                       className={cn(
                         "mr-[30px] flex items-center gap-2 rounded-[13px] font-body font-bold leading-none transition-transform",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                         isDrawer ? "px-3 py-[11px] text-[15.5px]" : "px-3 py-[9px] text-[14.5px]",
                         on ? "text-white" : cn("bg-card text-foreground hover:-translate-x-0.5", CHIP_SHADOW),
                       )}
@@ -167,7 +300,7 @@ export function AppSidebar({ profile, onLogout, mode, onToggle, onClose }: AppSi
                 title={g.title}
                 aria-label={`${g.title} - פתיחת התפריט`}
                 onClick={() => { setFolded((f) => ({ ...f, [g.title]: false })); setFocusGroup(g.title); onToggle?.(); }}
-                className={cn("relative w-[54px] h-[54px] rounded-[17px] flex items-center justify-center bg-card", !hasActive && CHIP_SHADOW)}
+                className={cn("relative flex-none w-[54px] h-[54px] rounded-[17px] flex items-center justify-center bg-card", !hasActive && CHIP_SHADOW)}
                 style={hasActive ? { boxShadow: ring(g.color) } : undefined}
               >
                 <ToolSticker id={g.icon} size={34} />
@@ -179,7 +312,7 @@ export function AppSidebar({ profile, onLogout, mode, onToggle, onClose }: AppSi
       )}
 
       {/* Profile */}
-      <div className={cn("flex items-center gap-2.5 rounded-[18px] bg-card shadow-[0_8px_18px_-12px_rgba(27,35,51,.45)] justify-center", open ? "p-2.5" : "p-1.5")}>
+      <div className={cn("flex-none flex items-center gap-2.5 rounded-[18px] bg-card shadow-[0_8px_18px_-12px_rgba(27,35,51,.45)] justify-center", open ? "p-2.5" : "p-1.5")}>
         <button
           type="button"
           onClick={() => { navigate("/dashboard/avatar-edit"); onClose?.(); }}
@@ -191,7 +324,7 @@ export function AppSidebar({ profile, onLogout, mode, onToggle, onClose }: AppSi
             <AvatarPreview config={profile.avatar} size={40} />
           ) : (
             <span className="w-10 h-10 rounded-full border-[3px] border-white dark:border-card shadow-[0_2px_6px_rgba(27,35,51,.25)] bg-info flex items-center justify-center font-heading font-black text-sm text-white">
-              {profile.fullName.trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join("")}
+              {initials(profile.fullName)}
             </span>
           )}
         </button>

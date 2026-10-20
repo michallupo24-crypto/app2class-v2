@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import LiveLessonTab from "@/components/live-lesson/LiveLessonTab";
+import { displayName } from "@/lib/displayName";
 
 // ─── Real data fetching (no mock data) ───
 
@@ -133,7 +134,7 @@ const SubjectDetailPage = () => {
         .limit(1)
         .maybeSingle();
       if (!a?.teacher_id) return null;
-      const { data: t } = await supabase.from("profiles").select("id, full_name").eq("id", a.teacher_id).single();
+      const { data: t } = await supabase.from("profiles").select("id, full_name, display_name").eq("id", a.teacher_id).single();
       return t || null;
     },
   });
@@ -478,7 +479,7 @@ const SubjectDetailPage = () => {
               {subjectTeacher ? (
                 <>
                   <p className="font-heading font-medium text-foreground">צ'אט כיתתי — {subject}</p>
-                  <p className="text-sm">כל הכיתה ו{subjectTeacher.full_name} באותה שיחה</p>
+                  <p className="text-sm">כל הכיתה ו{displayName(subjectTeacher)} באותה שיחה</p>
                   <Button
                     className="gap-2 font-heading"
                     onClick={openSubjectChat}

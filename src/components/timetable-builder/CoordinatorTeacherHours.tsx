@@ -10,6 +10,7 @@ import { Plus, Users } from "lucide-react";
 import { HEBREW_DAYS } from "@/lib/constants";
 import { useSchoolDays } from "@/hooks/useSchoolDays";
 import type { UserProfile } from "@/hooks/useAuth";
+import { displayName } from "@/lib/displayName";
 
 interface TeacherRow {
   id: string;
@@ -77,7 +78,7 @@ const CoordinatorTeacherHours = ({ schoolId, profile }: CoordinatorTeacherHoursP
     }
 
     const [profilesRes, tcRes, classesRes, slotsRes] = await Promise.all([
-      supabase.from("profiles").select("id, full_name").eq("school_id", schoolId).in("id", teacherIds),
+      supabase.from("profiles").select("id, full_name, display_name").eq("school_id", schoolId).in("id", teacherIds),
       supabase.from("teacher_classes").select("user_id, class_id").in("user_id", teacherIds),
       supabase.from("classes").select("id, grade, class_number").eq("school_id", schoolId),
       supabase.from("timetable_slots").select("teacher_id").eq("school_id", schoolId).eq("subject", coordinatorSubject).in("teacher_id", teacherIds),
@@ -110,14 +111,14 @@ const CoordinatorTeacherHours = ({ schoolId, profile }: CoordinatorTeacherHoursP
       const requiredHours = tcs.reduce((sum: number, tc: any) => sum + requiredHoursForClass(tc.class_id), 0);
       return {
         id: p.id,
-        full_name: p.full_name,
+        full_name: displayName(p),
         classes,
         requiredHours,
         scheduledHours: scheduledCounts.get(p.id) || 0,
       };
     });
 
-    setTeachers(list.sort((a, b) => a.full_name.localeCompare(b.full_name)));
+    setTeachers(list.sort((a, b) => displayName(a).localeCompare(displayName(b))));
     setLoading(false);
   };
 

@@ -8,6 +8,7 @@ import { Users, Search, ClipboardList, Crown, User as UserIcon } from "lucide-re
 import AvatarPreview from "@/components/avatar/AvatarPreview";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { displayName } from "@/lib/displayName";
 
 interface ClassInfo {
   id: string;
@@ -62,7 +63,7 @@ const MyClassesPage = () => {
       setLoadingStudents(true);
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, full_name")
+        .select("id, full_name, display_name")
         .eq("class_id", selectedClassId)
         .eq("is_approved", true)
         .order("full_name");
@@ -83,7 +84,7 @@ const MyClassesPage = () => {
 
       setStudents(profiles.map((p: any) => ({
         id: p.id,
-        fullName: p.full_name,
+        fullName: displayName(p),
         avatarConfig: avatarMap.get(p.id) || null,
       })));
       setLoadingStudents(false);

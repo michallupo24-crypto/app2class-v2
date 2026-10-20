@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { UserProfile } from "@/hooks/useAuth";
 import type { AvatarConfig } from "@/components/avatar/AvatarStudio";
 import { avatarFromRow } from "@/components/avatar/avatarModel";
+import { displayName } from "@/lib/displayName";
 
 interface PersonNode {
   id: string;
@@ -90,7 +91,7 @@ const SchoolOrgTreePage = () => {
 
       // Fetch all profiles, roles, avatars, classes for this school
       const [profilesRes, rolesRes, avatarsRes, classesRes, teacherClassesRes, parentStudentRes] = await Promise.all([
-        supabase.from("profiles").select("id, full_name, email, class_id").eq("school_id", profile.schoolId),
+        supabase.from("profiles").select("id, full_name, display_name, email, class_id").eq("school_id", profile.schoolId),
         supabase.from("user_roles").select("user_id, role, subject, grade, homeroom_class_id"),
         supabase.from("avatars").select("*"),
         supabase.from("classes").select("id, grade, class_number").eq("school_id", profile.schoolId).order("grade").order("class_number"),
@@ -124,7 +125,7 @@ const SchoolOrgTreePage = () => {
         const userRoles = rolesMap[p.id] || [];
         personMap[p.id] = {
           id: p.id,
-          fullName: p.full_name,
+          fullName: displayName(p),
           email: p.email,
           avatar: avatarMap[p.id] || null,
           roles: userRoles.map(r => r.role),

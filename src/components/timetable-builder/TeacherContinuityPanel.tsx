@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CheckCircle2, History, Plus, Send, Trash2 } from "lucide-react";
 import type { GradeLevel } from "@/lib/constants";
 import type { UserProfile } from "@/hooks/useAuth";
+import { displayName } from "@/lib/displayName";
 
 // Continuity only applies to grades ז'-י"א: י"ב is a class's final year, so
 // "keep the same teacher next year" is meaningless for it.
@@ -73,9 +74,9 @@ const TeacherContinuityPanel = ({ schoolId, profile }: TeacherContinuityPanelPro
 
     const teacherIds = Array.from(new Set((rolesRes.data || []).map((r: any) => r.user_id)));
     const { data: profilesData } = teacherIds.length
-      ? await supabase.from("profiles").select("id, full_name").eq("school_id", schoolId).in("id", teacherIds)
+      ? await supabase.from("profiles").select("id, full_name, display_name").eq("school_id", schoolId).in("id", teacherIds)
       : { data: [] as any[] };
-    const teacherOpts = (profilesData || []).map((p: any) => ({ id: p.id, full_name: p.full_name })).sort((a, b) => a.full_name.localeCompare(b.full_name));
+    const teacherOpts = (profilesData || []).map((p: any) => ({ id: p.id, full_name: displayName(p) })).sort((a, b) => displayName(a).localeCompare(displayName(b)));
     setTeachers(teacherOpts);
     if (!formTeacher && teacherOpts[0]) setFormTeacher(teacherOpts[0].id);
 
@@ -236,7 +237,7 @@ const TeacherContinuityPanel = ({ schoolId, profile }: TeacherContinuityPanelPro
             <Select value={formTeacher} onValueChange={setFormTeacher}>
               <SelectTrigger className="w-40 h-8"><SelectValue placeholder="מורה" /></SelectTrigger>
               <SelectContent>
-                {teachers.map(t => <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>)}
+                {teachers.map(t => <SelectItem key={t.id} value={t.id}>{displayName(t)}</SelectItem>)}
               </SelectContent>
             </Select>
             <Input placeholder='שנה (למשל: תשפ"ה)' className="w-28 h-8" value={formYear} onChange={(e) => setFormYear(e.target.value)} />

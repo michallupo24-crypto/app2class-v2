@@ -12,6 +12,7 @@ import { HEBREW_DAYS } from "@/lib/constants";
 import { useSchoolDays } from "@/hooks/useSchoolDays";
 import type { UserProfile } from "@/hooks/useAuth";
 import type { Database } from "@/integrations/supabase/types";
+import { displayName } from "@/lib/displayName";
 
 type TeacherConstraintInsert = Database["public"]["Tables"]["teacher_constraints"]["Insert"];
 
@@ -89,11 +90,11 @@ const TeacherConstraintsManager = ({ schoolId, profile }: TeacherConstraintsMana
     ]);
     const teacherIds = Array.from(new Set((rolesRes.data || []).map((r: any) => r.user_id)));
     const { data: profilesData } = teacherIds.length
-      ? await supabase.from("profiles").select("id, full_name").eq("school_id", schoolId).in("id", teacherIds)
+      ? await supabase.from("profiles").select("id, full_name, display_name").eq("school_id", schoolId).in("id", teacherIds)
       : { data: [] as any[] };
-    const opts: TeacherOption[] = (profilesData || []).map((p: any) => ({ id: p.id, full_name: p.full_name })).sort((a, b) => a.full_name.localeCompare(b.full_name));
+    const opts: TeacherOption[] = (profilesData || []).map((p: any) => ({ id: p.id, full_name: displayName(p) })).sort((a, b) => displayName(a).localeCompare(displayName(b)));
     setTeachers(opts);
-    setTeachersById(new Map(opts.map(t => [t.id, t.full_name])));
+    setTeachersById(new Map(opts.map(t => [t.id, displayName(t)])));
     setConstraints((constraintsRes.data || []) as ConstraintRow[]);
     if (!formTeacher && opts[0]) setFormTeacher(opts[0].id);
     setLoading(false);
@@ -242,7 +243,7 @@ const TeacherConstraintsManager = ({ schoolId, profile }: TeacherConstraintsMana
                 <Select value={formTeacher} onValueChange={setFormTeacher}>
                   <SelectTrigger className="w-40 h-8"><SelectValue placeholder="מורה" /></SelectTrigger>
                   <SelectContent>
-                    {teachers.map(t => <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>)}
+                    {teachers.map(t => <SelectItem key={t.id} value={t.id}>{displayName(t)}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <Select value={formType} onValueChange={(v) => setFormType(v as ConstraintType)}>
