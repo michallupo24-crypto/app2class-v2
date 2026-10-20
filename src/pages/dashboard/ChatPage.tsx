@@ -1699,9 +1699,9 @@ const ChatPage = () => {
             <AvatarPreview config={c.otherAvatar} size={42} />
           ) : (
             groupLogoSubject(c) ? (
-              <SubjectSticker subject={groupLogoSubject(c)!} size={40} tilt />
+              <SubjectSticker subject={groupLogoSubject(c)!} size={40} />
             ) : (
-              <div className={`w-10 h-10 rounded-[13px] border-[2.5px] border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] flex items-center justify-center -rotate-[5deg] dark:border-card ${typeColor(c.type)}`}>
+              <div className={`w-10 h-10 rounded-[13px] border-[2.5px] border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] flex items-center justify-center  dark:border-card ${typeColor(c.type)}`}>
                 {typeIcon(c.type)}
               </div>
             )
@@ -1942,7 +1942,7 @@ const ChatPage = () => {
                       aria-expanded={classGroupsOpen || !!listFilter.trim()}
                       className="w-full flex items-center gap-[11px] px-2.5 py-[9px] rounded-row text-right hover:bg-card/70 transition-colors"
                     >
-                      <div className="w-10 h-10 shrink-0 rounded-[13px] border-[2.5px] border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] flex items-center justify-center -rotate-[5deg] bg-[#F2668B] text-white dark:border-card">
+                      <div className="w-10 h-10 shrink-0 rounded-[13px] border-[2.5px] border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] flex items-center justify-center bg-[#F2668B] text-white dark:border-card">
                         <School className="h-4 w-4" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1970,7 +1970,7 @@ const ChatPage = () => {
                       onClick={openClassTeachers}
                       className="w-full flex items-center gap-[11px] px-2.5 py-[9px] rounded-row text-right hover:bg-card/70 transition-colors"
                     >
-                      <div className="w-10 h-10 shrink-0 rounded-[13px] border-[2.5px] border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] flex items-center justify-center rotate-[4deg] bg-[#3B7BF2] text-white dark:border-card">
+                      <div className="w-10 h-10 shrink-0 rounded-[13px] border-[2.5px] border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] flex items-center justify-center bg-[#3B7BF2] text-white dark:border-card">
                         <GraduationCap className="h-4 w-4" />
                       </div>
                       <div className="flex-1 min-w-0">

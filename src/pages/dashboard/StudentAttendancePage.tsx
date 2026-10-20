@@ -221,9 +221,9 @@ export default function StudentAttendancePage() {
           </p>
         </div>
         {[
-          { v: stats.unexcused, label: "חיסורים", cls: "bg-destructive-soft text-destructive -rotate-2" },
-          { v: stats.lates, label: "איחורים", cls: "bg-warning-soft text-warning rotate-2" },
-          { v: stats.highlights, label: "ציונים לשבח", cls: "bg-success-soft text-success -rotate-1" },
+          { v: stats.unexcused, label: "חיסורים", cls: "bg-destructive-soft text-destructive" },
+          { v: stats.lates, label: "איחורים", cls: "bg-warning-soft text-warning" },
+          { v: stats.highlights, label: "ציונים לשבח", cls: "bg-success-soft text-success" },
         ].map(s => (
           <div key={s.label} className={`flex flex-col justify-end gap-1.5 md:gap-2 p-3 md:p-4 rounded-[18px] md:rounded-[20px] border-[3px] border-white dark:border-card shadow-[0_8px_16px_-11px_rgba(40,30,15,.45)] ${s.cls}`}>
             <span className="font-heading font-black text-2xl md:text-[34px] leading-none">{s.v}</span>
@@ -251,7 +251,7 @@ export default function StudentAttendancePage() {
                   <span className="font-body font-semibold text-[12.5px] leading-none text-muted-foreground">{r.status === "late" ? "איחור" : "חיסור"} · שיעור {r.lesson_number} · {fmt(r.date)}</span>
                 </div>
                 {tag ? (
-                  <span className={`px-[9px] py-[5px] rounded-[9px] border-2 border-white dark:border-card font-body font-extrabold text-xs leading-none rotate-3 shadow-sticker ${tag.cls}`}>{tag.label}</span>
+                  <span className={`px-[9px] py-[5px] rounded-[9px] border-2 border-white dark:border-card font-body font-extrabold text-xs leading-none shadow-sticker ${tag.cls}`}>{tag.label}</span>
                 ) : (
                   <button type="button" onClick={() => setSelectedRecordId(r.id)} className="px-3 py-[9px] rounded-xl bg-primary text-primary-foreground font-body font-extrabold text-[13px] leading-none">
                     <span className="md:hidden">הצדקה</span><span className="max-md:hidden">הגש/י הצדקה</span>

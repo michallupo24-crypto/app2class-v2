@@ -55,7 +55,7 @@ const SchedulePage = () => {
                 type="button"
                 onClick={() => setMode(m.value)}
                 aria-pressed={on}
-                className={cn(PILL, "px-[15px] py-[9px]", on ? cn(PILL_ON, i % 2 ? "rotate-3" : "-rotate-3") : PILL_OFF)}
+                className={cn(PILL, "px-[15px] py-[9px]", on ? PILL_ON : PILL_OFF)}
               >
                 {m.label}
               </button>
@@ -66,7 +66,7 @@ const SchedulePage = () => {
               <button
                 type="button"
                 aria-label="לוח חודשי ושנתי"
-                className={cn(PILL, "grid h-[37px] w-[37px] place-items-center", isTimetable ? PILL_OFF : cn(PILL_ON, "rotate-3"))}
+                className={cn(PILL, "grid h-[37px] w-[37px] place-items-center", isTimetable ? PILL_OFF : PILL_ON)}
               >
                 <CalendarDays className="h-4 w-4" />
               </button>

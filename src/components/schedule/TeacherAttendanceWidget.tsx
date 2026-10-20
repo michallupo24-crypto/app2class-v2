@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ClipboardList, Check, Users, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { UserProfile } from "@/hooks/useAuth";
+import { localIsoDate } from "@/lib/lessonReports";
 
 interface TeacherAttendanceWidgetProps {
   profile: UserProfile;
@@ -19,7 +20,7 @@ const TeacherAttendanceWidget = ({ profile }: TeacherAttendanceWidgetProps) => {
   useEffect(() => {
     const load = async () => {
       if (!profile.schoolId) return;
-      const today = new Date().toISOString().split("T")[0];
+      const today = localIsoDate();
 
       // Count how many lessons the teacher recorded today
       const { count } = await supabase

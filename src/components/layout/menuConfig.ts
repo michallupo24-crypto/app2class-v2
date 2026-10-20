@@ -132,6 +132,8 @@ export function buildMenu(profile: UserProfile): MenuGroup[] {
     "/dashboard/chat": profile.unreadChatCount || 0,
     "/dashboard/approvals": profile.pendingApprovalsCount || 0,
   };
-  for (const g of groups) for (const it of g.items) if (badges[it.url]) it.badge = badges[it.url];
+  for (const g of groups) for (const it of g.items) {
+    if (badges[it.url]) it.badge = badges[it.url];
+  }
   return groups;
 }

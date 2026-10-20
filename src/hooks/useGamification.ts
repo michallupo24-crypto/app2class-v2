@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { computeSchoolDayStreak, type AttendanceDay } from "@/lib/schoolDayStreak";
 
 export interface UserBadge {
   badge_key: string;
@@ -44,6 +45,25 @@ const BADGE_DEFS = {
   perfect_attendance: { label: "נוכחות מושלמת 🎯", icon: "🎯", category: "attendance" },
 };
 
+// Streak = consecutive school days attended (from roll call), not app logins.
+async function fetchSchoolDayStreak(userId: string) {
+  const { data: rows } = await supabase
+    .from("attendance").select("id, status, lessons(lesson_date)").eq("student_id", userId);
+  const absentIds = (rows || []).filter(r => r.status === "absent").map(r => r.id);
+  const justified = new Set<string>();
+  if (absentIds.length > 0) {
+    const { data: justs } = await (supabase as any)
+      .from("absence_justifications").select("attendance_id, status").in("attendance_id", absentIds).order("created_at", { ascending: false });
+    const latest: Record<string, string> = {};
+    (justs || []).forEach((j: any) => { if (!latest[j.attendance_id]) latest[j.attendance_id] = j.status; });
+    Object.entries(latest).forEach(([id, st]) => { if (st === "approved") justified.add(id); });
+  }
+  const days: AttendanceDay[] = (rows || [])
+    .filter((r: any) => r.lessons?.lesson_date)
+    .map((r: any) => ({ date: r.lessons.lesson_date, status: r.status, justified: justified.has(r.id) }));
+  return computeSchoolDayStreak(days);
+}
+
 export function useGamification(userId: string | undefined): GamificationData {
   const [badges, setBadges] = useState<UserBadge[]>([]);
   const [streak, setStreak] = useState<UserStreak | null>(null);
@@ -53,14 +73,22 @@ export function useGamification(userId: string | undefined): GamificationData {
   const loadData = useCallback(async () => {
     if (!userId) return;
     
-    const [badgesRes, streakRes, reliabilityRes] = await Promise.all([
+    const [badgesRes, streakRes, reliabilityRes, schoolStreak] = await Promise.all([
       supabase.from("user_badges").select("*").eq("user_id", userId).order("earned_at", { ascending: false }),
-      supabase.from("user_streaks").select("*").eq("user_id", userId).single(),
+      supabase.from("user_streaks").select("*").eq("user_id", userId).maybeSingle(),
       supabase.from("user_reliability").select("*").eq("user_id", userId).single(),
+      fetchSchoolDayStreak(userId),
     ]);
 
     setBadges((badgesRes.data || []) as any);
-    setStreak(streakRes.data as any);
+    // current/longest come from school days attended; total_active_days
+    // (login days) still feeds XP.
+    setStreak({
+      current_streak: schoolStreak.current,
+      longest_streak: schoolStreak.longest,
+      last_active_date: streakRes.data?.last_active_date ?? "",
+      total_active_days: streakRes.data?.total_active_days ?? 0,
+    });
     setReliability(reliabilityRes.data as any);
     setLoading(false);
   }, [userId]);
@@ -88,22 +116,22 @@ export function useGamification(userId: string | undefined): GamificationData {
       });
     }
 
-    // Check streak badges
-    const { data: streakData } = await supabase.from("user_streaks").select("current_streak").eq("user_id", userId).single();
-    if (streakData) {
-      if (streakData.current_streak >= 7) {
+    // Check streak badges (school days attended in a row)
+    const schoolStreak = await fetchSchoolDayStreak(userId);
+    {
+      if (schoolStreak.current >= 7) {
         const { data: s7 } = await supabase.rpc("check_and_award_badge", {
           p_user_id: userId, p_badge_key: "streak_7",
           p_badge_label: BADGE_DEFS.streak_7.label, p_badge_icon: BADGE_DEFS.streak_7.icon, p_category: BADGE_DEFS.streak_7.category,
         });
-        if (s7) toast.success("איזו התמדה! 🔥", { description: "הרווחת מדליית שבוע רצוף!" });
+        if (s7) toast.success("איזו התמדה! 🔥", { description: "7 ימי לימוד ברצף — הרווחת מדליה!" });
       }
-      if (streakData.current_streak >= 30) {
+      if (schoolStreak.current >= 30) {
         const { data: s30 } = await supabase.rpc("check_and_award_badge", {
           p_user_id: userId, p_badge_key: "streak_30",
           p_badge_label: BADGE_DEFS.streak_30.label, p_badge_icon: BADGE_DEFS.streak_30.icon, p_category: BADGE_DEFS.streak_30.category,
         });
-        if (s30) toast.success("אגדה חיה! 💎", { description: "חודש שלם של למידה רצופה!" });
+        if (s30) toast.success("אגדה חיה! 💎", { description: "30 ימי לימוד ברצף!" });
       }
     }
 

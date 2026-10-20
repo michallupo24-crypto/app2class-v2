@@ -375,7 +375,7 @@ function FolderView({ folder, bells, tab, profile, onTab, onBack, navigate, toas
           <ArrowRight className="h-4 w-4" />כל התיקיות
         </button>
         <div className="flex items-center gap-3">
-          <SubjectSticker subject={folder.subject} size={58} tilt />
+          <SubjectSticker subject={folder.subject} size={58} />
           <div className="min-w-0 flex-1">
             <h1 className="font-heading text-[24px] font-black leading-tight">{folder.subject}</h1>
             <p className="font-body text-[13px] font-semibold text-white/90">כיתה {folder.classLabel} · {studentCount} תלמידים</p>
@@ -588,7 +588,6 @@ function FolderView({ folder, bells, tab, profile, onTab, onBack, navigate, toas
               onClick={() => navigate(s.to)}
               className={cn(
                 "flex flex-col items-start gap-3 rounded-[18px] border-[2.5px] border-white bg-card p-4 text-right shadow-[0_8px_18px_-12px_rgba(27,35,51,0.5)] transition-transform hover:-translate-y-0.5 dark:border-card",
-                i % 3 === 1 ? "rotate-[0.6deg]" : i % 3 === 2 ? "-rotate-[0.6deg]" : "",
               )}
             >
               <span className="grid h-10 w-10 place-items-center rounded-[13px] text-white" style={{ background: color }}>

@@ -529,7 +529,7 @@ ${birthdayText}
           size="sm"
           items={[
             { value: presencePct !== null ? `${presencePct}%` : "—", label: "נוכחות", tone: presenceTone },
-            { value: streak?.current_streak ?? 0, label: "ימים ברצף", tone: "warning" },
+            { value: streak?.current_streak ?? 0, label: "ימי לימוד ברצף", tone: "warning" },
             { value: badges.length, label: "תגים", tone: "info" },
           ]}
         />
@@ -542,7 +542,7 @@ ${birthdayText}
       <HomeHeader title={`${greeting(now)}, ${firstName(profile.fullName)}`} subtitle={subtitle} />
 
       {isBirthday && (
-        <div className="flex items-center gap-3 self-start rounded-[16px] border-[3px] border-white bg-warning-soft px-4 py-3 text-warning shadow-sticker -rotate-1 dark:border-card">
+        <div className="flex items-center gap-3 self-start rounded-[16px] border-[3px] border-white bg-warning-soft px-4 py-3 text-warning shadow-sticker dark:border-card">
           <Cake className="h-6 w-6 shrink-0" />
           <div>
             <p className="font-heading text-base font-black">יום הולדת שמח!</p>

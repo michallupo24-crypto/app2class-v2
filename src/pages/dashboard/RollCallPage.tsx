@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useOutletContext, useLocation } from "react-router-dom";
+import { useOutletContext, useLocation, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,6 +16,8 @@ import { useSmartSeat } from "@/hooks/useSmartSeat";
 import { ClassroomGrid } from "@/components/smartseat/ClassroomGrid";
 import { avatarFromRow } from "@/components/avatar/avatarModel";
 import { ToolSticker } from "@/components/ToolSticker";
+import { HEBREW_DAYS } from "@/lib/constants";
+import { localIsoDate } from "@/lib/lessonReports";
 import { displayName, legalNameHint } from "@/lib/displayName";
 import { SwipeStudentRow } from "@/components/attendance/SwipeStudentRow";
 import { useAttendanceEventTypes, eventKey, type AttendanceEventType } from "@/hooks/useAttendanceEventTypes";
@@ -110,7 +112,23 @@ const RollCallPage = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
   const location = useLocation();
   const navState = location.state as { classId?: string } | null;
+  // A specific lesson, from the timetable or a lesson block on the home page.
+  const [searchParams] = useSearchParams();
+  const linkClass = searchParams.get("class") || navState?.classId || null;
+  const linkLesson = searchParams.get("lesson") ? Number(searchParams.get("lesson")) : null;
+  const linkSubject = searchParams.get("subject");
+  const linkUsed = useRef(false);
+  const chosenFor = useRef<string | null>(null);
   const { toast } = useToast();
+  const todayIso = localIsoDate();
+  const [lessonDate, setLessonDate] = useState(() => {
+    const d = searchParams.get("date");
+    return d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= todayIso ? d : todayIso;
+  });
+  const [lessonNumber, setLessonNumber] = useState<number | null>(null);
+  const [bellLessons, setBellLessons] = useState<{ lesson_number: number; start_time: string; end_time: string }[]>([]);
+  const [mySlots, setMySlots] = useState<{ class_id: string; subject: string; lesson_number: number; day_of_week: number }[]>([]);
+  const [existingLessonId, setExistingLessonId] = useState<string | null>(null);
   const [students, setStudents] = useState<StudentCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -138,7 +156,7 @@ const RollCallPage = () => {
       if (data) {
         const cls = data.map((d: any) => ({ id: d.classes.id, grade: d.classes.grade, number: d.classes.class_number }));
         setClasses(cls);
-        const deepLinkClass = navState?.classId && cls.some(c => c.id === navState.classId) ? navState.classId : null;
+        const deepLinkClass = linkClass && cls.some(c => c.id === linkClass) ? linkClass : null;
         if (deepLinkClass) setSelectedClass(deepLinkClass);
         else if (cls.length > 0) setSelectedClass(cls[0].id);
       }
@@ -147,54 +165,105 @@ const RollCallPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile.id]);
 
+  // The bell schedule and this teacher's own timetable slots - to offer the
+  // lessons of the chosen day and to tell which one is on now.
+  useEffect(() => {
+    if (!profile.schoolId) return;
+    Promise.all([
+      supabase.from("bell_schedule").select("lesson_number, start_time, end_time, is_break")
+        .eq("school_id", profile.schoolId).order("lesson_number"),
+      supabase.from("timetable_slots").select("class_id, subject, lesson_number, day_of_week")
+        .eq("school_id", profile.schoolId).eq("teacher_id", profile.id),
+    ]).then(([{ data: bell }, { data: slots }]) => {
+      setBellLessons((bell || []).filter((b: any) => !b.is_break)
+        .map((b: any) => ({ lesson_number: b.lesson_number, start_time: b.start_time?.slice(0, 5), end_time: b.end_time?.slice(0, 5) })));
+      setMySlots((slots || []).filter((s: any) => s.class_id) as any);
+    });
+  }, [profile.schoolId, profile.id]);
+
+  const dayOfLesson = new Date(`${lessonDate}T12:00:00`).getDay();
+  const classSlotsThatDay = mySlots
+    .filter(s => s.class_id === selectedClass && s.day_of_week === dayOfLesson)
+    .sort((a, b) => a.lesson_number - b.lesson_number);
+  const slotKey = classSlotsThatDay.map(s => `${s.lesson_number}:${s.subject}`).join(",");
+
+  // Pick the lesson: the one in the link, else the one on now (today), else the
+  // first lesson this teacher has with the class that day. The teacher can
+  // always change it - e.g. to enter attendance for an earlier lesson later.
   useEffect(() => {
     if (!selectedClass) return;
+    if (!linkUsed.current && linkLesson && selectedClass === linkClass) {
+      linkUsed.current = true;
+      chosenFor.current = `${selectedClass}|${lessonDate}`;
+      setLessonNumber(linkLesson);
+      setSubject(linkSubject || "");
+    }
+    // A lesson picked by hand (or from the link) stays picked for this class and day.
+    if (chosenFor.current === `${selectedClass}|${lessonDate}`) {
+      const slot = classSlotsThatDay.find(s => s.lesson_number === lessonNumber);
+      if (slot) setSubject(s => s || slot.subject);
+      return;
+    }
+    let pick = classSlotsThatDay[0];
+    if (lessonDate === todayIso) {
+      const now = new Date();
+      const t = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      const current = bellLessons.find(b => t >= b.start_time && t <= b.end_time);
+      const startedSlots = classSlotsThatDay.filter(s => (bellLessons.find(b => b.lesson_number === s.lesson_number)?.start_time ?? "") <= t);
+      pick = classSlotsThatDay.find(s => s.lesson_number === current?.lesson_number) || startedSlots[startedSlots.length - 1] || pick;
+    }
+    setLessonNumber(pick ? pick.lesson_number : bellLessons.length ? null : 1);
+    setSubject(pick?.subject || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClass, lessonDate, slotKey, bellLessons.length]);
+
+  // Students of the class, with whatever was already entered for this lesson
+  // (so attendance can be completed or corrected later).
+  useEffect(() => {
+    if (!selectedClass) return;
+    let cancelled = false;
     const loadStudents = async () => {
       setLoading(true);
+      setTopicChoice("");
+      setOtherTopicText("");
+      setMarkTopicCompleted(false);
+      setExistingLessonId(null);
       const { data: profiles } = await supabase.from("profiles").select("id, full_name, display_name, date_of_birth").eq("class_id", selectedClass).eq("is_approved", true);
+      if (cancelled) return;
       if (!profiles) { setStudents([]); setLoading(false); return; }
-      const { data: avatars } = await supabase.from("avatars").select("*").in("user_id", profiles.map(p => p.id));
+      const [{ data: avatars }, { data: lesson }] = await Promise.all([
+        supabase.from("avatars").select("*").in("user_id", profiles.map(p => p.id)),
+        lessonNumber
+          ? supabase.from("lessons").select("id, subject, topic")
+            .eq("class_id", selectedClass).eq("teacher_id", profile.id)
+            .eq("lesson_date", lessonDate).eq("lesson_number", lessonNumber)
+            .order("created_at", { ascending: false }).limit(1).maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
       const avatarMap = new Map((avatars || []).map(a => [a.user_id, avatarFromRow(a)!]));
+      let prev = new Map<string, StudentCard["status"]>();
+      if (lesson) {
+        const { data: att } = await supabase.from("attendance").select("student_id, status").eq("lesson_id", lesson.id);
+        prev = new Map((att || []).map((a: any) => [a.student_id, a.status]));
+      }
+      if (cancelled) return;
+      if (lesson) {
+        setExistingLessonId(lesson.id);
+        setSubject(lesson.subject);
+        if (lesson.topic) { setTopicChoice("other"); setOtherTopicText(lesson.topic); }
+      }
 
       const today = new Date();
       setStudents(profiles.map(p => {
         const dob = (p as any).date_of_birth ? new Date((p as any).date_of_birth) : null;
         const isBirthday = !!dob && dob.getMonth() === today.getMonth() && dob.getDate() === today.getDate();
-        return { id: p.id, name: displayName(p), legalName: legalNameHint(p), avatar: avatarMap.get(p.id) || null, status: null, notes: [], isBirthday };
+        return { id: p.id, name: displayName(p), legalName: legalNameHint(p), avatar: avatarMap.get(p.id) || null, status: prev.get(p.id) ?? null, notes: [], isBirthday };
       }).sort((a, b) => a.name.localeCompare(b.name, "he")));
       setLoading(false);
     };
     loadStudents();
-  }, [selectedClass]);
-
-  // Best-effort auto-detect which subject this teacher is currently
-  // scheduled to teach this class, from the timetable + bell schedule (same
-  // idea as CurrentLessonBanner's "current lesson" detection, but for the
-  // teacher's own slots rather than a student's). Falls back to leaving the
-  // subject picker empty for manual selection if nothing matches.
-  useEffect(() => {
-    if (!selectedClass || !profile.schoolId) { setSubject(""); return; }
-    setSubject("");
-    setTopicChoice("");
-    setOtherTopicText("");
-    setMarkTopicCompleted(false);
-    const detect = async () => {
-      const now = new Date();
-      const dayOfWeek = now.getDay();
-      const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-      const [{ data: bell }, { data: slots }] = await Promise.all([
-        supabase.from("bell_schedule").select("lesson_number, start_time, end_time, is_break")
-          .eq("school_id", profile.schoolId).order("lesson_number"),
-        supabase.from("timetable_slots").select("subject, lesson_number, day_of_week")
-          .eq("class_id", selectedClass).eq("teacher_id", profile.id),
-      ]);
-      const currentBell = (bell || []).find((b: any) => !b.is_break && currentTime >= b.start_time?.slice(0, 5) && currentTime <= b.end_time?.slice(0, 5));
-      if (!currentBell) return;
-      const match = (slots || []).find((s: any) => s.day_of_week === dayOfWeek && s.lesson_number === currentBell.lesson_number);
-      if (match) setSubject(match.subject);
-    };
-    detect();
-  }, [selectedClass, profile.schoolId, profile.id]);
+    return () => { cancelled = true; };
+  }, [selectedClass, lessonDate, lessonNumber, profile.id]);
 
   // Load syllabus topics for this class's grade + the selected subject, so
   // the teacher can tie today's lesson to real curriculum progress instead of
@@ -206,7 +275,15 @@ const RollCallPage = () => {
     supabase.from("syllabi").select("id, topic")
       .eq("school_id", profile.schoolId).eq("subject", subject).eq("grade", cls.grade as any)
       .order("order_index")
-      .then(({ data }) => setSyllabusTopics(data || []));
+      .then(({ data }) => {
+        setSyllabusTopics(data || []);
+        // A saved topic that is a syllabus topic shows as that topic, not as free text.
+        setOtherTopicText(text => {
+          const match = (data || []).find(t => t.topic === text.trim());
+          if (match) setTopicChoice(choice => (choice === "other" ? match.id : choice));
+          return match ? "" : text;
+        });
+      });
   }, [selectedClass, subject, profile.schoolId, classes]);
 
   const ss = useSmartSeat(selectedClass);
@@ -296,39 +373,36 @@ const RollCallPage = () => {
   };
 
   const performSave = async () => {
-    if (!selectedClass || !subject) return;
+    if (!selectedClass || !subject || !lessonNumber) return;
     setIsSaving(true);
     try {
         const isOtherTopic = topicChoice === "other";
         const chosenSyllabusTopic = !isOtherTopic ? syllabusTopics.find(t => t.id === topicChoice) : undefined;
         const topicText = isOtherTopic ? otherTopicText.trim() : (chosenSyllabusTopic?.topic || "");
 
-        // Find or create today's lesson for this class + subject + teacher.
-        // Match on lesson_date in the local (Israel) day: matching on created_at
-        // picked up any lesson row inserted today - including backfilled ones from
-        // earlier dates - and overwrote their attendance, and the UTC date was
-        // yesterday's between midnight and 02:00/03:00.
-        const today = new Date().toLocaleDateString('en-CA');
+        // Find or create this lesson: class + teacher + local (Israel) date +
+        // lesson number. One row per lesson, so two lessons of the same subject
+        // on one day each keep their own attendance.
         let lessonId;
 
         const { data: lesson } = await supabase
             .from('lessons')
             .select('id')
             .eq('class_id', selectedClass)
-            .eq('subject', subject)
             .eq('teacher_id', profile.id)
-            .eq('lesson_date', today)
+            .eq('lesson_date', lessonDate)
+            .eq('lesson_number', lessonNumber!)
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
 
         if (lesson) {
             lessonId = lesson.id;
-            // Re-saving the roll call may add or change the topic.
-            if (topicText) {
-                const { error: topicError } = await supabase.from('lessons').update({ topic: topicText }).eq('id', lesson.id);
-                if (topicError) throw topicError;
-            }
+            // Re-saving the roll call may add or change the subject and topic.
+            const { error: topicError } = await supabase.from('lessons')
+                .update(topicText ? { subject, topic: topicText } : { subject })
+                .eq('id', lesson.id);
+            if (topicError) throw topicError;
         } else {
             const { data: newLesson, error: lessonError } = await supabase
                 .from('lessons')
@@ -338,7 +412,8 @@ const RollCallPage = () => {
                     topic: topicText || null,
                     teacher_id: profile.id,
                     school_id: profile.schoolId,
-                    lesson_date: today,
+                    lesson_date: lessonDate,
+                    lesson_number: lessonNumber!,
                 })
                 .select()
                 .single();
@@ -393,10 +468,12 @@ const RollCallPage = () => {
             if (notesError) throw notesError;
         }
 
-        toast({ title: "הנוכחות נשמרה בהצלחה!", description: `נשמרו ${attendanceData.length} רשומות נוכחות ו-${notesData.length} הערות.` });
+        toast({
+          title: "הנוכחות נשמרה בהצלחה!",
+          description: `שיעור ${lessonNumber}: ${attendanceData.length} רשומות נוכחות ו-${notesData.length} הערות.${topicText ? "" : " אפשר להוסיף את נושא השיעור גם אחר כך."}`,
+        });
+        setExistingLessonId(lessonId);
         setStudents(prev => prev.map(s => ({ ...s, status: finalStatus(s), notes: [] })));
-        setTopicChoice("");
-        setOtherTopicText("");
         setMarkTopicCompleted(false);
     } catch (err: any) {
         console.error("Save error:", err);
@@ -412,6 +489,16 @@ const RollCallPage = () => {
   const unmarkedCount = students.length - presentCount - absentCount - lateCount;
   const selectedStudent = students.find(s => s.id === selectedId);
   const cls = classes.find(c => c.id === selectedClass);
+  const lessonBell = bellLessons.find(b => b.lesson_number === lessonNumber);
+  const dateLabel = lessonDate === todayIso ? "היום" : `יום ${HEBREW_DAYS[dayOfLesson]} ${lessonDate.slice(8)}/${lessonDate.slice(5, 7)}`;
+  // The day's lessons with this class first, then the rest of the bell schedule
+  // (a swapped or extra lesson).
+  const lessonOptions = [
+    ...classSlotsThatDay.map(s => ({ n: s.lesson_number, subject: s.subject })),
+    ...bellLessons.filter(b => !classSlotsThatDay.some(s => s.lesson_number === b.lesson_number)).map(b => ({ n: b.lesson_number, subject: null })),
+  ];
+  if (lessonNumber && !lessonOptions.some(o => o.n === lessonNumber)) lessonOptions.push({ n: lessonNumber, subject: null });
+  const subjectOptions = subject && !SUBJECTS.includes(subject as any) ? [subject, ...SUBJECTS] : [...SUBJECTS];
 
   const summary = [
     { label: "נוכחים", v: presentCount, cls: "bg-success-soft text-success" },
@@ -423,6 +510,10 @@ const RollCallPage = () => {
     const hasAny = students.some(s => s.status || s.notes.length > 0);
     if (!hasAny) {
       toast({ variant: "destructive", title: "לא סומנה נוכחות", description: "סמן/י לפחות תלמיד/ה אחד/ת לפני השמירה." });
+      return;
+    }
+    if (!lessonNumber) {
+      toast({ variant: "destructive", title: "בחר/י שיעור", description: "יש לבחור לאיזה שיעור במערכת שייכת הנוכחות." });
       return;
     }
     if (!subject) {
@@ -448,7 +539,7 @@ const RollCallPage = () => {
           <div className="flex flex-col gap-1.5">
             <h1 className="font-heading font-black text-2xl md:text-[30px] leading-none">הקראת שמות</h1>
             <p className="font-body font-semibold text-[13px] md:text-sm leading-none text-muted-foreground">
-              {[cls && `${cls.grade}'-${cls.number}`, subject, !loading && students.length > 0 && `${students.length} תלמידים`].filter(Boolean).join(" · ")}
+              {[cls && `${cls.grade}'-${cls.number}`, lessonNumber && `שיעור ${lessonNumber}`, dateLabel, subject, !loading && students.length > 0 && `${students.length} תלמידים`].filter(Boolean).join(" · ")}
             </p>
           </div>
         </div>
@@ -473,6 +564,62 @@ const RollCallPage = () => {
             שמור נוכחות
           </button>
         </div>
+      </div>
+
+      {/* The lesson this attendance belongs to, and its details */}
+      <div className="flex flex-col gap-2.5 p-3 rounded-[18px] bg-card shadow-card">
+        <div className="flex items-center gap-2 flex-wrap">
+          <input type="date" aria-label="תאריך השיעור" value={lessonDate} max={todayIso}
+            onChange={e => { if (e.target.value && e.target.value <= todayIso) { chosenFor.current = null; setLessonDate(e.target.value); } }}
+            className="h-10 bg-soft rounded-xl px-3 text-sm font-body font-bold outline-none" />
+          <Select value={lessonNumber ? String(lessonNumber) : ""}
+            onValueChange={v => {
+              const n = Number(v);
+              chosenFor.current = `${selectedClass}|${lessonDate}`;
+              setLessonNumber(n);
+              const slot = classSlotsThatDay.find(s => s.lesson_number === n);
+              if (slot) setSubject(slot.subject);
+            }}>
+            <SelectTrigger className="w-56 h-10 text-sm bg-soft border-0 rounded-xl" aria-label="שיעור"><SelectValue placeholder="בחר/י שיעור..." /></SelectTrigger>
+            <SelectContent>
+              {lessonOptions.map(o => {
+                const b = bellLessons.find(x => x.lesson_number === o.n);
+                return (
+                  <SelectItem key={o.n} value={String(o.n)}>
+                    {[`שיעור ${o.n}`, b && b.start_time, o.subject ?? "לא במערכת"].filter(Boolean).join(" · ")}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+          {lessonNumber && (
+            <span className={`px-2.5 py-1.5 rounded-lg font-body font-extrabold text-xs leading-none ${existingLessonId ? "bg-success-soft text-success" : "bg-muted text-muted-foreground"}`}>
+              {existingLessonId ? "נוכחות הוזנה - אפשר לעדכן" : lessonBell ? `${lessonBell.start_time}–${lessonBell.end_time} · טרם הוזנה` : "טרם הוזנה"}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={subject} onValueChange={v => { setSubject(v); setTopicChoice(""); setOtherTopicText(""); setMarkTopicCompleted(false); }}>
+            <SelectTrigger className="w-36 h-10 text-sm bg-soft border-0 rounded-xl"><SelectValue placeholder="מקצוע..." /></SelectTrigger>
+            <SelectContent>{subjectOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+          </Select>
+          <Select value={topicChoice} onValueChange={setTopicChoice} disabled={!subject}>
+            <SelectTrigger className="flex-1 min-w-[160px] h-10 text-sm bg-soft border-0 rounded-xl"><SelectValue placeholder="נושא השיעור..." /></SelectTrigger>
+            <SelectContent>
+              {syllabusTopics.map(t => <SelectItem key={t.id} value={t.id}>{t.topic}</SelectItem>)}
+              <SelectItem value="other">אחר...</SelectItem>
+            </SelectContent>
+          </Select>
+          {topicChoice === "other" && (
+            <input placeholder="נושא חופשי..." aria-label="נושא חופשי" value={otherTopicText} onChange={e => setOtherTopicText(e.target.value)} className="flex-1 min-w-[140px] h-10 bg-soft rounded-xl px-3 text-sm outline-none" />
+          )}
+        </div>
+        {topicChoice && topicChoice !== "other" && (
+          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer w-fit">
+            <Checkbox checked={markTopicCompleted} onCheckedChange={v => setMarkTopicCompleted(!!v)} />
+            סמן נושא זה כהושלם בסילבוס
+          </label>
+        )}
       </div>
 
       {/* Phone: summary chips */}
@@ -562,32 +709,6 @@ const RollCallPage = () => {
             </>
           )}
 
-          {/* Lesson details for saving */}
-          <div className="flex flex-col gap-2 p-3 rounded-[18px] bg-card shadow-card">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Select value={subject} onValueChange={v => { setSubject(v); setTopicChoice(""); setOtherTopicText(""); setMarkTopicCompleted(false); }}>
-                <SelectTrigger className="w-36 h-10 text-sm bg-soft border-0 rounded-xl"><SelectValue placeholder="מקצוע..." /></SelectTrigger>
-                <SelectContent>{SUBJECTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-              </Select>
-              <Select value={topicChoice} onValueChange={setTopicChoice} disabled={!subject}>
-                <SelectTrigger className="flex-1 min-w-[160px] h-10 text-sm bg-soft border-0 rounded-xl"><SelectValue placeholder="נושא השיעור..." /></SelectTrigger>
-                <SelectContent>
-                  {syllabusTopics.map(t => <SelectItem key={t.id} value={t.id}>{t.topic}</SelectItem>)}
-                  <SelectItem value="other">אחר...</SelectItem>
-                </SelectContent>
-              </Select>
-              {topicChoice === "other" && (
-                <input placeholder="נושא חופשי..." aria-label="נושא חופשי" value={otherTopicText} onChange={e => setOtherTopicText(e.target.value)} className="flex-1 min-w-[140px] h-10 bg-soft rounded-xl px-3 text-sm outline-none" />
-              )}
-            </div>
-            {topicChoice && topicChoice !== "other" && (
-              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer w-fit">
-                <Checkbox checked={markTopicCompleted} onCheckedChange={v => setMarkTopicCompleted(!!v)} />
-                סמן נושא זה כהושלם בסילבוס
-              </label>
-            )}
-          </div>
-
           {/* Phone: save */}
           <button type="button" onClick={requestSave} disabled={isSaving}
             className="md:hidden sticky bottom-3 z-30 flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] bg-primary text-primary-foreground font-body font-extrabold text-[15px] leading-none shadow-raised disabled:opacity-60">
@@ -660,6 +781,7 @@ const RollCallPage = () => {
             <DialogTitle className="font-heading font-black">אישור שמירת נוכחות</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
+            {[cls && `${cls.grade}'-${cls.number}`, `שיעור ${lessonNumber}`, dateLabel, subject].filter(Boolean).join(" · ")}:{" "}
             סימנת {absentCount} חיסורים, {lateCount} איחורים ו-
             {students.reduce((sum, s) => sum + s.notes.length, 0)} הערות. לאשר?
           </p>

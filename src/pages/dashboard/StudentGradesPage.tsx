@@ -298,7 +298,7 @@ const StudentGradesPage = () => {
                 <div key={ss.subject} className="max-md:hidden flex flex-col gap-2.5 p-[18px] rounded-[22px] bg-card shadow-card">
                   <div className="flex items-start justify-between">
                     <SubjectSticker subject={ss.subject} size={46} />
-                    <span className={`px-[9px] py-[5px] rounded-[9px] border-2 border-white dark:border-card font-body font-extrabold text-xs leading-none rotate-2 shadow-sticker ${tag.c}`}>{tag.t}</span>
+                    <span className={`px-[9px] py-[5px] rounded-[9px] border-2 border-white dark:border-card font-body font-extrabold text-xs leading-none shadow-sticker ${tag.c}`}>{tag.t}</span>
                   </div>
                   <span className="font-heading font-extrabold text-sm leading-none text-text-secondary">{ss.subject}</span>
                   <div className="flex items-baseline gap-2">

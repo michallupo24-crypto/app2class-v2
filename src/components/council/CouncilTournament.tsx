@@ -434,12 +434,12 @@ const CouncilTournament = ({ profile }: { profile: UserProfile }) => {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {resultInfo && roundElection.status !== "voting" && (
-                          <Badge className={`sticker sticker-tilt-r ${resultInfo.color}`}>
+                          <Badge className={`sticker ${resultInfo.color}`}>
                             {resultInfo.label}
                           </Badge>
                         )}
                         {c.round_result === "tied" && roundElection.status === "voting" && (
-                          <Badge className="sticker sticker-tilt-r bg-warning-soft text-warning">
+                          <Badge className="sticker bg-warning-soft text-warning">
                             תיקו
                           </Badge>
                         )}

@@ -34,7 +34,7 @@ const GamificationWidget = ({ userId, compact = false }: GamificationWidgetProps
         {streak && streak.current_streak > 0 && (
           <Badge variant="outline" className="gap-1 text-[10px] bg-warning/10 text-warning border-warning/20">
             <Flame className="h-3 w-3 fill-warning" />
-            {streak.current_streak} ימי רצף
+            {streak.current_streak} ימי לימוד ברצף
           </Badge>
         )}
         <Badge variant="outline" className="gap-1 text-[10px] bg-primary/10 text-primary border-primary/20">

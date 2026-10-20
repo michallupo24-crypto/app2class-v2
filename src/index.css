@@ -74,8 +74,8 @@
     --sidebar-accent-foreground: 220 31% 15%;
     --sidebar-border: 39 35% 87%;
     --sidebar-ring: 220 31% 15%;
-    --menu: 217 72% 94%;           /* side menu, sky #E6EEFB */
-    --menu-dots: 218 55% 88%;      /* #CFDCF3 */
+    --menu: 38 50% 97%;            /* side menu, paper #FBF8F3 (same as the page) */
+    --menu-dots: 38 34% 87%;       /* #E8E0D2 */
 
     --shadow-card: 0 8px 20px -14px rgba(40, 30, 15, 0.45);
     --shadow-raised: 0 14px 30px -18px rgba(27, 35, 51, 0.8);
@@ -192,11 +192,9 @@
 }
 
 @layer components {
-  /* Status sticker: light background + dark ink, white rim, slight tilt. */
+  /* Status sticker: light background + dark ink, white rim. */
   .sticker {
     @apply inline-flex items-center gap-1 rounded-[9px] border-2 border-white px-2.5 py-1.5 font-body text-xs font-extrabold leading-none dark:border-card;
     box-shadow: var(--shadow-sticker);
   }
-  .sticker-tilt-l { transform: rotate(-2deg); }
-  .sticker-tilt-r { transform: rotate(2deg); }
 }

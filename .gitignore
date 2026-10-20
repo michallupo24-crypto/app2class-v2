@@ -36,3 +36,4 @@ supabase/.temp
 
 # Demo school seed output (contains the demo password)
 demo-school.credentials.local.json
+defounder-school.credentials.local.json

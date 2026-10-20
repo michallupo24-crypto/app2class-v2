@@ -81,7 +81,7 @@ interface HeroCardProps {
   children?: ReactNode;
 }
 
-/** The big tilted card at the top of a home page - "what matters right now". */
+/** The big card at the top of a home page - "what matters right now". */
 export function HeroCard({ color, subject, icon, tag, title, meta, action, onClick, children }: HeroCardProps) {
   return (
     <div
@@ -90,12 +90,12 @@ export function HeroCard({ color, subject, icon, tag, title, meta, action, onCli
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => (e.key === "Enter" || e.key === " ") && onClick() : undefined}
       className={cn(
-        "relative mx-1 mt-4 flex flex-col gap-3.5 rounded-[28px] border-[6px] border-white px-[26px] pb-[22px] pt-6 text-white dark:border-card md:-rotate-[0.8deg]",
-        onClick && "cursor-pointer transition-transform hover:rotate-0"
+        "relative mx-1 mt-4 flex flex-col gap-3.5 rounded-[28px] border-[6px] border-white px-[26px] pb-[22px] pt-6 text-white dark:border-card",
+        onClick && "cursor-pointer"
       )}
       style={{ background: color, boxShadow: `0 18px 30px -16px ${color}` }}
     >
-      <div className="absolute -top-[30px] left-[22px] h-[76px] w-[76px] rotate-[7deg] md:h-[92px] md:w-[92px]">
+      <div className="absolute -top-[30px] left-[22px] h-[76px] w-[76px] md:h-[92px] md:w-[92px]">
         {icon ?? (subject ? <SubjectSticker subject={subject} size={92} className="h-full w-full" /> : null)}
       </div>
       <div className="flex flex-col gap-[9px] pl-[84px] md:pl-[100px]">
@@ -108,7 +108,7 @@ export function HeroCard({ color, subject, icon, tag, title, meta, action, onCli
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); action.onClick(); }}
-          className="self-start rotate-[1.2deg] rounded-[13px] bg-white px-4 py-[11px] font-body text-[14.5px] font-extrabold"
+          className="self-start rounded-[13px] bg-white px-4 py-[11px] font-body text-[14.5px] font-extrabold"
           style={{ color }}
         >
           {action.label}
@@ -182,9 +182,8 @@ export interface StatItem {
   tone: Tone;
 }
 
-/** Colored stat tiles, slightly tilted like stickers. */
+/** Colored stat tiles. */
 export function StatTiles({ items, size = "md" }: { items: StatItem[]; size?: "md" | "sm" }) {
-  const tilts = ["-rotate-2", "rotate-2", "-rotate-1"];
   return (
     <div className="grid grid-cols-3 gap-2.5 md:gap-3">
       {items.map((s, i) => {
@@ -192,7 +191,7 @@ export function StatTiles({ items, size = "md" }: { items: StatItem[]; size?: "m
         return (
           <div
             key={s.label}
-            className={cn("flex flex-col gap-2 rounded-[20px] border-[3px] border-white shadow-[0_8px_16px_-11px_rgba(40,30,15,0.45)] dark:border-card", tilts[i % 3], size === "md" ? "p-4" : "p-3.5")}
+            className={cn("flex flex-col gap-2 rounded-[20px] border-[3px] border-white shadow-[0_8px_16px_-11px_rgba(40,30,15,0.45)] dark:border-card", size === "md" ? "p-4" : "p-3.5")}
             style={{ background: t.bg, color: t.ink }}
           >
             <div className={cn("font-heading font-black leading-none", size === "md" ? "text-[30px]" : "text-[26px]")}>{s.value}</div>
@@ -226,12 +225,12 @@ export function BarList({ items, threshold = 91, unit = "%" }: { items: { label:
   );
 }
 
-/** A status sticker for a row: light background, dark ink, white rim, tilted. */
+/** A status sticker for a row: light background, dark ink, white rim. */
 export function RowTag({ label, tone }: { label: string; tone: Tone }) {
   const t = TONES[tone];
   return (
     <span
-      className="shrink-0 rotate-[4deg] rounded-[10px] border-[2.5px] border-white px-2.5 py-1.5 font-body text-xs font-extrabold leading-none shadow-[0_3px_6px_-3px_rgba(27,35,51,0.35)] dark:border-card"
+      className="shrink-0 rounded-[10px] border-[2.5px] border-white px-2.5 py-1.5 font-body text-xs font-extrabold leading-none shadow-[0_3px_6px_-3px_rgba(27,35,51,0.35)] dark:border-card"
       style={{ background: t.bg, color: t.ink }}
     >
       {label}
@@ -252,13 +251,13 @@ export function IconTile({ icon: Icon, color, size = 42 }: { icon: React.Compone
 }
 
 /** Initials in a colored circle - stands in where a person has no avatar. */
-export function PersonBadge({ name, tilt = 0 }: { name: string; tilt?: number }) {
+export function PersonBadge({ name }: { name: string }) {
   const parts = name.trim().split(/\s+/);
   const ini = (parts[0]?.[0] || "") + (parts[1]?.[0] || "");
   return (
     <div
       className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full border-[3px] border-white font-heading text-sm font-black text-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] dark:border-card"
-      style={{ background: colorFor(name), transform: tilt ? `rotate(${tilt}deg)` : undefined }}
+      style={{ background: colorFor(name) }}
     >
       {ini}
     </div>
@@ -279,8 +278,7 @@ interface HomeRowProps {
 }
 
 /** A white row card: subject tile / person / icon, title + meta, then a tag sticker or an ink button. */
-export function HomeRow({ subject, person, icon, title, meta, tag, action, onClick, index = 0, children }: HomeRowProps) {
-  const tilt = index % 2 ? 5 : -5;
+export function HomeRow({ subject, person, icon, title, meta, tag, action, onClick, children }: HomeRowProps) {
   return (
     <div
       onClick={onClick}
@@ -290,11 +288,9 @@ export function HomeRow({ subject, person, icon, title, meta, tag, action, onCli
       )}
     >
       {subject && (
-        <div style={{ transform: `rotate(${tilt}deg)` }}>
-          <SubjectSticker subject={subject} size={42} />
-        </div>
+        <SubjectSticker subject={subject} size={42} />
       )}
-      {person && !subject && <PersonBadge name={person} tilt={tilt} />}
+      {person && !subject && <PersonBadge name={person} />}
       {icon && !subject && !person && <div className="shrink-0">{icon}</div>}
       <div className="flex min-w-0 flex-1 flex-col gap-[5px]">
         <div className="font-heading text-[15.5px] font-extrabold leading-tight text-foreground">{title}</div>

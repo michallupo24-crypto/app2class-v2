@@ -16,7 +16,6 @@ interface SubjectFolderProps {
   subtitle?: string;
   chips?: FolderChip[];
   live?: boolean;
-  /** Small alternating tilt, as in the mockup. */
   index?: number;
   onOpen: () => void;
 }
@@ -28,14 +27,13 @@ const CHIP: Record<FolderChip["tone"], string> = {
   neutral: "bg-muted text-text-secondary",
 };
 
-const TILTS = [-0.8, 0.6, -0.4, 0.8];
 
 const darken = (hex: string) => {
   const n = parseInt(hex.slice(1), 16);
   return "#" + [n >> 16, (n >> 8) & 255, n & 255].map((v) => Math.round(v * 0.72).toString(16).padStart(2, "0")).join("");
 };
 
-export function SubjectFolder({ subject, title, subtitle, chips = [], live, index = 0, onOpen }: SubjectFolderProps) {
+export function SubjectFolder({ subject, title, subtitle, chips = [], live, onOpen }: SubjectFolderProps) {
   const color = subjectColor(subject);
   return (
     <button
@@ -48,11 +46,11 @@ export function SubjectFolder({ subject, title, subtitle, chips = [], live, inde
       <span className="absolute top-0 right-3.5 md:right-[18px] w-[62px] md:w-[84px] h-6 md:h-7 rounded-t-[10px] md:rounded-t-xl" style={{ background: darken(color) }} />
       <span
         className="relative flex flex-col gap-2 md:gap-2.5 pt-[30px] md:pt-10 px-3 md:px-3.5 pb-3 md:pb-3.5 rounded-[6px_20px_20px_20px] md:rounded-[8px_24px_24px_24px] border-[3px] md:border-4 border-white dark:border-card group-focus-visible:ring-2 group-focus-visible:ring-ring"
-        style={{ background: color, boxShadow: `0 14px 24px -16px ${color}`, transform: `rotate(${TILTS[index % 4]}deg)` }}
+        style={{ background: color, boxShadow: `0 14px 24px -16px ${color}` }}
       >
-        <SubjectSticker subject={subject} size={62} tilt className="absolute -top-5 md:-top-[26px] left-2 md:left-3 max-md:w-[46px] max-md:h-[46px]" />
+        <SubjectSticker subject={subject} size={62} className="absolute -top-5 md:-top-[26px] left-2 md:left-3 max-md:w-[46px] max-md:h-[46px]" />
         {live && (
-          <span className="absolute top-2 md:top-2.5 right-2.5 md:right-3 px-[7px] md:px-[9px] py-1 md:py-[5px] rounded-[7px] md:rounded-[9px] border-2 border-white bg-[#E5484D] text-white font-body font-extrabold text-[10.5px] md:text-xs leading-none -rotate-3">
+          <span className="absolute top-2 md:top-2.5 right-2.5 md:right-3 px-[7px] md:px-[9px] py-1 md:py-[5px] rounded-[7px] md:rounded-[9px] border-2 border-white bg-[#E5484D] text-white font-body font-extrabold text-[10.5px] md:text-xs leading-none">
             שיעור עכשיו
           </span>
         )}
