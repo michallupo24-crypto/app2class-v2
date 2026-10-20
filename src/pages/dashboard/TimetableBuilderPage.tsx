@@ -9,12 +9,14 @@ import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useSchoolDays } from "@/hooks/useSchoolDays";
-import { SUBJECTS, GRADES, type GradeLevel } from "@/lib/constants";
+import { SUBJECTS, GRADES, HEBREW_DAYS, type GradeLevel } from "@/lib/constants";
 import BellScheduleSetup from "@/components/timetable-builder/BellScheduleSetup";
 import RoomsManager from "@/components/timetable-builder/RoomsManager";
 import SubjectRequirementsEditor from "@/components/timetable-builder/SubjectRequirementsEditor";
 import CoordinatorTeacherHours from "@/components/timetable-builder/CoordinatorTeacherHours";
 import TeacherConstraintsManager from "@/components/timetable-builder/TeacherConstraintsManager";
+import SchoolTimetableRulesEditor from "@/components/timetable-builder/SchoolTimetableRulesEditor";
+import { buildTimetableRules } from "@/lib/timetableRules";
 import TeacherContinuityPanel from "@/components/timetable-builder/TeacherContinuityPanel";
 import TimetableVersionHistoryModal from "@/components/timetable-builder/TimetableVersionHistoryModal";
 import { Input } from "@/components/ui/input";
@@ -160,7 +162,7 @@ const TimetableBuilderPage = () => {
     await checkApproval();
 
     const schoolId = profile.schoolId!;
-    const [classesRes, bellRes, reqRes, tcRes, roleRes, profilesRes, roomsRes, existingRes, teacherCountsRes, constraintsRes] = await Promise.all([
+    const [classesRes, bellRes, reqRes, tcRes, roleRes, profilesRes, roomsRes, existingRes, teacherCountsRes, constraintsRes, settingsRes] = await Promise.all([
       supabase.from("classes").select("id, grade, class_number").eq("school_id", schoolId),
       supabase.from("bell_schedule").select("lesson_number, label, end_time, is_break").eq("school_id", schoolId).order("lesson_number"),
       supabase.from("subject_requirements").select("*").eq("school_id", schoolId),
@@ -171,6 +173,7 @@ const TimetableBuilderPage = () => {
       supabase.from("timetable_slots").select("*").eq("school_id", schoolId),
       supabase.from("subject_teacher_counts").select("subject, teacher_count").eq("school_id", schoolId),
       supabase.from("teacher_constraints").select("*").eq("school_id", schoolId).eq("status", "approved"),
+      (supabase as any).from("school_timetable_settings").select("rules").eq("school_id", schoolId).maybeSingle(),
     ]);
 
     if (!reqRes.data?.length) {
@@ -445,6 +448,9 @@ const TimetableBuilderPage = () => {
       unavailable,
       rooms: roomList,
       lockedSlots: existingSlots,
+      // School rules (short days, subject lesson windows, morning subjects)
+      // and the hard teacher limits (max lessons a day, no first/last lesson).
+      rules: buildTimetableRules(settingsRes.data?.rules, (constraintsRes.data || []) as any[]),
     });
 
     // A continuity request that couldn't actually be honored (the preferred
@@ -475,7 +481,10 @@ const TimetableBuilderPage = () => {
         lastLessonByClassDay.set(k, { classId: s.class_id, day: s.day_of_week, lastLesson: s.lesson_number });
       }
     }
-    for (const { classId, lastLesson } of lastLessonByClassDay.values()) {
+    // Days the school made short on purpose (school rules) end early by design.
+    const shortDays = new Set(Object.keys(settingsRes.data?.rules?.shortDays || {}).map(Number));
+    for (const { classId, day, lastLesson } of lastLessonByClassDay.values()) {
+      if (shortDays.has(day)) continue;
       const endTime = endTimeByLesson.get(lastLesson);
       if (endTime && endTime < MIN_DAILY_END_TIME) {
         const cls = classList.find(c => c.id === classId);
@@ -484,7 +493,7 @@ const TimetableBuilderPage = () => {
           grade: cls?.grade ?? null,
           subject: "-",
           reason: cls
-            ? `יום הלימודים של כיתה ${cls.grade}'${cls.class_number} מסתיים ב-${endTime}, לפני השעה המינימלית ${MIN_DAILY_END_TIME} — כדאי להוסיף שעות שבועיות או לפזר טוב יותר בין הימים`
+            ? `ביום ${HEBREW_DAYS[day]} יום הלימודים של כיתה ${cls.grade}'${cls.class_number} מסתיים ב-${endTime}, לפני השעה המינימלית ${MIN_DAILY_END_TIME} — כדאי להוסיף שעות שבועיות או לפזר טוב יותר בין הימים`
             : `יום לימודים מסתיים לפני ${MIN_DAILY_END_TIME}`,
           severity: "warning",
         });
@@ -596,7 +605,12 @@ const TimetableBuilderPage = () => {
             </TabsContent>
 
             <TabsContent value="constraints" className="mt-4">
-              {tab === "constraints" && <TeacherConstraintsManager schoolId={profile.schoolId} profile={profile} />}
+              {tab === "constraints" && (
+                <div className="space-y-4">
+                  <SchoolTimetableRulesEditor schoolId={profile.schoolId} canEdit={canManageSetup} />
+                  <TeacherConstraintsManager schoolId={profile.schoolId} profile={profile} />
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="continuity" className="mt-4">

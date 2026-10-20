@@ -75,6 +75,23 @@ export interface TimetableConflict {
   severity: "error" | "warning";
 }
 
+// School- and teacher-level constraints beyond "no double booking, no gaps".
+// All optional: an empty rules object behaves exactly like before.
+export interface TimetableRules {
+  /** Hard: most lessons a teacher may teach in one day (teacher_constraints max_daily_hours). */
+  teacherMaxDaily?: Map<string, number>;
+  /** Hard: never in the first or the last lesson of the day (teacher_constraints no_edge_lesson). */
+  teacherNoEdge?: Set<string>;
+  /** Hard: a short day - the last lesson_number allowed on that day (e.g. Friday until 5). */
+  dayLastPeriod?: Map<number, number>;
+  /** Hard: a subject may not start before this lesson_number (e.g. PE not in lesson 1). */
+  subjectEarliestPeriod?: Map<string, number>;
+  /** Hard: a subject must end by this lesson_number (e.g. exams-heavy subjects not at the end of the day). */
+  subjectLatestPeriod?: Map<string, number>;
+  /** Soft: these subjects are pulled towards the first lessons of the day. */
+  morningSubjects?: Set<string>;
+}
+
 export interface GenerateTimetableInput {
   classes: GeneratorClass[];
   periods: number[]; // non-break lesson_numbers, in daily order
@@ -84,6 +101,7 @@ export interface GenerateTimetableInput {
   unavailable: Set<string>; // `${teacherId}-${day}-${lesson}`
   rooms: RoomInfo[];
   lockedSlots: GeneratedSlot[];
+  rules?: TimetableRules;
 }
 
 export interface GenerateTimetableResult {
@@ -163,6 +181,7 @@ export function sanitizePlaceholderTeacher(slot: GeneratedSlot): GeneratedSlot {
  */
 export function generateTimetable(input: GenerateTimetableInput): GenerateTimetableResult {
   const { classes, periods, days, requirements, eligibleTeachers, unavailable, rooms, lockedSlots } = input;
+  const rules = input.rules || {};
   const classesById = new Map(classes.map(c => [c.id, c]));
 
   const slots: GeneratedSlot[] = [...lockedSlots];
@@ -182,13 +201,37 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
   const classDayPeriodIdx = new Map<string, Set<number>>();
 
   const periodIndex = new Map(periods.map((p, i) => [p, i]));
+  // teacherId-day -> lessons taught that day, for max_daily_hours.
+  const teacherDayCount = new Map<string, number>();
+
+  const lastPeriodOf = (day: number): number => rules.dayLastPeriod?.get(day) ?? periods[periods.length - 1];
+  const dayAllows = (day: number, lessons: number[]): boolean => lessons.every(l => l <= lastPeriodOf(day));
+  const subjectAllows = (subject: string, lessons: number[]): boolean => {
+    const min = rules.subjectEarliestPeriod?.get(subject);
+    const max = rules.subjectLatestPeriod?.get(subject);
+    return lessons.every(l => (min === undefined || l >= min) && (max === undefined || l <= max));
+  };
+  // Free, not blocked, under the daily cap, and not on the day's edges when asked.
+  const teacherAllowed = (teacherId: string, day: number, lessons: number[]): boolean => {
+    if (lessons.some(l => teacherOccupied.has(key(teacherId, day, l)) || unavailable.has(key(teacherId, day, l)))) return false;
+    const max = rules.teacherMaxDaily?.get(teacherId);
+    if (max !== undefined && (teacherDayCount.get(key(teacherId, day)) ?? 0) + lessons.length > max) return false;
+    if (rules.teacherNoEdge?.has(teacherId) && lessons.some(l => l === periods[0] || l === lastPeriodOf(day))) return false;
+    return true;
+  };
+  const morningPenalty = (subject: string, startIdx: number): number =>
+    rules.morningSubjects?.has(subject) ? startIdx * 25 : 0;
 
   const roomHasCapacity = (room: string, day: number, lesson: number): boolean =>
     (roomUsage.get(key(room, day, lesson)) ?? 0) < (roomCapacity.get(room) ?? 1);
 
   const markOccupied = (slot: GeneratedSlot) => {
     classOccupied.set(key(slot.class_id, slot.day_of_week, slot.lesson_number), slot);
-    if (slot.teacher_id) teacherOccupied.add(key(slot.teacher_id, slot.day_of_week, slot.lesson_number));
+    if (slot.teacher_id) {
+      teacherOccupied.add(key(slot.teacher_id, slot.day_of_week, slot.lesson_number));
+      const tk = key(slot.teacher_id, slot.day_of_week);
+      teacherDayCount.set(tk, (teacherDayCount.get(tk) ?? 0) + 1);
+    }
     if (slot.room) {
       const k = key(slot.room, slot.day_of_week, slot.lesson_number);
       roomUsage.set(k, (roomUsage.get(k) ?? 0) + 1);
@@ -203,7 +246,11 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
 
   const unmarkOccupied = (slot: GeneratedSlot) => {
     classOccupied.delete(key(slot.class_id, slot.day_of_week, slot.lesson_number));
-    if (slot.teacher_id) teacherOccupied.delete(key(slot.teacher_id, slot.day_of_week, slot.lesson_number));
+    if (slot.teacher_id) {
+      teacherOccupied.delete(key(slot.teacher_id, slot.day_of_week, slot.lesson_number));
+      const tk = key(slot.teacher_id, slot.day_of_week);
+      teacherDayCount.set(tk, Math.max(0, (teacherDayCount.get(tk) ?? 0) - 1));
+    }
     if (slot.room) {
       const k = key(slot.room, slot.day_of_week, slot.lesson_number);
       roomUsage.set(k, Math.max(0, (roomUsage.get(k) ?? 0) - 1));
@@ -360,6 +407,10 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
     const aRoom = a.preferredRoomType ? 1 : 0;
     const bRoom = b.preferredRoomType ? 1 : 0;
     if (aRoom !== bRoom) return bRoom - aRoom;
+    // Morning subjects next, while the first lessons of the day are still free.
+    const aMorning = rules.morningSubjects?.has(a.subject) ? 1 : 0;
+    const bMorning = rules.morningSubjects?.has(b.subject) ? 1 : 0;
+    if (aMorning !== bMorning) return bMorning - aMorning;
     const ta = teachersFor.get(key(a.class_id, a.subject))?.length ?? 0;
     const tb = teachersFor.get(key(b.class_id, b.subject))?.length ?? 0;
     if (ta !== tb) return ta - tb;
@@ -376,10 +427,23 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
     if (!roomsByType.has(r.room_type)) roomsByType.set(r.room_type, []);
     roomsByType.get(r.room_type)!.push(r.name);
   }
-  const allRoomNames = rooms.map(r => r.name);
+  // A subject with no required room type goes to a regular room - never a
+  // gym, lab or other room some subject requires (before, it took whichever
+  // room was free first, so Hebrew could land in the gym).
+  const specialTypes = new Set(requirements.map(r => r.preferred_room_type).filter((t): t is string => !!t));
+  const generalRoomNames = rooms.filter(r => !specialTypes.has(r.room_type)).map(r => r.name);
+  // A class's own room comes first when its name carries the class ("כיתה ז-1", "ז'1").
+  const homeRoomOf = (classId: string | null): string | null => {
+    const c = classId ? classesById.get(classId) : null;
+    if (!c) return null;
+    const labels = [`${c.grade}-${c.class_number}`, `${c.grade}'${c.class_number}`, `${c.grade}${c.class_number}`];
+    return generalRoomNames.find(n => labels.some(l => n.split(/\s+/).includes(l) || n.endsWith(l))) ?? null;
+  };
 
-  const findRoom = (preferredType: string | null, day: number, lessons: number[]): string | null => {
-    const candidates = preferredType ? (roomsByType.get(preferredType) || []) : allRoomNames;
+  const findRoom = (preferredType: string | null, day: number, lessons: number[], classId: string | null = null): string | null => {
+    let candidates = preferredType ? (roomsByType.get(preferredType) || []) : generalRoomNames;
+    const home = preferredType ? null : homeRoomOf(classId);
+    if (home) candidates = [home, ...candidates.filter(n => n !== home)];
     for (const room of candidates) {
       if (lessons.every(l => roomHasCapacity(room, day, l))) return room;
     }
@@ -391,8 +455,19 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
   // allows - e.g. 5 classes + one gym with capacity 5 all share that one
   // room, rather than requiring 5 distinct room instances. Returns null if
   // there isn't enough combined capacity across all matching rooms.
-  const assignRoomsForGroup = (preferredType: string | null, day: number, lessons: number[], count: number): (string | null)[] | null => {
-    if (!preferredType) return Array(count).fill(null);
+  const assignRoomsForGroup = (preferredType: string | null, day: number, lessons: number[], count: number, classIds: string[] = []): (string | null)[] | null => {
+    // No room type: each class in its own regular room (home room first),
+    // never two classes in one room. Running out just leaves the room unset.
+    if (!preferredType) {
+      const taken = new Set<string>();
+      return Array.from({ length: count }, (_, i) => {
+        const home = homeRoomOf(classIds[i] ?? null);
+        const pool = home ? [home, ...generalRoomNames.filter(n => n !== home)] : generalRoomNames;
+        const room = pool.find(r => !taken.has(r) && lessons.every(l => roomHasCapacity(r, day, l))) ?? null;
+        if (room) taken.add(room);
+        return room;
+      });
+    }
     const candidates = roomsByType.get(preferredType) || [];
     const assignment: (string | null)[] = [];
     const tentative = new Map<string, number>();
@@ -426,8 +501,9 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
         const idxRange = Array.from({ length: unit.blockLen }, (_, i) => startIdx + i);
         if (idxRange.some(i => occupiedIdx.has(i))) continue;
         const lessons = idxRange.map(i => periods[i]);
+        if (!dayAllows(day, lessons) || !subjectAllows(unit.subject, lessons)) continue;
 
-        const room = findRoom(unit.preferredRoomType, day, lessons);
+        const room = findRoom(unit.preferredRoomType, day, lessons, unit.class_id);
         if (unit.preferredRoomType && !room) continue; // a required room type is still a hard constraint
 
         if (!relaxed) {
@@ -459,10 +535,9 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
         // and others left completely empty.
         score -= occupiedIdx.size * occupiedIdx.size * 8;
         score -= startIdx; // mild preference for earlier periods
+        score -= morningPenalty(unit.subject, startIdx);
 
-        const freeTeacher = teacherOptions.find(teacher =>
-          !lessons.some(l => teacherOccupied.has(key(teacher.teacher_id, day, l)) || unavailable.has(key(teacher.teacher_id, day, l)))
-        ) || null;
+        const freeTeacher = teacherOptions.find(teacher => teacherAllowed(teacher.teacher_id, day, lessons)) || null;
         const candidateScore = freeTeacher ? score + 200 : score; // prefer a slot where a teacher can already be filled in
 
         if (!best || candidateScore > best.score) {
@@ -535,6 +610,7 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
         const allClassesFree = tb.classIds.every(cid => !idxRange.some(i => occSets.get(cid)!.has(i)));
         if (!allClassesFree) continue;
         const lessons = idxRange.map(i => periods[i]);
+        if (!dayAllows(day, lessons) || !tb.options.every(o => subjectAllows(o.subject, lessons))) continue;
 
         // Rooms and teachers are assigned per OPTION (not per class) - every
         // class shares the same physical option/teacher/room for that option.
@@ -562,10 +638,7 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
         let filledCount = 0;
         for (const opt of tb.options) {
           const options = teachersForAnyClass(tb.classIds, opt.subject);
-          const free = options.find(t =>
-            !usedTeachers.has(t.teacher_id) &&
-            !lessons.some(l => teacherOccupied.has(key(t.teacher_id, day, l)) || unavailable.has(key(t.teacher_id, day, l)))
-          ) || null;
+          const free = options.find(t => !usedTeachers.has(t.teacher_id) && teacherAllowed(t.teacher_id, day, lessons)) || null;
           if (free) {
             usedTeachers.add(free.teacher_id);
             filledCount++;
@@ -581,11 +654,14 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
         }
         score -= startIdx;
         score += filledCount * 50;
+        // Same rule as per-class subjects: the block's lessons go on separate
+        // days in the primary pass (a small penalty let a 4-hour track land as
+        // 4 lessons in a row on one day); only the relaxed pass may double up.
         if (!relaxed) {
           const sameDaySubjectElsewhere = tb.classIds.some(cid =>
             Array.from(classOccupied.values()).some(s => s.class_id === cid && s.day_of_week === day && s.group_name)
           );
-          if (sameDaySubjectElsewhere) score -= 30;
+          if (sameDaySubjectElsewhere) continue;
         }
 
         if (!best || score > best.score) {
@@ -638,11 +714,12 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
         const allClassesFree = gw.classIds.every(cid => !idxRange.some(i => occSets.get(cid)!.has(i)));
         if (!allClassesFree) continue;
         const lessons = idxRange.map(i => periods[i]);
+        if (!dayAllows(day, lessons) || !subjectAllows(gw.subject, lessons)) continue;
 
         // Classes sharing this grade-wide slot can share a room too, up to
         // its capacity (e.g. 5 classes of PE together in one gym) - only
         // opens a second room instance if the first one(s) don't have room.
-        const roomAssignments = assignRoomsForGroup(gw.preferredRoomType, day, lessons, gw.classIds.length);
+        const roomAssignments = assignRoomsForGroup(gw.preferredRoomType, day, lessons, gw.classIds.length, gw.classIds);
         if (!roomAssignments) continue;
         const roomByClass = new Map<string, string | null>();
         gw.classIds.forEach((cid, i) => roomByClass.set(cid, roomAssignments[i]));
@@ -654,10 +731,7 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
         let filledCount = 0;
         for (const cid of gw.classIds) {
           const options = teachersFor.get(key(cid, gw.subject)) || [];
-          const free = options.find(t =>
-            !usedTeachers.has(t.teacher_id) &&
-            !lessons.some(l => teacherOccupied.has(key(t.teacher_id, day, l)) || unavailable.has(key(t.teacher_id, day, l)))
-          ) || null;
+          const free = options.find(t => !usedTeachers.has(t.teacher_id) && teacherAllowed(t.teacher_id, day, lessons)) || null;
           if (free) {
             usedTeachers.add(free.teacher_id);
             filledCount++;
@@ -672,12 +746,13 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
           if (occ.has(startIdx - 1) || occ.has(startIdx + gw.blockLen)) score += 100 / gw.classIds.length;
         }
         score -= startIdx;
+        score -= morningPenalty(gw.subject, startIdx);
         score += filledCount * 50; // prefer slots where more classes already have a teacher filled in
         if (!relaxed) {
           const sameDaySubjectElsewhere = gw.classIds.some(cid =>
             Array.from(classOccupied.values()).some(s => s.class_id === cid && s.day_of_week === day && s.subject === gw.subject)
           );
-          if (sameDaySubjectElsewhere) score -= 30;
+          if (sameDaySubjectElsewhere) continue;
         }
 
         if (!best || score > best.score) {
@@ -787,10 +862,14 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
         if (sharedSlotKeys.has(key(cls.id, day, fromLesson))) continue; // never relocate a grade-wide slot on its own
         const toLesson = periods[holeIdx];
 
-        const teacherFree = !slot.teacher_id || !teacherOccupied.has(key(slot.teacher_id, day, toLesson));
+        const teacherFree = !slot.teacher_id || (
+          !teacherOccupied.has(key(slot.teacher_id, day, toLesson)) &&
+          !unavailable.has(key(slot.teacher_id, day, toLesson)) &&
+          !(rules.teacherNoEdge?.has(slot.teacher_id) && toLesson === periods[0])
+        );
         const roomFree = !slot.room || roomHasCapacity(slot.room, day, toLesson);
         const targetFree = !classOccupied.has(key(cls.id, day, toLesson));
-        if (!teacherFree || !roomFree || !targetFree) continue;
+        if (!teacherFree || !roomFree || !targetFree || !subjectAllows(slot.subject, [toLesson])) continue;
 
         unmarkOccupied(slot);
         slot.lesson_number = toLesson;

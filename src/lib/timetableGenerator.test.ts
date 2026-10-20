@@ -203,3 +203,84 @@ describe("generateTimetable", () => {
     expect(teacherIds.size).toBe(3);
   });
 });
+
+describe("generateTimetable - school and teacher rules", () => {
+  const req = (classId: string, subject: string, hours: number, block = 1) => ({
+    class_id: classId, grade: "ז" as const, subject,
+    weekly_hours: hours, block_size: block, group_count: 1,
+    preferred_room_type: null, is_grade_wide: false, track_group: null,
+    track_kind: null, base_subject: null, group_label: null,
+  });
+
+  it("respects a teacher's daily maximum", () => {
+    const input = baseInput();
+    input.periods = [1, 2, 3, 4, 5, 6];
+    input.days = [0, 1];
+    input.requirements = [req("c1", "מתמטיקה", 4), req("c2", "מתמטיקה", 4)];
+    input.rules = { teacherMaxDaily: new Map([["t1", 2]]) };
+    const { slots } = generateTimetable(input);
+    const perDay = new Map<number, number>();
+    for (const s of slots.filter(s => s.teacher_id === "t1")) perDay.set(s.day_of_week, (perDay.get(s.day_of_week) ?? 0) + 1);
+    for (const n of perDay.values()) expect(n).toBeLessThanOrEqual(2);
+    assertNoDoubleBooking(slots, input.rooms);
+  });
+
+  it("keeps a no-edge teacher out of the first and last lesson", () => {
+    const input = baseInput();
+    input.rules = { teacherNoEdge: new Set(["t1"]), dayLastPeriod: new Map([[4, 3]]) };
+    const { slots } = generateTimetable(input);
+    for (const s of slots.filter(s => s.teacher_id === "t1")) {
+      expect(s.lesson_number).not.toBe(1);
+      expect(s.lesson_number).not.toBe(s.day_of_week === 4 ? 3 : 4);
+    }
+  });
+
+  it("ends a short day at its last lesson", () => {
+    const input = baseInput();
+    input.requirements = [req("c1", "מתמטיקה", 3), req("c1", "אנגלית", 4), req("c1", "היסטוריה", 4)];
+    input.rules = { dayLastPeriod: new Map([[4, 2]]) };
+    const { slots } = generateTimetable(input);
+    for (const s of slots.filter(s => s.day_of_week === 4)) expect(s.lesson_number).toBeLessThanOrEqual(2);
+  });
+
+  it("keeps a subject within its allowed lessons", () => {
+    const input = baseInput();
+    input.requirements = [req("c1", "חינוך גופני", 3), req("c1", "מתמטיקה", 5)];
+    input.rules = { subjectEarliestPeriod: new Map([["חינוך גופני", 2]]), subjectLatestPeriod: new Map([["מתמטיקה", 3]]) };
+    const { slots } = generateTimetable(input);
+    for (const s of slots.filter(s => s.subject === "חינוך גופני")) expect(s.lesson_number).toBeGreaterThanOrEqual(2);
+    for (const s of slots.filter(s => s.subject === "מתמטיקה")) expect(s.lesson_number).toBeLessThanOrEqual(3);
+  });
+
+  it("pulls morning subjects to the start of the day", () => {
+    const input = baseInput();
+    input.requirements = [req("c1", "מתמטיקה", 5), req("c1", "אמנות", 5)];
+    input.eligibleTeachers = [];
+    input.rules = { morningSubjects: new Set(["מתמטיקה"]) };
+    const { slots } = generateTimetable(input);
+    const avg = (subject: string) => {
+      const xs = slots.filter(s => s.subject === subject).map(s => s.lesson_number);
+      return xs.reduce((a, b) => a + b, 0) / xs.length;
+    };
+    expect(avg("מתמטיקה")).toBeLessThan(avg("אמנות"));
+  });
+});
+
+describe("generateTimetable - rooms", () => {
+  it("puts general subjects in a regular room, the class's own first - never the gym", () => {
+    const input = baseInput();
+    input.requirements = [
+      { class_id: "c1", grade: "ז", subject: "לשון", weekly_hours: 4, block_size: 1, group_count: 1, preferred_room_type: null, is_grade_wide: false, track_group: null, track_kind: null, base_subject: null, group_label: null },
+      { class_id: "c1", grade: "ז", subject: "חינוך גופני", weekly_hours: 2, block_size: 1, group_count: 1, preferred_room_type: "אולם ספורט", is_grade_wide: false, track_group: null, track_kind: null, base_subject: null, group_label: null },
+    ];
+    input.eligibleTeachers = [];
+    input.rooms = [
+      { name: "אולם ספורט", room_type: "אולם ספורט", capacity: 2 },
+      { name: "חדר 2", room_type: "כיתה", capacity: 1 },
+      { name: "כיתה ז-1", room_type: "כיתה", capacity: 1 },
+    ];
+    const { slots } = generateTimetable(input);
+    for (const s of slots.filter(s => s.subject === "לשון")) expect(s.room).toBe("כיתה ז-1");
+    for (const s of slots.filter(s => s.subject === "חינוך גופני")) expect(s.room).toBe("אולם ספורט");
+  });
+});
