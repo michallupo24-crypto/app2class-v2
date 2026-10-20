@@ -29,6 +29,8 @@ export const ROW_STATUS: Record<AttendanceStatus, { label: string; cls: string }
 export interface RowStudent {
   id: string;
   name: string;
+  /** Legal name, shown as a tooltip when a display name replaces it. */
+  legalName?: string;
   avatar: AvatarConfig | null;
   status: AttendanceStatus | null;
   notes: { key: string; label: string }[];
@@ -151,7 +153,7 @@ export function SwipeStudentRow({ student, events, selected, onSelect, onSwipe, 
           {student.avatar ? <AvatarPreview config={student.avatar} size={40} /> : <span className="font-heading font-black text-base text-muted-foreground">{student.name.trim().charAt(0)}</span>}
         </span>
         <div className="flex-1 min-w-0 flex flex-col gap-1">
-          <span className="flex items-center gap-1.5 font-heading font-extrabold text-[14.5px] leading-tight truncate">
+          <span title={student.legalName} className="flex items-center gap-1.5 font-heading font-extrabold text-[14.5px] leading-tight truncate">
             {student.name}
             {student.isBirthday && <Cake className="h-3.5 w-3.5 text-accent shrink-0" aria-label="יום הולדת" />}
           </span>

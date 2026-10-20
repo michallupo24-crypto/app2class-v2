@@ -19,6 +19,8 @@ import { useToast } from "@/hooks/use-toast";
 import { invalidateSchoolGuidelines } from "@/hooks/useSchoolGuidelines";
 import type { UserProfile } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { displayName } from "@/lib/displayName";
+import DisplayNamesManager from "@/components/display-name/DisplayNamesManager";
 
 /* The principal's control room: everything set at registration (guidelines,
    grades, subjects, rooms, staff, roles, constraints, history imports) can
@@ -33,6 +35,7 @@ const TABS = [
   { id: "constraints", label: "אילוצי מערכת" },
   { id: "attendance", label: "אירועי נוכחות" },
   { id: "imports", label: "ייבוא נתונים" },
+  { id: "names", label: "שמות תצוגה" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
 
@@ -183,7 +186,7 @@ const SchoolSettingsPage = () => {
           <h1 className="font-heading text-[27px] font-black leading-[1.05]">הגדרות בית הספר</h1>
           <p className="mt-[5px] font-body text-[13px] font-semibold text-muted-foreground">כל מה שהוגדר ברישום, ואפשר לשנות בכל רגע</p>
         </div>
-        {tab !== "imports" && (
+        {tab !== "imports" && tab !== "names" && (
           <Button onClick={save} disabled={saving || !dirty} className="gap-1.5 rounded-full">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             {saving ? "שומר…" : dirty ? "שמירה" : "נשמר"}
@@ -237,6 +240,7 @@ const SchoolSettingsPage = () => {
           ? <AttendanceEventsEditor value={attendanceEvents} onChange={touch(setAttendanceEvents)} />
           : <Hint>רשימת אירועי הנוכחות עדיין לא זמינה בבית הספר הזה.</Hint>)}
         {tab === "imports" && <ImportsTab schoolId={schoolId} userId={profile.id} />}
+        {tab === "names" && <DisplayNamesManager profile={profile} />}
       </div>
     </motion.div>
   );
@@ -250,11 +254,11 @@ function CustomRoleMembers({ schoolId, roles, dirty }: { schoolId: string; roles
   const [pick, setPick] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
-    const { data: profs } = await supabase.from("profiles").select("id, full_name").eq("school_id", schoolId).eq("is_approved", true);
+    const { data: profs } = await supabase.from("profiles").select("id, full_name, display_name").eq("school_id", schoolId).eq("is_approved", true);
     const ids = (profs || []).map((p) => p.id);
     const { data: roleRows } = ids.length ? await supabase.from("user_roles").select("user_id, role").in("user_id", ids) : { data: [] as any[] };
     const staffIds = new Set((roleRows || []).filter((r: any) => r.role !== "student" && r.role !== "parent").map((r: any) => r.user_id));
-    setStaff((profs || []).filter((p) => staffIds.has(p.id)).sort((a, b) => (a.full_name || "").localeCompare(b.full_name || "", "he")));
+    setStaff((profs || []).filter((p) => staffIds.has(p.id)).sort((a, b) => (displayName(a) || "").localeCompare(displayName(b) || "", "he")));
     if (roles.length) {
       const { data: m } = await db.from("school_custom_role_members").select("role_id, user_id").in("role_id", roles.map((r) => r.id));
       const map: Record<string, string[]> = {};
@@ -272,7 +276,7 @@ function CustomRoleMembers({ schoolId, roles, dirty }: { schoolId: string; roles
   };
 
   if (!roles.length) return null;
-  const nameOf = (id: string) => staff.find((s) => s.id === id)?.full_name || "…";
+  const nameOf = (id: string) => displayName(staff.find((s) => s.id === id), "…");
   return (
     <section className="space-y-3 border-t border-border/60 pt-4">
       <h3 className="font-heading text-[16px] font-black">שיבוץ לתפקידים</h3>
@@ -293,7 +297,7 @@ function CustomRoleMembers({ schoolId, roles, dirty }: { schoolId: string; roles
             <Select value={pick[r.id!] || ""} onValueChange={(v) => setPick((p) => ({ ...p, [r.id!]: v }))}>
               <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="בחירת איש/ת צוות" /></SelectTrigger>
               <SelectContent>
-                {staff.filter((s) => !(members[r.id!] || []).includes(s.id)).map((s) => <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>)}
+                {staff.filter((s) => !(members[r.id!] || []).includes(s.id)).map((s) => <SelectItem key={s.id} value={s.id}>{displayName(s)}</SelectItem>)}
               </SelectContent>
             </Select>
             <Button size="sm" className="h-9 gap-1" disabled={!pick[r.id!] || dirty} onClick={() => { setMember(r.id!, pick[r.id!], true); setPick((p) => ({ ...p, [r.id!]: "" })); }}>

@@ -15,6 +15,7 @@ import { CommunityGallery } from "./ide/CommunityGallery";
 import { TeacherAnalyticsDashboard } from "./ide/TeacherAnalyticsDashboard";
 import { buildSandboxHtml } from "./ide/sandboxBuilder";
 import type { TaskLanguage, TaskMode, ConsoleLog, InteractiveTask } from "./ide/types";
+import { displayName } from "@/lib/displayName";
 
 interface Props {
   profile: UserProfile;
@@ -274,12 +275,12 @@ const InteractiveTaskBuilderMode = ({ profile, assignmentId, onBack, initialGene
     const rows = data || [];
     const authorIds = Array.from(new Set(rows.map((r: any) => r.author_id)));
     const { data: authors, error: authorsError } = authorIds.length
-      ? await supabase.from("profiles").select("id, full_name").in("id", authorIds)
+      ? await supabase.from("profiles").select("id, full_name, display_name").in("id", authorIds)
       : { data: [] as any[], error: null };
     if (authorsError) {
       toast({ variant: "destructive", title: "שגיאה בטעינת פרטי המחברים", description: authorsError.message });
     }
-    const nameMap = new Map((authors || []).map((a: any) => [a.id, a.full_name]));
+    const nameMap = new Map((authors || []).map((a: any) => [a.id, displayName(a)]));
 
     setGalleryTasks(
       rows.map((r: any) => ({

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Student, ClassroomConfig, AppMode, AttendanceStatus } from '@/types/smartseat';
 import { avatarFromRow } from "@/components/avatar/avatarModel";
+import { displayName } from "@/lib/displayName";
 import { clampConfig, MAX_SEAT_COLS, MAX_SEAT_ROWS } from '@/lib/seatingLimits';
 import { toast } from 'sonner';
 
@@ -32,7 +33,7 @@ export function useSmartSeat(classId?: string, lessonId?: string) {
             // 1. Fetch Students
             const { data: profiles } = await supabase
                 .from('profiles')
-                .select('id, full_name')
+                .select('id, full_name, display_name')
                 .eq('class_id', classId);
 
             if (!profiles) return;
@@ -80,7 +81,7 @@ export function useSmartSeat(classId?: string, lessonId?: string) {
 
             setStudents(profiles.map(p => ({
                 id: p.id,
-                name: p.full_name,
+                name: displayName(p),
                 avatar: avatarMap.get(p.id) || null,
                 attendance: (attendanceMap.get(p.id) || 'none') as AttendanceStatus,
                 seatRow: seatMap.get(p.id)?.row_index,

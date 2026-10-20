@@ -1,6 +1,6 @@
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Calendar, Users, BarChart3, Bell, Megaphone, Layers, Brain, ClipboardList, Loader2 } from "lucide-react";
+import { Calendar, Users, BarChart3, Bell, Megaphone, Layers, Brain, ClipboardList, Loader2, UserPen } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -277,6 +277,7 @@ const GradeCoordinatorDashboard = () => {
             { icon: Megaphone, label: "הודעות לשכבה", path: "/dashboard/grade-announcements", color: "#1592B3" },
             { icon: Layers, label: "אישורי הורים", path: "/dashboard/event-approvals", color: "#E5484D" },
             { icon: Calendar, label: "לוח מבחנים", path: "/dashboard/master-scheduler", color: "#3B7BF2" },
+            { icon: UserPen, label: "שמות תצוגה", path: "/dashboard/display-names", color: "#C22E62" },
           ].map((a) => (
             <button key={a.path} type="button" onClick={() => navigate(a.path)}
               className="flex items-center gap-2.5 rounded-[16px] bg-card px-3 py-2.5 text-right shadow-[0_4px_12px_-9px_rgba(40,30,15,0.4)] transition-colors hover:bg-soft">

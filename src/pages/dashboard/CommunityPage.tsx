@@ -18,6 +18,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { UserProfile } from "@/hooks/useAuth";
+import { displayName } from "@/lib/displayName";
 
 interface Faction {
   id: string;
@@ -158,8 +159,8 @@ const CommunityPage = () => {
     if (!data) return;
 
     const authorIds = [...new Set(data.map((p: any) => p.author_id))];
-    const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", authorIds);
-    const nameMap = new Map((profiles || []).map((p: any) => [p.id, p.full_name]));
+    const { data: profiles } = await supabase.from("profiles").select("id, full_name, display_name").in("id", authorIds);
+    const nameMap = new Map((profiles || []).map((p: any) => [p.id, displayName(p)]));
 
     const { data: myVotes } = await supabase
       .from("flower_votes")
@@ -261,8 +262,8 @@ const CommunityPage = () => {
 
     if (!data) return;
     const authorIds = [...new Set(data.map((c: any) => c.author_id))];
-    const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", authorIds);
-    const nameMap = new Map((profiles || []).map((p: any) => [p.id, p.full_name]));
+    const { data: profiles } = await supabase.from("profiles").select("id, full_name, display_name").in("id", authorIds);
+    const nameMap = new Map((profiles || []).map((p: any) => [p.id, displayName(p)]));
 
     setComments(data.map((c: any) => ({
       ...c,

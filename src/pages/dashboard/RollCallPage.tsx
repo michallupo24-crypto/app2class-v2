@@ -16,6 +16,7 @@ import { useSmartSeat } from "@/hooks/useSmartSeat";
 import { ClassroomGrid } from "@/components/smartseat/ClassroomGrid";
 import { avatarFromRow } from "@/components/avatar/avatarModel";
 import { ToolSticker } from "@/components/ToolSticker";
+import { displayName, legalNameHint } from "@/lib/displayName";
 import { SwipeStudentRow } from "@/components/attendance/SwipeStudentRow";
 import { useAttendanceEventTypes, eventKey, type AttendanceEventType } from "@/hooks/useAttendanceEventTypes";
 import { applySwipe, type SwipeAction } from "@/lib/attendanceSwipe";
@@ -23,6 +24,8 @@ import { applySwipe, type SwipeAction } from "@/lib/attendanceSwipe";
 interface StudentCard {
   id: string;
   name: string;
+  /** Legal name, shown as a tooltip when a display name replaces it. */
+  legalName?: string;
   avatar: AvatarConfig | null;
   status: "present" | "absent" | "late" | "excused" | null;
   // key: category for built-in notes, the event type id for a school's own events.
@@ -79,6 +82,7 @@ const StudentTile = ({ student, selected, onTap, onNotes }: {
       onPointerLeave={cancelPress}
       onContextMenu={(e) => { e.preventDefault(); onNotes(); }}
       aria-label={`${student.name}: ${st ? st.label : "לא סומן"}`}
+      title={student.legalName}
       className={`relative flex flex-col items-center gap-[7px] md:gap-2 px-1 md:px-1.5 pt-3 md:pt-3.5 pb-2.5 md:pb-3 rounded-[20px] bg-card select-none ${selected ? "outline outline-2 outline-offset-2 outline-foreground/30" : ""}`}
       style={{ boxShadow: st ? `0 0 0 2.5px ${st.ring}, 0 10px 18px -12px rgba(27,35,51,.5)` : "0 8px 16px -12px rgba(40,30,15,.4)" }}
     >
@@ -147,7 +151,7 @@ const RollCallPage = () => {
     if (!selectedClass) return;
     const loadStudents = async () => {
       setLoading(true);
-      const { data: profiles } = await supabase.from("profiles").select("id, full_name, date_of_birth").eq("class_id", selectedClass).eq("is_approved", true);
+      const { data: profiles } = await supabase.from("profiles").select("id, full_name, display_name, date_of_birth").eq("class_id", selectedClass).eq("is_approved", true);
       if (!profiles) { setStudents([]); setLoading(false); return; }
       const { data: avatars } = await supabase.from("avatars").select("*").in("user_id", profiles.map(p => p.id));
       const avatarMap = new Map((avatars || []).map(a => [a.user_id, avatarFromRow(a)!]));
@@ -156,8 +160,8 @@ const RollCallPage = () => {
       setStudents(profiles.map(p => {
         const dob = (p as any).date_of_birth ? new Date((p as any).date_of_birth) : null;
         const isBirthday = !!dob && dob.getMonth() === today.getMonth() && dob.getDate() === today.getDate();
-        return { id: p.id, name: p.full_name, avatar: avatarMap.get(p.id) || null, status: null, notes: [], isBirthday };
-      }));
+        return { id: p.id, name: displayName(p), legalName: legalNameHint(p), avatar: avatarMap.get(p.id) || null, status: null, notes: [], isBirthday };
+      }).sort((a, b) => a.name.localeCompare(b.name, "he")));
       setLoading(false);
     };
     loadStudents();

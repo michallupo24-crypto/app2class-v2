@@ -10,6 +10,7 @@ import { CalendarClock, Plus, X, Loader2, User, History } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { displayName } from "@/lib/displayName";
 
 interface SlotRow {
   id: string;
@@ -57,8 +58,8 @@ const MeetingSlotsPage = () => {
     const studentIds = Array.from(new Set(list.filter((s) => s.student_id).map((s) => s.student_id as string)));
     let names: Record<string, string> = {};
     if (studentIds.length > 0) {
-      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", studentIds);
-      (profs || []).forEach((p: any) => { names[p.id] = p.full_name; });
+      const { data: profs } = await supabase.from("profiles").select("id, full_name, display_name").in("id", studentIds);
+      (profs || []).forEach((p: any) => { names[p.id] = displayName(p); });
     }
     setSlots(list.map((s) => ({ ...s, studentName: s.student_id ? names[s.student_id] : undefined })));
     setLoading(false);
@@ -78,8 +79,8 @@ const MeetingSlotsPage = () => {
     const studentIds = Array.from(new Set(list.filter((s) => s.student_id).map((s) => s.student_id as string)));
     let names: Record<string, string> = {};
     if (studentIds.length > 0) {
-      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", studentIds);
-      (profs || []).forEach((p: any) => { names[p.id] = p.full_name; });
+      const { data: profs } = await supabase.from("profiles").select("id, full_name, display_name").in("id", studentIds);
+      (profs || []).forEach((p: any) => { names[p.id] = displayName(p); });
     }
     setPastMeetings(list.map((s) => ({ ...s, studentName: s.student_id ? names[s.student_id] : undefined })));
     setLoadingHistory(false);
@@ -91,8 +92,8 @@ const MeetingSlotsPage = () => {
     const studentIds = (links || []).map((l: any) => l.student_id);
     if (studentIds.length === 0) { setSlots([]); setChildren([]); setLoading(false); return; }
 
-    const { data: profs } = await supabase.from("profiles").select("id, full_name, class_id").in("id", studentIds);
-    const kids = (profs || []).map((p: any) => ({ id: p.id, fullName: p.full_name, classId: p.class_id }));
+    const { data: profs } = await supabase.from("profiles").select("id, full_name, display_name, class_id").in("id", studentIds);
+    const kids = (profs || []).map((p: any) => ({ id: p.id, fullName: displayName(p), classId: p.class_id }));
     setChildren(kids);
 
     const classIds = kids.map((k) => k.classId).filter(Boolean) as string[];
@@ -106,8 +107,8 @@ const MeetingSlotsPage = () => {
         .in("homeroom_class_id", classIds);
       teacherIds = (roles || []).map((r: any) => r.user_id);
       if (teacherIds.length > 0) {
-        const { data: teacherProfs } = await supabase.from("profiles").select("id, full_name").in("id", teacherIds);
-        (teacherProfs || []).forEach((p: any) => { teacherNames[p.id] = p.full_name; });
+        const { data: teacherProfs } = await supabase.from("profiles").select("id, full_name, display_name").in("id", teacherIds);
+        (teacherProfs || []).forEach((p: any) => { teacherNames[p.id] = displayName(p); });
       }
     }
 

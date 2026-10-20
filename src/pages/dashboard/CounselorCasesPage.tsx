@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { displayName } from "@/lib/displayName";
 
 interface StudentLite {
   id: string;
@@ -79,7 +80,7 @@ const CounselorCasesPage = () => {
         .eq("counselor_id", profile.id)
         .order("created_at", { ascending: false }),
       profile.schoolId
-        ? supabase.from("profiles").select("id, full_name, class_id").eq("school_id", profile.schoolId).not("class_id", "is", null)
+        ? supabase.from("profiles").select("id, full_name, display_name, class_id").eq("school_id", profile.schoolId).not("class_id", "is", null)
         : Promise.resolve({ data: [] as StudentLite[] }),
     ]);
     setCases(casesRes.data || []);
@@ -201,7 +202,7 @@ const CounselorCasesPage = () => {
     openCaseDetail(activeCase);
   };
 
-  const filteredStudents = students.filter((s) => s.full_name.includes(studentSearch)).slice(0, 20);
+  const filteredStudents = students.filter((s) => displayName(s).includes(studentSearch)).slice(0, 20);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
@@ -235,11 +236,11 @@ const CounselorCasesPage = () => {
                         key={s.id}
                         onClick={() => {
                           setSelectedNewStudent(s.id);
-                          setStudentSearch(s.full_name);
+                          setStudentSearch(displayName(s));
                         }}
                         className={`w-full text-right px-3 py-2 text-sm hover:bg-muted/50 ${selectedNewStudent === s.id ? "bg-primary/10" : ""}`}
                       >
-                        {s.full_name}
+                        {displayName(s)}
                       </button>
                     ))}
                     {filteredStudents.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">לא נמצאו תוצאות</p>}
@@ -276,7 +277,7 @@ const CounselorCasesPage = () => {
               <Card key={c.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => openCaseDetail(c)}>
                 <CardContent className="py-4 flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="font-heading font-bold">{student?.full_name || "תלמיד/ה"}</p>
+                    <p className="font-heading font-bold">{displayName(student) || "תלמיד/ה"}</p>
                     <p className="text-xs text-muted-foreground mt-1">נפתח ב-{format(new Date(c.created_at), "dd/MM/yyyy")}</p>
                   </div>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full border shrink-0 ${statusConf.color}`}>{statusConf.label}</span>
@@ -293,7 +294,7 @@ const CounselorCasesPage = () => {
           {activeCase && (
             <>
               <DialogHeader>
-                <DialogTitle className="font-heading">{studentById(activeCase.student_id)?.full_name || "תיק מעקב"}</DialogTitle>
+                <DialogTitle className="font-heading">{displayName(studentById(activeCase.student_id)) || "תיק מעקב"}</DialogTitle>
               </DialogHeader>
 
               <div className="space-y-6 mt-2">

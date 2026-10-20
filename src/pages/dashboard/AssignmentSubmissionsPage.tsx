@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { openStoredFile } from "@/lib/privateFiles";
 import { parseQuizAnswers, type QuizAnswer } from "@/lib/quizAnswers";
+import { displayName } from "@/lib/displayName";
 
 // Per-assignment submissions view: who submitted, auto score, time on task and
 // what they answered, with a manual grade override. Replaces sending the
@@ -107,7 +108,7 @@ const AssignmentSubmissionsPage = () => {
       setAssignment(asg);
 
       const [{ data: students, error: sErr }, { data: subs, error: subErr }, { count: qCount }, { data: task }] = await Promise.all([
-        supabase.from("profiles").select("id, full_name").eq("class_id", asg.classId).order("full_name"),
+        supabase.from("profiles").select("id, full_name, display_name").eq("class_id", asg.classId).order("full_name"),
         supabase.from("submissions")
           .select("id, student_id, grade, status, feedback, content, file_url, attempt_number, time_spent_seconds, focus_violations, submitted_at, graded_by")
           .eq("assignment_id", asg.id),
@@ -147,7 +148,7 @@ const AssignmentSubmissionsPage = () => {
           try { JSON.parse(sub.content); } catch { textContent = sub.content; }
         }
         return {
-          studentId: st.id, name: st.full_name, status,
+          studentId: st.id, name: displayName(st), status,
           submissionId: sub?.id ?? null,
           grade: sub?.grade ?? null,
           autoGraded: sub?.grade != null && !sub?.graded_by,

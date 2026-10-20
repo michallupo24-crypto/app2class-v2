@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Share2, Check, UserPlus, X, ShieldCheck, Loader2, Trash2, Crown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { displayName } from "@/lib/displayName";
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -35,7 +36,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, documen
     setLoading(true);
     const { data, error } = await (supabase as any)
       .from('document_shares')
-      .select('id, shared_with_user_id, permission, profile:profiles!document_shares_shared_with_user_id_fkey(full_name, email)')
+      .select('id, shared_with_user_id, permission, profile:profiles!document_shares_shared_with_user_id_fkey(full_name, display_name, email)')
       .eq('document_id', documentId);
     if (!error && data) setShares(data as ShareRow[]);
     setLoading(false);
@@ -154,7 +155,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, documen
                 shares.map((s) => (
                   <div key={s.id} className="flex items-center justify-between p-2 bg-muted rounded-lg border border-border">
                     <span className="font-medium text-foreground">
-                      {s.profile?.full_name || 'משתמש'}{' '}
+                      {displayName(s.profile) || 'משתמש'}{' '}
                       <span className="text-muted-foreground font-normal">({s.profile?.email})</span>
                     </span>
                     <div className="flex items-center gap-1.5">

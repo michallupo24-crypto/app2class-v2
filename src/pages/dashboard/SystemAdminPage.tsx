@@ -17,6 +17,7 @@ import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import SchoolApplicationsPanel from "@/components/admin/SchoolApplicationsPanel";
+import { displayName } from "@/lib/displayName";
 
 interface School { id: string; name: string; createdAt: string; studentCount: number; }
 interface AuditEntry { id: string; action: string; actorName: string; targetName: string | null; createdAt: string; }
@@ -143,7 +144,7 @@ const SystemAdminPage = () => {
   const loadUsers = async () => {
     const { data: profs } = await supabase
       .from("profiles")
-      .select("id, full_name, email, is_approved, school_id, schools(name)")
+      .select("id, full_name, display_name, email, is_approved, school_id, schools(name)")
       .order("created_at", { ascending: false })
       .limit(50);
     const { data: roles } = await supabase
@@ -155,7 +156,7 @@ const SystemAdminPage = () => {
       roleMap.set(r.user_id, list);
     });
     setUsers((profs || []).map((p: any) => ({
-      id: p.id, fullName: p.full_name, email: p.email, isApproved: p.is_approved,
+      id: p.id, fullName: displayName(p), email: p.email, isApproved: p.is_approved,
       roles: roleMap.get(p.id) || [], schoolName: (p.schools as any)?.name || null,
     })));
   };
@@ -170,8 +171,8 @@ const SystemAdminPage = () => {
     const ids = Array.from(new Set(rows.flatMap((r: any) => [r.actor_id, r.target_id].filter(Boolean))));
     let nameMap: Record<string, string> = {};
     if (ids.length) {
-      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", ids as string[]);
-      (profs || []).forEach((p: any) => (nameMap[p.id] = p.full_name));
+      const { data: profs } = await supabase.from("profiles").select("id, full_name, display_name").in("id", ids as string[]);
+      (profs || []).forEach((p: any) => (nameMap[p.id] = displayName(p)));
     }
     setAuditLog(rows.map((r: any) => ({
       id: r.id,

@@ -32,6 +32,7 @@ import type { AvatarConfig } from "@/components/avatar/AvatarStudio";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDistanceToNow } from "date-fns";
 import { he } from "date-fns/locale";
+import { displayName } from "@/lib/displayName";
 
 const ROLE_LABELS: Record<string, string> = {
   student: "תלמיד/ה",
@@ -120,7 +121,7 @@ const ApprovalsPage = () => {
     }
 
     const [profilesRes, avatarsRes, rolesRes] = await Promise.all([
-      supabase.from("profiles").select("id, full_name, email").in("id", userIds),
+      supabase.from("profiles").select("id, full_name, display_name, email").in("id", userIds),
       supabase.from("avatars").select("*").in("user_id", userIds),
       supabase.from("user_roles").select("user_id, role").in("user_id", userIds),
     ]);
@@ -140,7 +141,7 @@ const ApprovalsPage = () => {
       return {
         id: a.id,
         userId: a.user_id,
-        userName: p?.full_name || "לא ידוע",
+        userName: displayName(p) || "לא ידוע",
         userEmail: p?.email || "",
         notes: a.notes,
         requiredRole: a.required_role,

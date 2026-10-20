@@ -17,6 +17,7 @@ import {
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { displayName } from "@/lib/displayName";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
@@ -257,9 +258,9 @@ const PrincipalDashboardPage = () => {
           ...(pendingSubs || []).map((s: any) => s.assignments?.teacher_id).filter(Boolean),
         ]));
         const { data: complianceProfiles } = complianceTeacherIds.length > 0
-          ? await supabase.from("profiles").select("id, full_name").in("id", complianceTeacherIds)
+          ? await supabase.from("profiles").select("id, full_name, display_name").in("id", complianceTeacherIds)
           : { data: [] };
-        const complianceNameById = new Map((complianceProfiles || []).map((p: any) => [p.id, p.full_name]));
+        const complianceNameById = new Map((complianceProfiles || []).map((p: any) => [p.id, displayName(p)]));
 
         for (const a of (assigns2 || [])) {
           if (a.due_date && a.created_at) {
@@ -317,9 +318,9 @@ const PrincipalDashboardPage = () => {
       if (tcLinks) {
         const teacherIds = Array.from(new Set(tcLinks.map((tc: any) => tc.user_id)));
         const { data: teacherProfiles } = teacherIds.length > 0
-          ? await supabase.from("profiles").select("id, full_name").in("id", teacherIds)
+          ? await supabase.from("profiles").select("id, full_name, display_name").in("id", teacherIds)
           : { data: [] };
-        const nameById = new Map((teacherProfiles || []).map((p: any) => [p.id, p.full_name]));
+        const nameById = new Map((teacherProfiles || []).map((p: any) => [p.id, displayName(p)]));
 
         const countByTeacher = new Map<string, { name: string; count: number }>();
         tcLinks.forEach((tc: any) => {

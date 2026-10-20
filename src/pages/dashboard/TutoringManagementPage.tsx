@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { displayName } from "@/lib/displayName";
 
 interface TutoringSession {
   id: string;
@@ -79,9 +80,9 @@ const TutoringManagementPage = () => {
     const rows = data || [];
     const requesterIds = Array.from(new Set(rows.map((r: any) => r.requested_by)));
     const { data: requesterProfiles } = requesterIds.length
-      ? await supabase.from("profiles").select("id, full_name").in("id", requesterIds)
+      ? await supabase.from("profiles").select("id, full_name, display_name").in("id", requesterIds)
       : { data: [] as any[] };
-    const nameMap = new Map((requesterProfiles || []).map((p: any) => [p.id, p.full_name]));
+    const nameMap = new Map((requesterProfiles || []).map((p: any) => [p.id, displayName(p)]));
     setRequests(rows.map((r: any) => ({
       id: r.id,
       classId: r.class_id,

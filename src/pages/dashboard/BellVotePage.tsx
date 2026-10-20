@@ -10,6 +10,7 @@ import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCouncilRole } from "@/hooks/useCouncilRole";
+import { displayName } from "@/lib/displayName";
 
 interface Suggestion {
   id: string;
@@ -71,9 +72,9 @@ const BellVotePage = () => {
 
     const ids = Array.from(new Set(list.map((s) => s.suggested_by)));
     if (ids.length) {
-      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+      const { data: profs } = await supabase.from("profiles").select("id, full_name, display_name").in("id", ids);
       const map: Record<string, string> = {};
-      (profs || []).forEach((p: any) => (map[p.id] = p.full_name));
+      (profs || []).forEach((p: any) => (map[p.id] = displayName(p)));
       setSuggesters(map);
     }
 

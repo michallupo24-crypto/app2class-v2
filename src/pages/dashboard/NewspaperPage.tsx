@@ -15,6 +15,7 @@ import { format } from "date-fns";
 import ArticleRichEditor from "@/components/newspaper/ArticleRichEditor";
 import { sanitizeHtml, stripHtmlToText } from "@/lib/sanitizeHtml";
 import { useCouncilRole } from "@/hooks/useCouncilRole";
+import { displayName } from "@/lib/displayName";
 
 interface Article {
   id: string;
@@ -62,9 +63,9 @@ const NewspaperPage = () => {
 
     const authorIds = Array.from(new Set(list.map((a) => a.author_id)));
     if (authorIds.length) {
-      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", authorIds);
+      const { data: profs } = await supabase.from("profiles").select("id, full_name, display_name").in("id", authorIds);
       const map: Record<string, string> = {};
-      (profs || []).forEach((p: any) => (map[p.id] = p.full_name));
+      (profs || []).forEach((p: any) => (map[p.id] = displayName(p)));
       setAuthors(map);
     }
 
