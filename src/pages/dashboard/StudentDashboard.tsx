@@ -529,7 +529,7 @@ ${birthdayText}
           size="sm"
           items={[
             { value: presencePct !== null ? `${presencePct}%` : "—", label: "נוכחות", tone: presenceTone },
-            { value: streak?.current_streak ?? 0, label: "ימים ברצף", tone: "warning" },
+            { value: streak?.current_streak ?? 0, label: "ימי לימוד ברצף", tone: "warning" },
             { value: badges.length, label: "תגים", tone: "info" },
           ]}
         />

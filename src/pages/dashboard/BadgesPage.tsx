@@ -20,8 +20,8 @@ const ALL_BADGE_TYPES: { key: string; art: string; title: string; description: s
   { key: "pioneer", art: "pioneer", title: "החלוץ", description: "התחברת לראשונה ל-App2Class.", category: "onboarding" },
   { key: "first_positive", art: "first_positive", title: "כוכב התנהגות", description: "קיבלת הערכה חיובית ראשונה ממורה.", category: "behavior" },
   { key: "five_above_80", art: "five_above_80", title: "רצף מצוינות", description: "חמישה ציונים רצופים מעל 80.", category: "academic" },
-  { key: "streak_7", art: "streak_7", title: "שבוע רצוף", description: "7 ימים רצופים במערכת.", category: "streak" },
-  { key: "streak_30", art: "streak_30", title: "חודש רצוף", description: "30 ימים רצופים במערכת.", category: "streak" },
+  { key: "streak_7", art: "streak_7", title: "שבוע רצוף", description: "7 ימי לימוד ברצף בלי חיסור.", category: "streak" },
+  { key: "streak_30", art: "streak_30", title: "חודש רצוף", description: "30 ימי לימוד ברצף בלי חיסור.", category: "streak" },
   { key: "community_helper", art: "community_helper", title: "עוזר/ת קהילתי/ת", description: "עזרת לחברים בפורום הפלג.", category: "community" },
   { key: "faction_guardian", art: "faction_guardian", title: "נאמן/ת פלג", description: "מדד האמינות שלך הגיע ל-90.", category: "status" },
   { key: "perfect_score", art: "perfect", title: "מצוינות מושלמת", description: "קיבלת 100.", category: "academic" },
@@ -90,8 +90,8 @@ const BadgesPage = () => {
 
   // Progress toward a locked badge, where the app tracks it.
   const progressOf = (key: string): { now: number; goal: number; label: string } | null => {
-    if (key === "streak_7") return { now: Math.min(currentStreak, 7), goal: 7, label: "ימים ברצף" };
-    if (key === "streak_30") return { now: Math.min(currentStreak, 30), goal: 30, label: "ימים ברצף" };
+    if (key === "streak_7") return { now: Math.min(currentStreak, 7), goal: 7, label: "ימי לימוד ברצף" };
+    if (key === "streak_30") return { now: Math.min(currentStreak, 30), goal: 30, label: "ימי לימוד ברצף" };
     if (key === "faction_guardian") return { now: Math.min(reliabilityScore, 90), goal: 90, label: "מדד אמינות" };
     return null;
   };
