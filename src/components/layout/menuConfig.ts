@@ -8,6 +8,8 @@ export interface MenuItem {
   url: string;
   /** Counter shown as a red tag (unread chats, pending approvals). */
   badge?: number;
+  /** Shows a "חדש" tag next to features that just shipped. */
+  isNew?: boolean;
 }
 
 export interface MenuGroup {
@@ -36,6 +38,8 @@ export const ROLE_LABELS: Record<string, string> = {
 
 const MAIN = { title: "ראשי", icon: "home_flat", color: "#E5484D" };
 const COMMS = { title: "תקשורת", icon: "chat", color: "#6B5BFF" };
+
+const FRESH = new Set(["/dashboard/bell-vote", "/dashboard/task-studio"]);
 
 const I = (title: string, page: string): MenuItem => ({ title, url: page ? `/dashboard/${page}` : "/dashboard" });
 
@@ -113,6 +117,9 @@ export function buildMenu(profile: UserProfile): MenuGroup[] {
     "/dashboard/chat": profile.unreadChatCount || 0,
     "/dashboard/approvals": profile.pendingApprovalsCount || 0,
   };
-  for (const g of groups) for (const it of g.items) if (badges[it.url]) it.badge = badges[it.url];
+  for (const g of groups) for (const it of g.items) {
+    if (badges[it.url]) it.badge = badges[it.url];
+    if (FRESH.has(it.url)) it.isNew = true;
+  }
   return groups;
 }

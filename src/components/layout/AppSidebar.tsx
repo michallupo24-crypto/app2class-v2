@@ -30,6 +30,9 @@ const readFolded = (): Record<string, boolean> => {
 };
 
 const ring = (color: string) => `0 0 0 2.5px ${color}, 0 10px 18px -10px rgba(27,35,51,.5)`;
+// Active item: filled with the group color, a white rim and a colored glow.
+const activeGlow = (color: string) => `0 0 0 2.5px #fff, 0 10px 18px -8px ${color}`;
+const CHIP_SHADOW = "shadow-[0_3px_8px_-6px_rgba(27,35,51,.35)]";
 
 function CountTag({ n, className }: { n: number; className?: string }) {
   return (
@@ -101,7 +104,7 @@ export function AppSidebar({ profile, onLogout, mode, onToggle, onClose }: AppSi
           {groups.map((g) => {
             const isFolded = !!folded[g.title];
             return (
-              <div key={g.title} className="flex flex-col gap-[3px]">
+              <div key={g.title} className="flex flex-col gap-[5px]">
                 <button
                   type="button"
                   aria-expanded={!isFolded}
@@ -124,12 +127,17 @@ export function AppSidebar({ profile, onLogout, mode, onToggle, onClose }: AppSi
                       className={cn(
                         "mr-[30px] flex items-center gap-2 rounded-[13px] font-body font-bold leading-none transition-transform",
                         isDrawer ? "px-3 py-[11px] text-[15.5px]" : "px-3 py-[9px] text-[14.5px]",
-                        on ? "bg-card text-foreground -rotate-[1.5deg]" : "text-text-secondary hover:bg-card/60",
+                        on ? "text-white" : cn("bg-card text-foreground hover:-translate-x-0.5", CHIP_SHADOW),
                       )}
-                      style={on ? { boxShadow: ring(g.color) } : undefined}
+                      style={on ? { background: g.color, boxShadow: activeGlow(g.color) } : undefined}
                     >
                       <span className="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">{it.title}</span>
-                      {!!it.badge && <CountTag n={it.badge} className="-rotate-[5deg]" />}
+                      {!!it.badge && <CountTag n={it.badge} />}
+                      {it.isNew && (
+                        <span className="px-[7px] py-1 rounded-[7px] border-2 border-white dark:border-card bg-[#FFF0C2] text-[#7A5200] font-body font-extrabold text-[10.5px] leading-none">
+                          חדש
+                        </span>
+                      )}
                     </Link>
                   );
                 })}
@@ -149,7 +157,7 @@ export function AppSidebar({ profile, onLogout, mode, onToggle, onClose }: AppSi
                 title={g.title}
                 aria-label={`${g.title} - פתיחת התפריט`}
                 onClick={() => { setFolded((f) => ({ ...f, [g.title]: false })); onToggle?.(); }}
-                className={cn("relative w-[54px] h-[54px] rounded-[17px] flex items-center justify-center", hasActive && "bg-card")}
+                className={cn("relative w-[54px] h-[54px] rounded-[17px] flex items-center justify-center bg-card", !hasActive && CHIP_SHADOW)}
                 style={hasActive ? { boxShadow: ring(g.color) } : undefined}
               >
                 <ToolSticker id={g.icon} size={34} />
@@ -167,7 +175,7 @@ export function AppSidebar({ profile, onLogout, mode, onToggle, onClose }: AppSi
           onClick={() => { navigate("/dashboard/avatar-edit"); onClose?.(); }}
           aria-label="עריכת אווטאר"
           title="עריכת אווטאר"
-          className="flex-none -rotate-[5deg]"
+          className="flex-none"
         >
           {profile.avatar ? (
             <AvatarPreview config={profile.avatar} size={40} />
