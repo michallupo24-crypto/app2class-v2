@@ -15,6 +15,11 @@
 -- 6. Badges and streaks could be written for any user.
 -- 7. One query for the chat list's last message + unread count, instead of
 --    downloading every message.
+--
+-- Policies here check approval with public.is_current_user_approved()
+-- (security definer), never a direct select on profiles: profiles' own
+-- policies read parent_student, so a direct read loops ("infinite
+-- recursion detected in policy for relation profiles").
 
 -- ── 1+2. Roles and school scope require an approved account ─────────────
 create or replace function public.has_role(_user_id uuid, _role app_role)
@@ -51,7 +56,7 @@ for insert to authenticated
 with check (
   user_id = auth.uid()
   and role in ('student', 'parent', 'educator', 'professional_teacher', 'subject_coordinator', 'grade_coordinator', 'counselor', 'management')
-  and not exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_approved)
+  and not public.is_current_user_approved()
 );
 
 create or replace function public.guard_profile_self_update()
@@ -88,7 +93,7 @@ create policy "Users can insert own teacher classes" on public.teacher_classes
 for insert to authenticated
 with check (
   user_id = auth.uid()
-  and not exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_approved)
+  and not public.is_current_user_approved()
 );
 
 -- Approvers must hold the role on an approved account.
@@ -112,7 +117,7 @@ create policy "Users can view own parent-student links" on public.parent_student
 for select to authenticated
 using (
   auth.uid() = student_id
-  or (auth.uid() = parent_id and exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_approved))
+  or (auth.uid() = parent_id and public.is_current_user_approved())
   or has_role(auth.uid(), 'system_admin'::app_role)
 );
 
