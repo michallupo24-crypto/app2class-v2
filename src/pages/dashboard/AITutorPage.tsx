@@ -49,7 +49,7 @@ const AITutorPage = () => {
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages]);
+  }, [messages, isLoading]);
 
   // Load chat history
   useEffect(() => {
@@ -108,7 +108,9 @@ const AITutorPage = () => {
         if (historyError) console.error("Failed to save chat history:", historyError);
       }
     } catch (e: any) {
-      toast.error(e.message || "שגיאה בחיבור ל-AI");
+      // Non-2xx replies carry a readable Hebrew `error` in the body (busy, rate limit)
+      const serverMsg = await e?.context?.json?.().then((b: any) => b?.error).catch(() => null);
+      toast.error(serverMsg || "שגיאה בחיבור ל-AI");
     } finally {
       setIsLoading(false);
     }
@@ -164,6 +166,17 @@ const AITutorPage = () => {
               </Card>
             </div>
           ))
+        )}
+        {/* Replies can take a minute or more - show the tutor is working */}
+        {isLoading && (
+          <div className="flex gap-3 flex-row" role="status" aria-label="המורה הפרטי מקליד">
+            <Card className="px-5 py-4 rounded-lg bg-muted/30 flex items-center gap-1.5">
+              {[0, 150, 300].map(delay => (
+                <span key={delay} className="w-2 h-2 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: `${delay}ms` }} />
+              ))}
+              <span className="sr-only">מקליד...</span>
+            </Card>
+          </div>
         )}
       </div>
 

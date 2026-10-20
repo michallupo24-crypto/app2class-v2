@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { geminiUrl } from "../_shared/gemini.ts";
+import { fetchGemini } from "../_shared/gemini.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -99,18 +99,11 @@ serve(async (req) => {
       const contents = history && history.length > 0
         ? history.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }))
         : [{ role: "user", parts: [{ text: userText }] }];
-      const res = await fetch(
-        geminiUrl(GEMINI_API_KEY),
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            contents,
-            ...(asJson ? { generationConfig: { responseMimeType: "application/json" } } : {}),
-          }),
-        },
-      );
+      const res = await fetchGemini(GEMINI_API_KEY, {
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents,
+        ...(asJson ? { generationConfig: { responseMimeType: "application/json" } } : {}),
+      });
       if (!res.ok) {
         const t = await res.text();
         console.error("Gemini error:", res.status, t);
@@ -362,6 +355,10 @@ ${studentContext}
       if (e?.status === 429)
         return new Response(JSON.stringify({ error: "יותר מדי בקשות, נסה שוב בעוד רגע 🕐" }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      if (e?.status === 503 || e?.status === 504)
+        return new Response(JSON.stringify({ error: "המורה הפרטי עמוס כרגע, נסו שוב בעוד דקה 🙏" }), {
+          status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       console.error("AI gateway error:", e);
       return new Response(JSON.stringify({ error: "שגיאה בשירות ה-AI" }), {
