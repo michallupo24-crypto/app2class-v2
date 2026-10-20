@@ -13,7 +13,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "seed:demo": "node scripts/seed-demo-school.mjs",
-    "seed:demo:reset": "node scripts/seed-demo-school.mjs --reset"
+    "seed:demo:reset": "node scripts/seed-demo-school.mjs --reset",
+    "seed:defounder": "node scripts/seed-defounder-school.mjs",
+    "seed:defounder:reset": "node scripts/seed-defounder-school.mjs --reset"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
