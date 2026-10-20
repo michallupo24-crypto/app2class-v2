@@ -617,7 +617,7 @@ const CouncilPage = () => {
                       {e.description && <p className="text-xs text-muted-foreground mt-1">{e.description}</p>}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`sticker sticker-tilt-r ${statusConf.color}`}>{statusConf.label}</span>
+                      <span className={`sticker ${statusConf.color}`}>{statusConf.label}</span>
                       {canManageCouncil && e.status !== "closed" && (
                         <Button size="sm" variant="outline" onClick={() => advanceStatus(e)} className="gap-1">
                           {e.status === "nominations" ? "פתח הצבעה" : "סגור בחירות"} <ChevronLeft className="h-3 w-3" />
@@ -659,7 +659,7 @@ const CouncilPage = () => {
                     <div className="p-3 rounded-row border-[1.5px] border-dashed border-input mb-2 space-y-1.5">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <span className="text-sm font-medium">המועמדות שלך</span>
-                        <span className={`sticker sticker-tilt-l ${CANDIDACY_STATUS_LABELS[myCandidacy.status].color}`}>
+                        <span className={`sticker ${CANDIDACY_STATUS_LABELS[myCandidacy.status].color}`}>
                           {CANDIDACY_STATUS_LABELS[myCandidacy.status].label}
                         </span>
                       </div>
@@ -694,7 +694,7 @@ const CouncilPage = () => {
                         </div>
                         {e.status === "voting" && isStudent && (
                           myVote ? (
-                            myVote === c.id ? <span className="sticker sticker-tilt-r shrink-0 bg-success-soft text-success">הצבעת ✓</span> : null
+                            myVote === c.id ? <span className="sticker shrink-0 bg-success-soft text-success">הצבעת ✓</span> : null
                           ) : (
                             <Button size="sm" onClick={() => castVote(e.id, c.id)} className="shrink-0 gap-1">
                               הצבע/י

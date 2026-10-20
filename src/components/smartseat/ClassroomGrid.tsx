@@ -68,7 +68,7 @@ export function ClassroomGrid({ config, mode, highlightedId, getStudentAt, onCel
                     'grid-cell relative flex h-20 w-[72px] flex-col items-center justify-center gap-1.5 rounded-[14px] transition-[transform,box-shadow]',
                     student ? 'bg-card shadow-[0_3px_8px_-5px_rgba(40,30,15,0.35)]' : 'border-2 border-dashed border-[#D6CDBD]',
                     isDragOver && 'border-[#7AA2F0] bg-[#E5EEFD]',
-                    isHighlighted && '-rotate-2 shadow-[0_0_0_3px_hsl(var(--foreground)),0_14px_20px_-10px_rgba(27,35,51,0.55)]',
+                    isHighlighted && 'shadow-[0_0_0_3px_hsl(var(--foreground)),0_14px_20px_-10px_rgba(27,35,51,0.55)]',
                     absent && 'opacity-60',
                     mode === 'edit' ? (student ? 'cursor-grab active:cursor-grabbing' : 'cursor-default') : (student ? 'cursor-pointer active:scale-95' : 'cursor-default')
                 )}
@@ -93,7 +93,7 @@ export function ClassroomGrid({ config, mode, highlightedId, getStudentAt, onCel
                         </span>
                         {tag && (
                             <span
-                                className="absolute -left-1.5 -top-2 -rotate-6 rounded-lg border-2 border-white px-[7px] py-1 font-body text-[10.5px] font-extrabold leading-none shadow-[0_2px_5px_-2px_rgba(27,35,51,0.4)] dark:border-card"
+                                className="absolute -left-1.5 -top-2 rounded-lg border-2 border-white px-[7px] py-1 font-body text-[10.5px] font-extrabold leading-none shadow-[0_2px_5px_-2px_rgba(27,35,51,0.4)] dark:border-card"
                                 style={{ background: tag[1], color: tag[2] }}
                             >
                                 {tag[0]}

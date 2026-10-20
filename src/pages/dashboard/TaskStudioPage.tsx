@@ -57,7 +57,7 @@ const STUDIO_MODES: StudioMode[] = [
 const CATEGORIES = [["all", "הכל"], ["create", "יצירה"], ["game", "משחקים"], ["ai", "AI"], ["tools", "כלים"]] as const;
 
 const AiTag = ({ small }: { small?: boolean }) => (
-  <span className={`rounded-[9px] border-2 border-white dark:border-card bg-[#D9F6F1] text-[#0F6B66] font-body font-extrabold leading-none rotate-3 shadow-sticker ${small ? "px-[7px] py-1 text-[11px]" : "px-[9px] py-[5px] text-xs"}`}>AI</span>
+  <span className={`rounded-[9px] border-2 border-white dark:border-card bg-[#D9F6F1] text-[#0F6B66] font-body font-extrabold leading-none shadow-sticker ${small ? "px-[7px] py-1 text-[11px]" : "px-[9px] py-[5px] text-xs"}`}>AI</span>
 );
 
 const TaskStudioPage = () => {

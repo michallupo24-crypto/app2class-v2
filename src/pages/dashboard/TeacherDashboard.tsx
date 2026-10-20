@@ -25,7 +25,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchGradeLessonPace, type GradeLessonPaceRow } from "@/lib/lessonPace";
-import { useTeacherDay } from "@/hooks/useTeacherDay";
+import { useTeacherDay, type TeacherLesson } from "@/hooks/useTeacherDay";
+import { localIsoDate, REPORT_STYLE, rollCallUrl, useLessonReports, type LessonReportStatus } from "@/lib/lessonReports";
 import { formatClassName } from "@/hooks/useStudentDay";
 import { SubjectSticker, subjectColor } from "@/components/SubjectSticker";
 import {
@@ -365,13 +366,16 @@ const TeacherDashboard = () => {
   };
 
   const day = useTeacherDay(profile.schoolId, profile.id);
+  const todayIso = localIsoDate(day.now);
+  const reports = useLessonReports(profile.id, todayIso, todayIso);
+  const lessonLink = (l: TeacherLesson) => (l.classId ? rollCallUrl({ classId: l.classId, date: todayIso, lesson: l.lesson_number, subject: l.subject }) : "/dashboard/roll-call");
+  const REPORT_TONE: Record<LessonReportStatus, Tone> = { done: "success", no_topic: "warning", missing: "alert" };
   const dayNames = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
   const todayAttendance = weeklyAttendance.find((d) => d.day === dayNames[new Date().getDay()]);
   const homeroomName = myClasses.find((c) => c.id === homeroomClassId)?.name;
   const roomText = (room: string | null) => (room ? (/^\d/.test(room) ? `חדר ${room}` : room) : null);
 
   // What matters right now: the lesson being taught, the homeroom's day, or the next lesson.
-  let heroIsNextLesson = false;
   const hero = (() => {
     if (day.current) {
       const l = day.current;
@@ -379,7 +383,7 @@ const TeacherDashboard = () => {
         color: shadeHex(subjectColor(l.subject)), subject: l.subject, tag: `עכשיו · שיעור ${l.lesson_number}`,
         title: [l.subject, l.className].filter(Boolean).join(" · "),
         meta: [roomText(l.room), `${day.minutesLeft} דק׳ נותרו`].filter(Boolean).join(" · "),
-        action: { label: "להזנת נוכחות", onClick: () => navigate("/dashboard/roll-call") },
+        action: { label: "להזנת נוכחות", onClick: () => navigate(lessonLink(l)) },
       };
     }
     if (homeroomClassId && todayAttendance) {
@@ -393,7 +397,6 @@ const TeacherDashboard = () => {
     }
     const next = day.upcoming[0];
     if (next) {
-      heroIsNextLesson = true;
       return {
         color: shadeHex(subjectColor(next.subject)), subject: next.subject, tag: `השיעור הבא · ${next.bellStart}`,
         title: [next.subject, next.className].filter(Boolean).join(" · "), meta: [`שיעור ${next.lesson_number}`, roomText(next.room)].filter(Boolean).join(" · "),
@@ -405,8 +408,6 @@ const TeacherDashboard = () => {
     };
   })();
 
-  // The hero already shows the next lesson when there's nothing on now.
-  const laterToday = heroIsNextLesson ? day.upcoming.slice(1) : day.upcoming;
 
   // Everything waiting on the teacher, most urgent first.
   const todo: { key: string; icon: React.ReactNode; title: string; meta: string; action?: { label: string; onClick: () => void }; tag?: { label: string; tone: Tone } }[] = [];
@@ -443,12 +444,25 @@ const TeacherDashboard = () => {
         )}
       </HomeSection>
 
-      {laterToday.length > 0 && (
-        <HomeSection title="בהמשך היום">
-          {laterToday.map((l, i) => (
-            <HomeRow key={l.lesson_number} index={i} subject={l.subject} title={[l.className, `שיעור ${l.lesson_number}`].filter(Boolean).join(" · ")}
-              meta={[l.bellStart, roomText(l.room)].filter(Boolean).join(" · ")} />
-          ))}
+      {day.today.length > 0 && (
+        <HomeSection title="השיעורים שלי היום">
+          {day.today.map((l) => {
+            // Attendance status once the lesson started; a tap opens that lesson's roll call.
+            const started = l.bellStart <= `${String(day.now.getHours()).padStart(2, "0")}:${String(day.now.getMinutes()).padStart(2, "0")}`;
+            const status = started ? reports.statusOf(l.classId, todayIso, l.lesson_number) : null;
+            const isNow = day.current?.lesson_number === l.lesson_number;
+            return (
+              <HomeRow
+                key={l.lesson_number}
+                subject={l.subject}
+                title={[`שיעור ${l.lesson_number}`, l.subject, l.className].filter(Boolean).join(" · ")}
+                meta={[isNow ? "עכשיו" : `${l.bellStart}–${l.bellEnd}`, roomText(l.room)].filter(Boolean).join(" · ")}
+                onClick={() => navigate(lessonLink(l))}
+                tag={status && status !== "missing" ? { label: REPORT_STYLE[status].short, tone: REPORT_TONE[status] } : undefined}
+                action={status === "missing" ? { label: "הזנת נוכחות", onClick: () => navigate(lessonLink(l)) } : undefined}
+              />
+            );
+          })}
         </HomeSection>
       )}
 

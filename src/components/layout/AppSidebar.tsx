@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import AvatarPreview from "@/components/avatar/AvatarPreview";
 import { ToolSticker } from "@/components/ToolSticker";
@@ -50,12 +50,27 @@ export function AppSidebar({ profile, onLogout, mode, onToggle, onClose }: AppSi
   const location = useLocation();
   const navigate = useNavigate();
   const [folded, setFolded] = useState<Record<string, boolean>>(readFolded);
+  // The group whose rail sticker was clicked: once the menu opens, scroll to it.
+  const [focusGroup, setFocusGroup] = useState<string | null>(null);
+  const groupRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const isDrawer = mode === "drawer";
   const open = mode !== "rail";
 
   useEffect(() => {
     try { localStorage.setItem(FOLDED_KEY, JSON.stringify(folded)); } catch { /* private mode */ }
   }, [folded]);
+
+  useEffect(() => {
+    if (!open || !focusGroup) return;
+    const el = groupRefs.current[focusGroup];
+    const list = el?.parentElement;
+    // Scroll the menu list itself (scrollIntoView gets cut short while the menu is still widening).
+    if (el && list) {
+      list.scrollTop += el.getBoundingClientRect().top - list.getBoundingClientRect().top - 4;
+      el.querySelector<HTMLElement>("a")?.focus({ preventScroll: true });
+    }
+    setFocusGroup(null);
+  }, [open, focusGroup]);
 
   const groups: MenuGroup[] = useMemo(() => {
     const managesSchool = profile.roles.some((r) => ["management", "system_admin"].includes(r));
@@ -104,7 +119,7 @@ export function AppSidebar({ profile, onLogout, mode, onToggle, onClose }: AppSi
           {groups.map((g) => {
             const isFolded = !!folded[g.title];
             return (
-              <div key={g.title} className="flex flex-col gap-[5px]">
+              <div key={g.title} ref={(el) => { groupRefs.current[g.title] = el; }} className="flex flex-col gap-[5px] scroll-mt-1">
                 <button
                   type="button"
                   aria-expanded={!isFolded}
@@ -133,11 +148,6 @@ export function AppSidebar({ profile, onLogout, mode, onToggle, onClose }: AppSi
                     >
                       <span className="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">{it.title}</span>
                       {!!it.badge && <CountTag n={it.badge} />}
-                      {it.isNew && (
-                        <span className="px-[7px] py-1 rounded-[7px] border-2 border-white dark:border-card bg-[#FFF0C2] text-[#7A5200] font-body font-extrabold text-[10.5px] leading-none">
-                          חדש
-                        </span>
-                      )}
                     </Link>
                   );
                 })}
@@ -156,7 +166,7 @@ export function AppSidebar({ profile, onLogout, mode, onToggle, onClose }: AppSi
                 type="button"
                 title={g.title}
                 aria-label={`${g.title} - פתיחת התפריט`}
-                onClick={() => { setFolded((f) => ({ ...f, [g.title]: false })); onToggle?.(); }}
+                onClick={() => { setFolded((f) => ({ ...f, [g.title]: false })); setFocusGroup(g.title); onToggle?.(); }}
                 className={cn("relative w-[54px] h-[54px] rounded-[17px] flex items-center justify-center bg-card", !hasActive && CHIP_SHADOW)}
                 style={hasActive ? { boxShadow: ring(g.color) } : undefined}
               >

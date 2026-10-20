@@ -1064,55 +1064,10 @@ const ChatPage = () => {
     setMentionedIds(new Set());
 
     try {
-      type ModResponse = {
-        blocked?: boolean;
-        block_reason?: string | null;
-        flag?: boolean;
-        flag_reason?: string | null;
-        safe?: boolean;
-        reason?: string | null;
-      };
-
-      let blocked = false;
-      let flagged = false;
-      let flagReason: string | null = null;
-
-      if (content) {
-        const { data: modResult } = await supabase.functions.invoke("chat-moderate", {
-          body: {
-            message: content,
-            sender_name: profile.fullName,
-            sender_id: profile.id,
-            conversation_id: selectedId,
-          },
-        });
-
-        const mr = modResult as ModResponse | null;
-        blocked = mr?.blocked === true;
-        const legacyUnsafe = Boolean(mr && mr.blocked !== true && mr.safe === false);
-        flagged = !blocked && (mr?.flag === true || legacyUnsafe);
-        flagReason = mr?.flag_reason || mr?.reason || null;
-
-        if (blocked) {
-          toast({
-            title: "לא נשלחה",
-            description:
-              mr?.block_reason ||
-              "ההודעה שכתבת לא עומדת בסטנדרט הקהילה שלנו. נסה/י לנסח מחדש בנימוס ובכבוד.",
-            variant: "destructive",
-          });
-          setInput(content);
-          setPendingAttachment(attachment);
-          return;
-        }
-      }
-
       const { data: inserted, error: insertError } = await supabase.from("messages").insert({
         conversation_id: selectedId,
         sender_id: profile.id,
         content: content || "",
-        is_flagged: flagged,
-        flag_reason: flagged ? flagReason : null,
         reply_to_id: replyToId,
         mentioned_user_ids: mentions,
         attachment_path: attachment?.path ?? null,
@@ -1157,13 +1112,6 @@ const ChatPage = () => {
         .update({ updated_at: new Date().toISOString() })
         .eq("id", selectedId);
 
-      if (flagged) {
-        toast({
-          title: "הודעה נשלחה לבדיקה",
-          description: flagReason || "התוכן סומן לצוות",
-          variant: "destructive",
-        });
-      }
     } catch (err: any) {
       toast({ title: "שגיאה", description: err.message, variant: "destructive" });
       setInput(content);
@@ -1186,39 +1134,10 @@ const ChatPage = () => {
     const content = input.trim();
 
     try {
-      // Same moderation gate as an immediate send - a plpgsql function can't
-      // call the chat-moderate edge function, so this has to happen now,
-      // at schedule time, with the result stored for delivery time.
-      const { data: modResult } = await supabase.functions.invoke("chat-moderate", {
-        body: {
-          message: content,
-          sender_name: profile.fullName,
-          sender_id: profile.id,
-          conversation_id: selectedId,
-        },
-      });
-      const mr = modResult as {
-        blocked?: boolean; block_reason?: string | null;
-        flag?: boolean; flag_reason?: string | null;
-        safe?: boolean; reason?: string | null;
-      } | null;
-      const blocked = mr?.blocked === true;
-      if (blocked) {
-        toast({
-          title: "לא ניתן לתזמן",
-          description: mr?.block_reason || "ההודעה שכתבת לא עומדת בסטנדרט הקהילה שלנו. נסה/י לנסח מחדש בנימוס ובכבוד.",
-          variant: "destructive",
-        });
-        return;
-      }
-      const legacyUnsafe = Boolean(mr && mr.blocked !== true && mr.safe === false);
-      const flagged = mr?.flag === true || legacyUnsafe;
-      const flagReason = mr?.flag_reason || mr?.reason || null;
-
       const { data, error } = await supabase.from("scheduled_chat_messages")
         .insert({
           conversation_id: selectedId, sender_id: profile.id, content,
-          send_at: sendAtDate.toISOString(), is_flagged: flagged, flag_reason: flagged ? flagReason : null,
+          send_at: sendAtDate.toISOString(),
         })
         .select("id, content, send_at").single();
       if (error || !data) throw error;
@@ -1260,41 +1179,14 @@ const ChatPage = () => {
     setEditingId(null);
     setEditText("");
 
-    // An edited message never went through send-time moderation again -
-    // someone could post something innocuous and edit it into something
-    // that should have been blocked/flagged, skipping chat-moderate
-    // entirely. Same gate as a fresh send.
-    const { data: modResult } = await supabase.functions.invoke("chat-moderate", {
-      body: { message: text, sender_name: profile.fullName, sender_id: profile.id, conversation_id: selectedId },
-    });
-    const mr = modResult as {
-      blocked?: boolean; block_reason?: string | null;
-      flag?: boolean; flag_reason?: string | null;
-      safe?: boolean; reason?: string | null;
-    } | null;
-    if (mr?.blocked === true) {
-      toast({
-        title: "לא ניתן לשמור",
-        description: mr.block_reason || "התוכן אינו עומד בסטנדרט הקהילה שלנו. נסה/י לנסח מחדש בנימוס ובכבוד.",
-        variant: "destructive",
-      });
-      setEditingId(id);
-      setEditText(text);
-      return;
-    }
-    const legacyUnsafe = Boolean(mr && mr.blocked !== true && mr.safe === false);
-    const flagged = mr?.flag === true || legacyUnsafe;
-    const flagReason = mr?.flag_reason || mr?.reason || null;
-
     const editedAt = new Date().toISOString();
     setMessages((prev) => prev.map((m) => m.id === id
-      ? { ...m, content: text, edited_at: editedAt, is_flagged: flagged, flag_reason: flagged ? flagReason : null }
+      ? { ...m, content: text, edited_at: editedAt }
       : m));
     const { error } = await supabase.from("messages")
-      .update({ content: text, edited_at: editedAt, is_flagged: flagged, flag_reason: flagged ? flagReason : null })
+      .update({ content: text, edited_at: editedAt })
       .eq("id", id);
     if (error) toast({ title: "שגיאה בעריכת ההודעה", description: error.message, variant: "destructive" });
-    else if (flagged) toast({ title: "ההודעה המעודכנת נשלחה לבדיקה", description: flagReason || "התוכן סומן לצוות", variant: "destructive" });
   };
 
   const deleteMessage = async (id: string) => {
@@ -1670,9 +1562,9 @@ const ChatPage = () => {
             <AvatarPreview config={c.otherAvatar} size={42} />
           ) : (
             groupLogoSubject(c) ? (
-              <SubjectSticker subject={groupLogoSubject(c)!} size={40} tilt />
+              <SubjectSticker subject={groupLogoSubject(c)!} size={40} />
             ) : (
-              <div className={`w-10 h-10 rounded-[13px] border-[2.5px] border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] flex items-center justify-center -rotate-[5deg] dark:border-card ${typeColor(c.type)}`}>
+              <div className={`w-10 h-10 rounded-[13px] border-[2.5px] border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] flex items-center justify-center  dark:border-card ${typeColor(c.type)}`}>
                 {typeIcon(c.type)}
               </div>
             )
@@ -1913,7 +1805,7 @@ const ChatPage = () => {
                       aria-expanded={classGroupsOpen || !!listFilter.trim()}
                       className="w-full flex items-center gap-[11px] px-2.5 py-[9px] rounded-row text-right hover:bg-card/70 transition-colors"
                     >
-                      <div className="w-10 h-10 shrink-0 rounded-[13px] border-[2.5px] border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] flex items-center justify-center -rotate-[5deg] bg-[#F2668B] text-white dark:border-card">
+                      <div className="w-10 h-10 shrink-0 rounded-[13px] border-[2.5px] border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] flex items-center justify-center bg-[#F2668B] text-white dark:border-card">
                         <School className="h-4 w-4" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1941,7 +1833,7 @@ const ChatPage = () => {
                       onClick={openClassTeachers}
                       className="w-full flex items-center gap-[11px] px-2.5 py-[9px] rounded-row text-right hover:bg-card/70 transition-colors"
                     >
-                      <div className="w-10 h-10 shrink-0 rounded-[13px] border-[2.5px] border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] flex items-center justify-center rotate-[4deg] bg-[#3B7BF2] text-white dark:border-card">
+                      <div className="w-10 h-10 shrink-0 rounded-[13px] border-[2.5px] border-white shadow-[0_2px_5px_rgba(40,30,15,0.25)] flex items-center justify-center bg-[#3B7BF2] text-white dark:border-card">
                         <GraduationCap className="h-4 w-4" />
                       </div>
                       <div className="flex-1 min-w-0">

@@ -409,7 +409,7 @@ const StudentRightsPage = () => {
           <>
             {/* This week */}
             <div
-              className="relative mx-1 mt-3 flex flex-col gap-4 rounded-[28px] border-[6px] border-white px-6 pb-5 pt-[22px] text-white dark:border-card md:-rotate-[0.8deg]"
+              className="relative mx-1 mt-3 flex flex-col gap-4 rounded-[28px] border-[6px] border-white px-6 pb-5 pt-[22px] text-white dark:border-card"
               style={{ background: heroColor, boxShadow: `0 18px 30px -16px ${heroColor}` }}
             >
               <div className="flex flex-col gap-2">

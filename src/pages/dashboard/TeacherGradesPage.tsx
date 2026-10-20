@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate, useOutletContext, useLocation } from "react-router-dom";
+import { useOutletContext, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -49,7 +49,6 @@ const PERCENTILE_BINS = [
 
 const TeacherGradesPage = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
-  const navigate = useNavigate();
   const location = useLocation();
   const navState = location.state as { classId?: string; assignmentId?: string } | null;
   const { toast } = useToast();
@@ -440,9 +439,9 @@ const TeacherGradesPage = () => {
 
       <motion.div variants={item} className="grid grid-cols-3 gap-2 md:gap-3">
         {[
-          { v: bookStats.classAvg ?? "—", label: "ממוצע הכיתה", cls: "bg-info-soft text-info -rotate-2" },
-          { v: bookStats.pending, label: "ממתינים לבדיקה", cls: "bg-warning-soft text-warning rotate-2" },
-          { v: bookStats.below60, label: "תלמידים מתחת ל-60", cls: "bg-destructive-soft text-destructive -rotate-1" },
+          { v: bookStats.classAvg ?? "—", label: "ממוצע הכיתה", cls: "bg-info-soft text-info" },
+          { v: bookStats.pending, label: "ממתינים לבדיקה", cls: "bg-warning-soft text-warning" },
+          { v: bookStats.below60, label: "תלמידים מתחת ל-60", cls: "bg-destructive-soft text-destructive" },
         ].map((s) => (
           <div key={s.label} className={`flex flex-col gap-2 p-3 md:p-4 rounded-[20px] border-[3px] border-white dark:border-card shadow-[0_8px_16px_-11px_rgba(40,30,15,.45)] ${s.cls}`}>
             <span className="font-heading font-black text-2xl md:text-[30px] leading-none">{s.v}</span>
@@ -489,12 +488,12 @@ const TeacherGradesPage = () => {
                     {bookRows.map((r) => (
                       <tr key={r.id} className="border-b border-border/60 last:border-0">
                         <th scope="row" className="sticky right-0 bg-card px-4 md:px-[18px] py-2 text-right font-normal">
-                          <button type="button" onClick={() => navigate(`/dashboard/report/${r.id}`)} className="flex items-center gap-2.5 min-w-0 text-right" title="תעודה">
+                          <div className="flex items-center gap-2.5 min-w-0 text-right">
                             <span className="w-9 h-9 flex-none rounded-full overflow-hidden border-[2.5px] border-white dark:border-card shadow-[0_2px_5px_rgba(40,30,15,.25)] bg-soft flex items-center justify-center">
                               {r.avatar ? <AvatarPreview config={r.avatar} size={36} /> : <span className="font-heading font-black text-sm text-muted-foreground">{r.name.charAt(0)}</span>}
                             </span>
                             <span className="font-heading font-extrabold text-sm leading-tight truncate max-w-[150px]">{r.name}</span>
-                          </button>
+                          </div>
                         </th>
                         {r.cells.map(({ a, norm, pending }) => (
                           <td key={a.id} className="px-1.5 py-2 text-center">
@@ -689,15 +688,6 @@ const TeacherGradesPage = () => {
                             )}
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 hover:text-primary"
-                              onClick={() => navigate(`/dashboard/report/${sg.studentId}`)}
-                              title="צפה בתעודת רבעון"
-                            >
-                              <FileText className="h-4 w-4" />
-                            </Button>
                             {sg.grade !== null ? (
                               <>
                                 <span className={`font-heading font-bold text-lg ${gradeColor(normalized!)}`}>{sg.grade}</span>

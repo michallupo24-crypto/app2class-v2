@@ -10,6 +10,7 @@ import { formatClassName } from "@/hooks/useStudentDay";
 import { SubjectSticker, subjectColor, subjectStickerId } from "@/components/SubjectSticker";
 import { PillSwitch } from "@/components/home/HomeKit";
 import { cn } from "@/lib/utils";
+import { REPORT_STYLE, rollCallUrl, useLessonReports } from "@/lib/lessonReports";
 
 interface TimetableSlot {
   id: string;
@@ -97,8 +98,8 @@ function MomentSticker({ kind }: { kind: "apple" | "cloud" | "moon" }) {
 
 // Lesson icon as in the Timetable v2 mockup: the subject's free-form sticker
 // (a letter badge in the subject color when there is no artwork).
-function LessonIcon({ subject, size, flat, tilt, className }: { subject: string; size: number; flat?: boolean; tilt?: boolean; className?: string }) {
-  return <SubjectSticker subject={subject} size={size} flat={flat} tilt={tilt} className={className} />;
+function LessonIcon({ subject, size, flat, className }: { subject: string; size: number; flat?: boolean; className?: string }) {
+  return <SubjectSticker subject={subject} size={size} flat={flat} className={className} />;
 }
 
 const DailyTimetable = ({ profile, view: viewProp, onViewChange, onSubtitle }: DailyTimetableProps) => {
@@ -280,6 +281,9 @@ const DailyTimetable = ({ profile, view: viewProp, onViewChange, onSubtitle }: D
     return d;
   }, [weekStart]);
 
+  const weekEndIso = useMemo(() => { const e = new Date(weekStart); e.setDate(e.getDate() + 6); return isoDate(e); }, [weekStart]);
+  const reports = useLessonReports(teacherOwnView ? profile.id : null, isoDate(weekStart), weekEndIso);
+
   // Approved exams / submissions this week for the shown class's grade.
   const eventClass = viewMode === "class" && selectedClassId ? classes.find((c) => c.id === selectedClassId) : studentClass;
   useEffect(() => {
@@ -379,6 +383,16 @@ const DailyTimetable = ({ profile, view: viewProp, onViewChange, onSubtitle }: D
     if (day !== todayDow) return day < todayDow && isSchoolDay ? "past" : "future";
     return nowTime >= b.end_time ? "past" : nowTime >= b.start_time ? "now" : "future";
   };
+  // Attendance status of the teacher's own lessons this week.
+  const reportOf = (day: number, lessonNum: number, slot?: TimetableSlot) => {
+    const b = lessonBells.find((x) => x.lesson_number === lessonNum);
+    return teacherOwnView && slot?.class_id && b && stateOf(day, b) !== "future"
+      ? reports.statusOf(slot.class_id, isoDate(dateOf(day)), lessonNum)
+      : null;
+  };
+  const openRollCall = (day: number, lessonNum: number, slot: TimetableSlot) => {
+    if (slot.class_id) navigate(rollCallUrl({ classId: slot.class_id, date: isoDate(dateOf(day)), lesson: lessonNum, subject: slot.subject }));
+  };
   const progress = (b: BellSlot) => `${Math.round(((nowMin - timeToMinutes(b.start_time)) / (timeToMinutes(b.end_time) - timeToMinutes(b.start_time))) * 100)}%`;
 
   // ── The "now" hero (today only) ────────────────────────────────────────────
@@ -417,7 +431,7 @@ const DailyTimetable = ({ profile, view: viewProp, onViewChange, onSubtitle }: D
       const s = lessonName(cur);
       return { bg: shade(colorOf(s), 0.84), icon: <LessonIcon subject={s.subject} size={76} className="h-full w-full" />, tag: `עכשיו · שיעור ${cur.lesson_number}`,
         title: s.subject, meta: slotMeta(s), big: timeToMinutes(cur.end_time) - nowMin, bigLabel: "דק׳ נותרו", prog: progress(cur), next: nextText(cur),
-        onClick: () => navigate(`/dashboard/subjects/${encodeURIComponent(s.subject)}?tab=live`) };
+        onClick: () => (teacherOwnView && s.class_id ? openRollCall(todayDow, cur.lesson_number, s) : navigate(`/dashboard/subjects/${encodeURIComponent(s.subject)}?tab=live`)) };
     }
     // Between lessons: a bell slot without a lesson is a free period, otherwise a break.
     const n = nextAfter(today.filter((b) => b.end_time <= nowTime).pop());
@@ -491,7 +505,7 @@ const DailyTimetable = ({ profile, view: viewProp, onViewChange, onSubtitle }: D
         <div
           onClick={hero.onClick}
           role={hero.onClick ? "button" : undefined}
-          className={cn("relative mx-1 mb-1 mt-3.5 flex max-w-2xl flex-col gap-3.5 rounded-[26px] border-[5px] border-white px-5 pb-[18px] pt-5 text-white -rotate-[1.2deg] dark:border-card", hero.onClick && "cursor-pointer")}
+          className={cn("relative mx-1 mb-1 mt-3.5 flex max-w-2xl flex-col gap-3.5 rounded-[26px] border-[5px] border-white px-5 pb-[18px] pt-5 text-white  dark:border-card", hero.onClick && "cursor-pointer")}
           style={{ background: hero.bg, boxShadow: `0 14px 26px -14px ${hero.bg}, 0 2px 0 rgba(27,35,51,.06)` }}
         >
           <div className="absolute -top-[30px] left-3.5 h-[76px] w-[76px]">{hero.icon}</div>
@@ -502,7 +516,7 @@ const DailyTimetable = ({ profile, view: viewProp, onViewChange, onSubtitle }: D
           </div>
           {hero.big !== null && (
             <div className="flex items-center gap-3">
-              <div className="flex shrink-0 rotate-2 items-baseline gap-[5px] rounded-[14px] bg-white px-[13px] py-2 shadow-[0_3px_8px_-3px_rgba(0,0,0,0.25)]" style={{ color: hero.bg }}>
+              <div className="flex shrink-0 items-baseline gap-[5px] rounded-[14px] bg-white px-[13px] py-2 shadow-[0_3px_8px_-3px_rgba(0,0,0,0.25)]" style={{ color: hero.bg }}>
                 <span className="font-heading text-[22px] font-black leading-none">{hero.big}</span>
                 <span className="font-body text-xs font-extrabold leading-none">{hero.bigLabel}</span>
               </div>
@@ -538,7 +552,7 @@ const DailyTimetable = ({ profile, view: viewProp, onViewChange, onSubtitle }: D
                   aria-pressed={on}
                   className={cn(
                     "flex flex-col items-center gap-[5px] rounded-[18px] border-[3px] border-white pb-2 pt-2.5 transition-transform dark:border-card",
-                    on ? "-translate-y-0.5 -rotate-[4deg] bg-primary shadow-[0_8px_14px_-6px_rgba(27,35,51,0.55)]" : "bg-card shadow-[0_4px_10px_-7px_rgba(40,30,15,0.35)]"
+                    on ? "-translate-y-0.5  bg-primary shadow-[0_8px_14px_-6px_rgba(27,35,51,0.55)]" : "bg-card shadow-[0_4px_10px_-7px_rgba(40,30,15,0.35)]"
                   )}
                 >
                   <span className={cn("font-body text-xs font-bold leading-none", on ? "text-[#C9CFDC]" : "text-hint")}>{SHORT_DAYS[d]}</span>
@@ -592,8 +606,10 @@ const DailyTimetable = ({ profile, view: viewProp, onViewChange, onSubtitle }: D
                 const ev = slot ? eventFor(currentDay, b.lesson_number) : undefined;
                 const es = ev && EVENT_STYLE[ev.event_type];
                 const c = slot ? colorOf(slot) : "#8A93A5";
+                const report = reportOf(currentDay, b.lesson_number, slot);
+                const rs = report ? REPORT_STYLE[report] : null;
                 return (
-                  <div key={`l${b.lesson_number}`} className={cn("flex items-stretch gap-2.5", st === "past" && "opacity-50")}>
+                  <div key={`l${b.lesson_number}`} className={cn("flex items-stretch gap-2.5", st === "past" && !rs && "opacity-50")}>
                     <div className="flex w-[42px] shrink-0 flex-col items-center justify-center gap-[3px]">
                       <span className="font-body text-[11px] font-bold leading-none text-hint" dir="ltr">{b.start_time}</span>
                       <span className="font-heading text-[17px] font-black leading-none text-foreground">{b.lesson_number}</span>
@@ -604,14 +620,14 @@ const DailyTimetable = ({ profile, view: viewProp, onViewChange, onSubtitle }: D
                         type="button"
                         onClick={() => setSelected({ day: currentDay, lesson: b.lesson_number })}
                         className="relative flex min-h-[66px] min-w-0 flex-1 items-center gap-3 rounded-[20px] bg-card px-3.5 py-3 text-right"
-                        style={{ boxShadow: st === "now" ? `0 0 0 3px ${c}, 0 12px 22px -12px ${c}` : "0 6px 16px -10px rgba(40,30,15,.28)" }}
+                        style={{ boxShadow: st === "now" ? `0 0 0 3px ${c}, 0 12px 22px -12px ${c}` : rs ? `inset -5px 0 0 ${rs.dot}, 0 6px 16px -10px rgba(40,30,15,.28)` : "0 6px 16px -10px rgba(40,30,15,.28)" }}
                       >
-                        {/* Each subject keeps its own tilt, as in the mockup */}
-                        <LessonIcon subject={slot.subject} size={44} tilt />
+                        <LessonIcon subject={slot.subject} size={44} />
                         <div className="flex min-w-0 flex-1 flex-col gap-[5px]">
                           <div className="flex items-center gap-2">
                             <span className="font-heading text-base font-extrabold leading-tight text-foreground">{slot.subject}</span>
                             {st === "now" && <span className="rounded-full px-2 py-1 font-body text-[11px] font-extrabold leading-none text-white" style={{ background: shade(c, 0.8) }}>עכשיו</span>}
+                            {rs && <span className="mr-auto shrink-0 rounded-full px-2 py-1 font-body text-[11px] font-extrabold leading-none" style={{ background: rs.bg, color: rs.ink }} title={rs.label}>{rs.short}</span>}
                           </div>
                           {slotMeta(slot) && <span className="font-body text-[12.5px] font-semibold leading-snug text-text-secondary">{slotMeta(slot)}</span>}
                           {st === "now" && (
@@ -622,7 +638,7 @@ const DailyTimetable = ({ profile, view: viewProp, onViewChange, onSubtitle }: D
                         </div>
                         {ev && es && (
                           <span
-                            className="absolute -top-[9px] left-3 rotate-[4deg] rounded-[9px] border-[2.5px] border-white px-[9px] py-[5px] font-body text-[11.5px] font-extrabold leading-none shadow-[0_3px_6px_-3px_rgba(27,35,51,0.35)] dark:border-card"
+                            className="absolute -top-[9px] left-3 rounded-[9px] border-[2.5px] border-white px-[9px] py-[5px] font-body text-[11.5px] font-extrabold leading-none shadow-[0_3px_6px_-3px_rgba(27,35,51,0.35)] dark:border-card"
                             style={{ background: es.bg, color: es.ink }}
                           >
                             {ev.title}
@@ -634,7 +650,7 @@ const DailyTimetable = ({ profile, view: viewProp, onViewChange, onSubtitle }: D
                         className="flex min-h-[66px] flex-1 items-center gap-3 rounded-[20px] border-2 border-dashed border-[#D6CDBD] px-3.5"
                         style={{ boxShadow: st === "now" ? "0 0 0 3px #8A93A5" : undefined }}
                       >
-                        <div className="h-[38px] w-[38px] shrink-0 -rotate-6"><MomentSticker kind="cloud" /></div>
+                        <div className="h-[38px] w-[38px] shrink-0"><MomentSticker kind="cloud" /></div>
                         <div className="flex flex-col gap-[3px]">
                           <span className="font-heading text-[15px] font-extrabold leading-none text-text-secondary">חלון</span>
                           <span className="font-body text-[12.5px] font-semibold leading-none text-hint">שעה פנויה</span>
@@ -667,7 +683,7 @@ const DailyTimetable = ({ profile, view: viewProp, onViewChange, onSubtitle }: D
                 key={d}
                 type="button"
                 onClick={() => { setCurrentDay(d); setView("day"); }}
-                className={cn("flex items-center gap-2.5 rounded-[20px] border-[3px] px-3 py-2.5 text-right", isToday ? "-rotate-1 border-[#FBD36B] bg-[#FFF8E6] shadow-[0_10px_20px_-12px_rgba(160,110,10,0.55)] dark:bg-warning-soft" : "border-white bg-card shadow-[0_6px_16px_-11px_rgba(40,30,15,0.3)] dark:border-card")}
+                className={cn("flex items-center gap-2.5 rounded-[20px] border-[3px] px-3 py-2.5 text-right", isToday ? " border-[#FBD36B] bg-[#FFF8E6] shadow-[0_10px_20px_-12px_rgba(160,110,10,0.55)] dark:bg-warning-soft" : "border-white bg-card shadow-[0_6px_16px_-11px_rgba(40,30,15,0.3)] dark:border-card")}
               >
                 <div className="flex w-10 shrink-0 flex-col items-center gap-[3px]">
                   <span className={cn("font-body text-[11px] font-bold leading-none", isToday ? "text-warning" : "text-hint")}>{SHORT_DAYS[d]}</span>
@@ -680,15 +696,17 @@ const DailyTimetable = ({ profile, view: viewProp, onViewChange, onSubtitle }: D
                     const slot = getSlot(d, b.lesson_number);
                     const ev = slot ? eventFor(d, b.lesson_number) : undefined;
                     const st = stateOf(d, b);
+                    const report = reportOf(d, b.lesson_number, slot);
                     return (
                       <div key={b.lesson_number} className="flex flex-1">
                         <div
-                          className={cn("relative aspect-square flex-1 rounded-[10px]", !slot && "border-[1.5px] border-dashed border-[#DCD3C3]", st === "past" && "opacity-40")}
+                          className={cn("relative aspect-square flex-1 rounded-[10px]", !slot && "border-[1.5px] border-dashed border-[#DCD3C3]", st === "past" && !report && "opacity-40")}
                           style={{ boxShadow: st === "now" && slot ? "0 0 0 2.5px hsl(var(--foreground))" : undefined }}
                           title={slot?.subject}
                         >
                           {slot && <div className="absolute -inset-0.5"><LessonIcon subject={slot.subject} flat size={40} className="h-full w-full" /></div>}
                           {ev && <span className="absolute -left-1 -top-1 h-[9px] w-[9px] rounded-full border-2 border-white" style={{ background: EVENT_STYLE[ev.event_type].dot }} />}
+                          {report && <span className="absolute -bottom-1 -right-1 h-[11px] w-[11px] rounded-full border-2 border-white dark:border-card" style={{ background: REPORT_STYLE[report].dot }} title={REPORT_STYLE[report].label} />}
                         </div>
                       </div>
                     );
@@ -702,6 +720,13 @@ const DailyTimetable = ({ profile, view: viewProp, onViewChange, onSubtitle }: D
             <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#F2A007]" />הגשה</span>
             <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-[3px] border-[1.5px] border-dashed border-[#D6CDBD]" />חלון</span>
           </div>
+          {teacherOwnView && (
+            <div className="flex flex-wrap justify-center gap-4 font-body text-xs font-bold text-muted-foreground">
+              {(["done", "no_topic", "missing"] as const).map((k) => (
+                <span key={k} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: REPORT_STYLE[k].dot }} />{REPORT_STYLE[k].label}</span>
+              ))}
+            </div>
+          )}
           <div className="text-center font-body text-xs font-semibold text-hint">לחיצה על יום פותחת אותו</div>
         </div>
       )}
@@ -715,7 +740,7 @@ const DailyTimetable = ({ profile, view: viewProp, onViewChange, onSubtitle }: D
           {sel?.slot && sel.bell && (
             <>
               <div className="flex items-center gap-3.5">
-                <div className="-rotate-[7deg]"><LessonIcon subject={sel.slot.subject} size={66} /></div>
+                <LessonIcon subject={sel.slot.subject} size={66} />
                 <div className="flex min-w-0 flex-col gap-1.5">
                   <Sheet.Title className="font-heading text-[25px] font-black leading-[1.05] text-foreground">{sel.slot.subject}</Sheet.Title>
                   <div className="font-body text-sm font-semibold text-muted-foreground">
@@ -737,11 +762,30 @@ const DailyTimetable = ({ profile, view: viewProp, onViewChange, onSubtitle }: D
                 ))}
               </div>
               {sel.ev && EVENT_STYLE[sel.ev.event_type] && (
-                <div className="flex -rotate-[1.5deg] flex-col gap-1.5 self-start rounded-[14px] border-[3px] border-white px-3.5 py-2.5 shadow-[0_4px_10px_-5px_rgba(27,35,51,0.3)] dark:border-card" style={{ background: EVENT_STYLE[sel.ev.event_type].bg }}>
+                <div className="flex flex-col gap-1.5 self-start rounded-[14px] border-[3px] border-white px-3.5 py-2.5 shadow-[0_4px_10px_-5px_rgba(27,35,51,0.3)] dark:border-card" style={{ background: EVENT_STYLE[sel.ev.event_type].bg }}>
                   <span className="font-body text-xs font-extrabold" style={{ color: EVENT_STYLE[sel.ev.event_type].ink }}>{EVENT_STYLE[sel.ev.event_type].kind}</span>
                   <span className="font-heading text-base font-extrabold text-foreground">{sel.ev.title}</span>
                 </div>
               )}
+              {teacherOwnView && sel.slot.class_id && isoDate(dateOf(sel.day)) <= isoDate(now) && (() => {
+                const r = reports.statusOf(sel.slot.class_id, isoDate(dateOf(sel.day)), sel.lesson);
+                const rs = REPORT_STYLE[r];
+                return (
+                  <div className="flex flex-col gap-2.5">
+                    <div className="flex items-center gap-2 self-start rounded-full px-3 py-1.5 font-body text-[13px] font-extrabold" style={{ background: rs.bg, color: rs.ink }}>
+                      <span className="h-2 w-2 rounded-full" style={{ background: rs.dot }} />{rs.label}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openRollCall(sel.day, sel.lesson, sel.slot!)}
+                      className="rounded-[16px] border-[3px] border-white p-4 text-center font-body text-base font-extrabold text-white dark:border-card"
+                      style={{ background: shade(colorOf(sel.slot), 0.84), boxShadow: `0 8px 16px -8px ${shade(colorOf(sel.slot), 0.84)}` }}
+                    >
+                      {r === "missing" ? "הזנת נוכחות לשיעור" : r === "no_topic" ? "הוספת נושא / עדכון נוכחות" : "עדכון נוכחות ופרטי שיעור"}
+                    </button>
+                  </div>
+                );
+              })()}
               {stateOf(sel.day, sel.bell) === "now" && !teacherOwnView && (
                 <button
                   type="button"

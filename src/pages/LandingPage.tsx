@@ -99,7 +99,7 @@ const LandingPage = () => {
             onClick={() => navigate(role.path)}
             className="group flex flex-col items-center gap-3 p-6 rounded-card bg-card shadow-card hover:-translate-y-0.5 hover:shadow-raised transition-all cursor-pointer"
           >
-            <div className={`w-14 h-14 rounded-[18px] border-[3px] border-white shadow-sticker ${role.color} flex items-center justify-center dark:border-card ${i % 2 ? "rotate-[5deg]" : "-rotate-[5deg]"}`}>
+            <div className={`w-14 h-14 rounded-[18px] border-[3px] border-white shadow-sticker ${role.color} flex items-center justify-center dark:border-card`}>
               <role.icon className="w-7 h-7 text-primary-foreground" />
             </div>
             <span className="font-heading font-black text-lg text-foreground">{role.label}</span>

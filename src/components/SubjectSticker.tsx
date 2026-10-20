@@ -111,8 +111,6 @@ export function SubjectTile({ subject, size = 42, flat = false, className }: Sub
 interface SubjectStickerProps {
   subject: string;
   size?: number;
-  /** Small rotation, as in the mockup. Off by default for dense lists. */
-  tilt?: boolean;
   /** No drop shadow - for stickers sitting inside a strip or another card. */
   flat?: boolean;
   className?: string;
@@ -125,7 +123,7 @@ export function hasSubjectSticker(subject: string): boolean {
 }
 
 /** A subject's sticker: free-form shape, white sticker rim, soft shadow. */
-export function SubjectSticker({ subject, size = 40, tilt = false, flat = false, className }: SubjectStickerProps) {
+export function SubjectSticker({ subject, size = 40, flat = false, className }: SubjectStickerProps) {
   const id = subjectStickerId(subject);
   const art = id ? STICKERS[id] : null;
 
@@ -147,19 +145,18 @@ export function SubjectSticker({ subject, size = 40, tilt = false, flat = false,
     );
   }
 
-  return <StickerArtSvg art={art} size={size} tilt={tilt} flat={flat} className={className} />;
+  return <StickerArtSvg art={art} size={size} flat={flat} className={className} />;
 }
 
 interface StickerArtSvgProps {
   art: StickerArt;
   size?: number | string;
-  tilt?: boolean;
   flat?: boolean;
   className?: string;
 }
 
 /** Draws sticker artwork (subject or tool): silhouette with a white rim, then details. */
-export function StickerArtSvg({ art, size = 40, tilt = false, flat = false, className }: StickerArtSvgProps) {
+export function StickerArtSvg({ art, size = 40, flat = false, className }: StickerArtSvgProps) {
   const [m, d, l] = art.pal;
   const pal: Record<string, string> = { m, d, l };
   const col = (v: unknown) => (typeof v === "string" && v !== "none" ? pal[v] || v : v);
@@ -215,7 +212,6 @@ export function StickerArtSvg({ art, size = 40, tilt = false, flat = false, clas
         overflow: "visible",
         flexShrink: 0,
         filter: flat ? undefined : "drop-shadow(0 3px 3px rgba(27,35,51,.22))",
-        transform: tilt ? `rotate(${art.tilt}deg)` : undefined,
       }}
     >
       <g>{draw(art.sil, "o", true)}</g>

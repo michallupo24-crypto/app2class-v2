@@ -36,7 +36,7 @@ type Filter = "all" | "earned" | "locked" | "streak" | "academic";
 function BadgeSticker({ art, locked }: { art: string; locked: boolean }) {
   const ic = BADGE_ART[art];
   if (!ic) return null;
-  const [m, d, l, tilt] = BADGE_STICKER[art];
+  const [m, d, l] = BADGE_STICKER[art];
   const pal: Record<string, string> = { m, d, l };
   const col = (v: unknown) => (typeof v === "string" && v !== "none" ? pal[v] || v : v);
   const draw = (list: [string, Record<string, any>][], key: string, mode: "rim" | "locked" | "fill") =>
@@ -51,7 +51,7 @@ function BadgeSticker({ art, locked }: { art: string; locked: boolean }) {
     });
   return (
     <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true"
-      style={{ display: "block", overflow: "visible", filter: locked ? undefined : "drop-shadow(0 3px 3px rgba(27,35,51,.22))", transform: locked ? undefined : `rotate(${tilt}deg)` }}>
+      style={{ display: "block", overflow: "visible", filter: locked ? undefined : "drop-shadow(0 3px 3px rgba(27,35,51,.22))" }}>
       {locked ? (
         <>
           <g>{draw(ic.sil, "o", "locked")}</g>
