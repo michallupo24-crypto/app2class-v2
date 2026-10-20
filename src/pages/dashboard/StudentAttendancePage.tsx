@@ -312,7 +312,7 @@ export default function StudentAttendancePage() {
   );
 }
 
-const POSITIVE = ["excellence", "positive_participation", "helped_peer"];
+const POSITIVE = ["excellence", "positive_participation", "helped_peer", "custom_positive"];
 
 const NOTE_KINDS: Record<string, { label: string; icon: string }> = {
   excellence: { label: "הצטיינות", icon: "trophy" },
@@ -321,6 +321,9 @@ const NOTE_KINDS: Record<string, { label: string; icon: string }> = {
   disruption: { label: "הפרעה", icon: "alert" },
   phone: { label: "שימוש בטלפון", icon: "chat" },
   no_homework: { label: "חסרים שיעורי בית", icon: "tasks" },
+  // Events a school added to its roll call menu; the event name is in the note.
+  custom_positive: { label: "הערה חיובית", icon: "star" },
+  custom_negative: { label: "הערת משמעת", icon: "alert" },
 };
 
 const TAGS = {

@@ -1,7 +1,26 @@
+import {
+  BarChart3, BookOpen, ClipboardCheck, GraduationCap, HeartHandshake, House, LayoutGrid,
+  MessagesSquare, Settings2, Sparkles, Users, type LucideIcon,
+} from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 
-// Side menu structure per the "Side Menu" design: titled groups, each with a
-// tool sticker and an accent color (the active item's ring).
+// Side menu structure per the "Side Menu" design: titled groups, each with an
+// icon and an accent color (the icon tile and the active item's marker).
+
+/** Line icon per group icon id (the ids were tool stickers, too playful for a menu). */
+export const GROUP_ICONS: Record<string, LucideIcon> = {
+  home_flat: House,
+  chat: MessagesSquare,
+  approve: ClipboardCheck,
+  learn_note: BookOpen,
+  ai: Sparkles,
+  people: Users,
+  chart: BarChart3,
+  gear: Settings2,
+  classroom: GraduationCap,
+  shield: HeartHandshake,
+  seats: LayoutGrid,
+};
 
 export interface MenuItem {
   title: string;
@@ -12,7 +31,7 @@ export interface MenuItem {
 
 export interface MenuGroup {
   title: string;
-  /** Tool sticker id (see lib/toolStickers). */
+  /** Icon id (see GROUP_ICONS). */
   icon: string;
   color: string;
   items: MenuItem[];
@@ -58,7 +77,7 @@ export function buildMenu(profile: UserProfile): MenuGroup[] {
     groups = [
       { ...MAIN, items: [I("דף הבית", "my-child"), I("מערכת שעות", "schedule"), I("דוחות וציונים", "grades")] },
       { ...COMMS, items: [I("שיחות", "chat"), I("פגישות הורים", "meetings"), I("עיתון בית הספר", "newspaper")] },
-      { title: "אישורים ותשלומים", icon: "approve", color: "#1A6BAA", items: [I("אישורי טיולים", "event-approvals"), I("תשלומים", "finance-hub"), I("מגן זכויות", "rights")] },
+      { title: "אישורים", icon: "approve", color: "#1A6BAA", items: [I("אישורי טיולים", "event-approvals"),I("מגן זכויות", "rights")] },
     ];
   } else if (has("student")) {
     groups = [
@@ -99,7 +118,7 @@ export function buildMenu(profile: UserProfile): MenuGroup[] {
       { ...MAIN, items: [I("דאשבורד", ""), ...(leads ? [I("דאשבורד מנהלת", "principal")] : []), ...(hasApprovalPower ? [I("אישורים", "approvals")] : []), I("לוח זמנים", "schedule")] },
       ...(leads ? [{
         title: "ניהול", icon: "gear", color: "#C22E62",
-        items: [I("בניית מערכת שעות", "timetable-builder"), I("ניהול תפקידי צוות", "team-roles"), I("הגדרות בית הספר", "school-settings"), I("מרכז תשלומים", "finance-hub"), I("ארכיון מבחנים", "exam-archive"),
+        items: [I("בניית מערכת שעות", "timetable-builder"), I("ניהול תפקידי צוות", "team-roles"), I("הגדרות בית הספר", "school-settings"), I("ארכיון מבחנים", "exam-archive"),
           ...(isAdmin ? [I("ניהול מערכת", "admin"), I("עץ ארגוני - כלל המערכת", "system-org-tree")] : [])],
       }] : []),
       { title: "קהילה ותקשורת", icon: "people", color: "#6B5BFF", items: [I("שיחות", "chat"), I("מסמכים", "documents"), ...(leads ? [I("מועצת תלמידים", "council"), I("עיתון בית הספר", "newspaper")] : [])] },

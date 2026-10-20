@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ShieldCheck, MessageSquare, Loader2, CalendarDays, FileText, PartyPopper, Moon } from "lucide-react";
+import { ShieldCheck, MessageSquare, Loader2, CalendarDays, FileText, PartyPopper, Moon, BookOpenCheck } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -33,6 +33,14 @@ interface WeeklyItem {
   dayLabel: string;
 }
 
+interface HomeworkItem {
+  id: string;
+  title: string;
+  subject: string | null;
+  dueDate: string | null;
+  submitted: boolean;
+}
+
 interface RecentGrade {
   id: string;
   grade: number;
@@ -58,6 +66,38 @@ const ROADMAP_TAG: Record<WeeklyItem["type"], { label: string; tone: Tone }> = {
 const shortDate = new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "numeric" });
 const weekday = new Intl.DateTimeFormat("he-IL", { weekday: "long" });
 
+// What ai-tutor returns (with HTTP 200) when the model call fails.
+const AI_INSIGHT_FALLBACK = "לא ניתן לטעון תובנה כרגע";
+
+/** A short weekly insight from the child's real numbers, used whenever the AI one isn't available. */
+function buildWeeklyInsight(d: {
+  name: string; avg: number | null; classAvg: number | null; absences: number; attendancePct: number;
+  classAbsenceRate: number | null; openHomework: number; nextHomeworkDue: string | null; nextExam: WeeklyItem | null;
+}): string {
+  const lines: string[] = [];
+  if (d.avg !== null && d.classAvg !== null) {
+    const diff = Math.round(d.avg - d.classAvg);
+    lines.push(diff >= 5 ? `הממוצע של ${d.name} (${d.avg}) גבוה ב-${diff} נקודות מממוצע הכיתה. כל הכבוד!`
+      : diff <= -5 ? `הממוצע של ${d.name} (${d.avg}) נמוך ב-${-diff} נקודות מממוצע הכיתה (${d.classAvg}). כדאי לבדוק יחד באיזה מקצוע קשה יותר.`
+      : `הממוצע של ${d.name} (${d.avg}) קרוב לממוצע הכיתה (${d.classAvg}).`);
+  } else if (d.avg !== null) {
+    lines.push(`הממוצע של ${d.name} עומד על ${d.avg}.`);
+  }
+  if (d.absences === 0) lines.push("אין היעדרויות עד כה.");
+  else {
+    const aboveClass = d.classAbsenceRate !== null && 1 - d.attendancePct / 100 > d.classAbsenceRate + 0.03;
+    lines.push(`${d.absences === 1 ? "היעדרות אחת" : `${d.absences} היעדרויות`} (נוכחות ${d.attendancePct}%)${aboveClass ? ", יותר מהממוצע בכיתה" : ""}.`);
+  }
+  if (d.openHomework > 0) {
+    const due = d.nextHomeworkDue ? `, ${d.openHomework === 1 ? "להגשה" : "הקרובה להגשה"} ב${weekday.format(new Date(d.nextHomeworkDue))}` : "";
+    lines.push(`ל${d.name} ${d.openHomework === 1 ? "יש מטלת שיעורי בית אחת שעוד לא הוגשה" : `יש ${d.openHomework} שיעורי בית שעוד לא הוגשו`}${due}.`);
+  }
+  if (d.nextExam) {
+    lines.push(`בקרוב: ${d.nextExam.title} ב${weekday.format(new Date(d.nextExam.date))} ${shortDate.format(new Date(d.nextExam.date))}. זה זמן טוב לשאול איך ההכנה.`);
+  }
+  return lines.length ? lines.join(" ") : `עדיין אין מספיק נתונים השבוע על ${d.name}.`;
+}
+
 const ParentDashboardPage = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
   const navigate = useNavigate();
@@ -73,6 +113,7 @@ const ParentDashboardPage = () => {
     attendancePct: 100,
     absentCount: 0,
     weeklyRoadmap: [] as WeeklyItem[],
+    homework: [] as HomeworkItem[],
     recentGrades: [] as RecentGrade[],
     educators: { teacherId: "", educatorName: "", counselorId: "", counselorName: "" },
     classComparison: null as {
@@ -158,21 +199,32 @@ const ParentDashboardPage = () => {
     const [{ data: gEvs }, { data: sEvs }, { data: assigns }, { data: attH }] = await Promise.all([
        supabase.from("grade_events").select("id, title, event_date").eq("school_id", child.schoolId).gte("event_date", today),
        supabase.from("school_events").select("id, title, start_date").eq("school_id", child.schoolId).gte("start_date", today),
-       supabase.from("assignments").select("id, title, due_date, type").eq("class_id", child.classId).gte("due_date", today),
+       supabase.from("assignments").select("id, title, subject, due_date, type").eq("class_id", child.classId).eq("published", true).gte("due_date", today),
        supabase.from("attendance").select("status").eq("student_id", child.id)
     ]);
 
     const combined: WeeklyItem[] = [];
     gEvs?.forEach(e => combined.push({ id: e.id, title: e.title, type: 'exam', date: e.event_date, dayLabel: new Date(e.event_date).toLocaleDateString("he-IL", { weekday: "short" }) }));
     sEvs?.forEach(e => combined.push({ id: e.id, title: e.title, type: 'event', date: e.start_date, dayLabel: new Date(e.start_date).toLocaleDateString("he-IL", { weekday: "short" }) }));
+    // Homework gets its own "שיעורי הבית של <ילד/ה>" panel, so keep it out of the roadmap.
     assigns?.forEach(e => {
-       if (e.due_date) combined.push({ id: e.id, title: e.title, type: e.type === 'exam' ? 'exam' : 'assignment', date: e.due_date, dayLabel: new Date(e.due_date).toLocaleDateString("he-IL", { weekday: "short" }) });
+       if (e.due_date && e.type !== 'homework') combined.push({ id: e.id, title: e.title, type: e.type === 'exam' ? 'exam' : 'assignment', date: e.due_date, dayLabel: new Date(e.due_date).toLocaleDateString("he-IL", { weekday: "short" }) });
     });
 
     const finalRoadmap = combined
       .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)
       .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(0, 5);
+
+    const hwAssigns = (assigns || []).filter(a => a.type === "homework")
+      .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime());
+    const { data: hwSubs } = hwAssigns.length
+      ? await supabase.from("submissions").select("assignment_id, status").eq("student_id", child.id).in("assignment_id", hwAssigns.map(a => a.id))
+      : { data: [] as { assignment_id: string; status: string }[] };
+    const submittedIds = new Set((hwSubs || []).filter(s => s.status !== "draft").map(s => s.assignment_id));
+    const homework: HomeworkItem[] = hwAssigns.map(a => ({
+      id: a.id, title: a.title, subject: a.subject, dueDate: a.due_date, submitted: submittedIds.has(a.id),
+    }));
 
     const absences = (attH || []).filter(a => a.status === "absent").length;
     const attPct = attH?.length ? Math.round(((attH.length - absences) / attH.length) * 100) : 100;
@@ -203,24 +255,37 @@ const ParentDashboardPage = () => {
       attendancePct: attPct,
       absentCount: absences,
       weeklyRoadmap: finalRoadmap,
+      homework,
       recentGrades: (recent || []) as any,
       educators: staff,
       classComparison,
     });
 
+    // The insight used to come only from ai-tutor, which answers 200 with a
+    // canned "לא ניתן לטעון תובנה כרגע" whenever Gemini fails - so parents saw
+    // that sentence instead of an insight. Show one built from this week's real
+    // numbers right away, and let the AI text replace it only when it succeeds.
+    const openHw = homework.filter(h => !h.submitted);
+    setAiInsight(buildWeeklyInsight({
+      name: firstName(child.fullName), avg: cAvg, classAvg, absences, attendancePct: attPct,
+      classAbsenceRate: classComparison?.classAbsenceRate ?? null,
+      openHomework: openHw.length, nextHomeworkDue: openHw[0]?.dueDate ?? null,
+      nextExam: finalRoadmap.find(r => r.type === "exam") ?? null,
+    }));
     setAiInsightLoading(true);
-    setAiInsight("");
     try {
       const contextStr = `ילד/ה: ${child.fullName}, כיתה ${child.grade || ""}'${child.classNumber || ""}.
 ממוצע ציונים אישי: ${cAvg ?? "אין נתונים"}. ממוצע כיתה: ${classAvg ?? "אין נתונים"}.
 אחוז נוכחות: ${attPct}%. מספר היעדרויות: ${absences}.
+שיעורי בית פתוחים שלא הוגשו: ${openHw.length}.
 אירועים קרובים: ${finalRoadmap.length > 0 ? finalRoadmap.map(r => r.title).join(", ") : "אין אירועים קרובים"}.`;
-      const { data } = await supabase.functions.invoke("ai-tutor", {
+      const { data, error } = await supabase.functions.invoke("ai-tutor", {
         body: { context: "parent_insight", message: contextStr, studentId: child.id },
       });
-      setAiInsight(data?.message || "לא ניתן לטעון תובנה כרגע");
+      const text = typeof data?.message === "string" ? data.message.trim() : "";
+      if (!error && !data?.aiFailed && text && text !== AI_INSIGHT_FALLBACK) setAiInsight(text);
     } catch {
-      setAiInsight("שגיאה בטעינת התובנה, נסה/י שוב מאוחר יותר");
+      // Keep the data-driven insight.
     } finally {
       setAiInsightLoading(false);
     }
@@ -338,6 +403,28 @@ const ParentDashboardPage = () => {
     <>
       <HeroCard {...hero} />
 
+      {/* Parents read "שיעורי בית" as their own to-do; name the child loudly. */}
+      <section className="flex flex-col gap-3 rounded-[24px] border-[3px] border-[#F2A007]/60 bg-[#FFF6E0] p-4 dark:bg-[#F2A007]/10">
+        <div className="flex items-center gap-3 px-1">
+          <IconTile icon={BookOpenCheck} color="#F2A007" size={46} />
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <h2 className="font-heading text-[21px] font-black leading-none text-foreground">שיעורי הבית של {childName}</h2>
+            <p className="font-body text-[13px] font-bold leading-snug text-[#7A5200] dark:text-[#F2C46B]">
+              {state.homework.length === 0
+                ? `ל${childName} אין כרגע שיעורי בית פתוחים`
+                : `${state.homework.filter(h => !h.submitted).length} מתוך ${state.homework.length} עדיין לא הוגשו על ידי ${childName}`}
+            </p>
+          </div>
+        </div>
+        {state.homework.map((h, idx) => (
+          <HomeRow key={h.id} index={idx} subject={h.subject || undefined}
+            icon={<IconTile icon={FileText} color="#F2A007" />}
+            title={h.title}
+            meta={[h.subject, h.dueDate && `להגשה ${weekday.format(new Date(h.dueDate))} ${shortDate.format(new Date(h.dueDate))}`].filter(Boolean).join(" · ")}
+            tag={h.submitted ? { label: "הוגש", tone: "success" } : { label: "טרם הוגש", tone: "warning" }} />
+        ))}
+      </section>
+
       <HomeSection title={`השבוע של ${childName}`}>
         {state.weeklyRoadmap.length === 0 ? (
           <HomeEmpty>אין מבחנים, הגשות או אירועים בימים הקרובים</HomeEmpty>
@@ -367,7 +454,7 @@ const ParentDashboardPage = () => {
           <HomeRow
             icon={<IconTile icon={ShieldCheck} color="#9257EC" />}
             title={`מה כדאי לדעת על ${childName}`}
-            meta={aiInsightLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : aiInsight}
+            meta={aiInsight || (aiInsightLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null)}
           />
         </HomeSection>
       )}

@@ -46,7 +46,9 @@ const StudentGradesPage = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
   const { studentId: paramId } = useParams();
   const studentId = paramId || profile.id;
-  const isParentView = !!paramId && paramId !== profile.id;
+  // A parent opening "דוחות וציונים" from the menu has no :studentId but is
+  // still looking at their child, not at "הציונים שלי".
+  const isParentView = paramId ? paramId !== profile.id : profile.roles.includes('parent');
   
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -59,6 +61,7 @@ const StudentGradesPage = () => {
   const [appealText, setAppealText] = useState("");
   const [sendingAppeal, setSendingAppeal] = useState(false);
   const [studentName, setStudentName] = useState<string>("");
+  const [reportStudentId, setReportStudentId] = useState(studentId);
   const [classId, setClassId] = useState<string | null>(null);
   const [distribution, setDistribution] = useState<{ bucket_label: string; bucket_min: number; student_count: number }[]>([]);
   const [distributionLoading, setDistributionLoading] = useState(false);
@@ -78,6 +81,7 @@ const StudentGradesPage = () => {
 
       const { data: p } = await supabase.from("profiles").select("full_name, display_name, class_id").eq("id", targetId).single();
       if (p) { setStudentName(displayName(p)); setClassId(p.class_id); }
+      setReportStudentId(targetId);
 
       const { data: subs, error } = await supabase
         .from("submissions")
@@ -262,7 +266,7 @@ const StudentGradesPage = () => {
             <p className="font-body font-semibold text-sm leading-none text-muted-foreground max-md:hidden">כל המטלות והמבחנים שנבדקו השנה</p>
           </div>
         </div>
-        <button type="button" onClick={() => navigate(`/dashboard/report/${studentId}`)}
+        <button type="button" onClick={() => navigate(`/dashboard/report/${reportStudentId}`)}
           className="max-md:hidden px-4 py-3 rounded-xl bg-primary text-primary-foreground font-body font-extrabold text-sm leading-none">
           הפק גיליון ציונים
         </button>

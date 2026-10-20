@@ -31,6 +31,7 @@ const RollCallPage = lazy(() => import("./pages/dashboard/RollCallPage"));
 const AbsenceJustificationsPage = lazy(() => import("./pages/dashboard/AbsenceJustificationsPage"));
 const MeetingSlotsPage = lazy(() => import("./pages/dashboard/MeetingSlotsPage"));
 const TeacherAssignmentsPage = lazy(() => import("./pages/dashboard/TeacherAssignmentsPage"));
+const AssignmentSubmissionsPage = lazy(() => import("./pages/dashboard/AssignmentSubmissionsPage"));
 const TeacherGradesPage = lazy(() => import("./pages/dashboard/TeacherGradesPage"));
 const TaskStudioPage = lazy(() => import("./pages/dashboard/TaskStudioPage"));
 const SyllabusPlannerPage = lazy(() => import("./pages/dashboard/SyllabusPlannerPage"));
@@ -74,7 +75,6 @@ const BellVotePage = lazy(() => import("./pages/dashboard/BellVotePage"));
 const EventApprovalsPage = lazy(() => import("./pages/dashboard/EventApprovalsPage"));
 const SubjectCoordinatorDashboard = lazy(() => import("./pages/dashboard/SubjectCoordinatorDashboard"));
 const SupportPage = lazy(() => import("./pages/dashboard/SupportPage"));
-const FinanceHubPage = lazy(() => import("./pages/dashboard/FinanceHubPage"));
 const ExamArchivePage = lazy(() => import("./pages/dashboard/ExamArchivePage"));
 const MyClassesPage = lazy(() => import("./pages/dashboard/MyClassesPage"));
 const TeacherSubjectsPage = lazy(() => import("./pages/dashboard/TeacherSubjectsPage"));
@@ -153,6 +153,7 @@ const App = () => (
               <Route path="seating" element={<SeatingMapPage />} />
               <Route path="live-lesson" element={<TeacherLiveLessonPage />} />
               <Route path="teacher-assignments" element={<TeacherAssignmentsPage />} />
+              <Route path="assignments/:assignmentId/submissions" element={<AssignmentSubmissionsPage />} />
               <Route path="task-studio" element={<TaskStudioPage />} />
               <Route path="teacher-grades" element={<TeacherGradesPage />} />
               <Route path="my-classes" element={<MyClassesPage />} />
@@ -161,7 +162,6 @@ const App = () => (
               <Route path="assign-teachers" element={<TeacherAssignmentPage />} />
               <Route path="subject-coordinator-home" element={<SubjectCoordinatorDashboard />} />
               <Route path="support" element={<SupportPage />} />
-              <Route path="finance-hub" element={<FinanceHubPage />} />
               <Route path="exam-archive" element={<ExamArchivePage />} />
               {/* Grade Coordinator routes */}
               <Route path="grade-coordinator-home" element={<GradeCoordinatorDashboard />} />

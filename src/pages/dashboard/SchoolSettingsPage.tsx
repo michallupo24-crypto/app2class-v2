@@ -11,6 +11,8 @@ import {
   ALL_GRADES, DEFAULT_GUIDELINES, ROLE_AREAS, SUBJECT_CATALOG, scopeGrades, withGuidelineDefaults,
   type CustomRoleDraft, type Guidelines, type RoomDraft, type SubjectDraft, type TeacherDraft,
 } from "@/lib/schoolSetup";
+import { AttendanceEventsEditor } from "@/components/school-setup/AttendanceEventsEditor";
+import { DEFAULT_ATTENDANCE_EVENTS, type AttendanceEventType } from "@/hooks/useAttendanceEventTypes";
 import { parseHistoryFile } from "@/lib/historyImport";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +33,7 @@ const TABS = [
   { id: "staff", label: "חדרים ומורים" },
   { id: "roles", label: "תפקידים" },
   { id: "constraints", label: "אילוצי מערכת" },
+  { id: "attendance", label: "אירועי נוכחות" },
   { id: "imports", label: "ייבוא נתונים" },
   { id: "names", label: "שמות תצוגה" },
 ] as const;
@@ -59,17 +62,20 @@ const SchoolSettingsPage = () => {
   const [rooms, setRooms] = useState<RoomDraft[]>([]);
   const [teachers, setTeachers] = useState<TeacherDraft[]>([]);
   const [customRoles, setCustomRoles] = useState<CustomRoleDraft[]>([]);
+  // null = the attendance_event_types table isn't available (migration not applied).
+  const [attendanceEvents, setAttendanceEvents] = useState<AttendanceEventType[] | null>(null);
 
   const load = useCallback(async () => {
     if (!schoolId) return;
     setLoading(true);
-    const [setRes, clsRes, subRes, roomRes, rosterRes, rolesRes] = await Promise.all([
+    const [setRes, clsRes, subRes, roomRes, rosterRes, rolesRes, eventsRes] = await Promise.all([
       db.from("school_settings").select("*").eq("school_id", schoolId).maybeSingle(),
       supabase.from("classes").select("grade, class_number").eq("school_id", schoolId),
       db.from("school_subjects").select("*").eq("school_id", schoolId).order("sort_order"),
       db.from("school_rooms").select("*").eq("school_id", schoolId).order("name"),
       db.from("school_staff_roster").select("*").eq("school_id", schoolId).order("full_name"),
       db.from("school_custom_roles").select("*").eq("school_id", schoolId).order("created_at"),
+      db.from("attendance_event_types").select("id, label, kind, category").eq("school_id", schoolId).order("sort_order"),
     ]);
     const s = setRes.data;
     setGuidelines(withGuidelineDefaults(s?.guidelines));
@@ -88,6 +94,7 @@ const SchoolSettingsPage = () => {
     setRooms((roomRes.data || []).map((r: any) => ({ name: r.name, kind: r.kind || "", capacity: r.capacity ? String(r.capacity) : "" })));
     setTeachers((rosterRes.data || []).map((r: any) => ({ id: r.id, linked: !!r.user_id, fullName: r.full_name, email: r.email || "", subjects: r.subjects || [], role: r.role || "" })));
     setCustomRoles((rolesRes.data || []).map((r: any) => ({ id: r.id, name: r.name, areas: r.areas || [] })));
+    setAttendanceEvents(eventsRes.error ? null : eventsRes.data?.length ? eventsRes.data : DEFAULT_ATTENDANCE_EVENTS);
     setDirty(false);
     setLoading(false);
   }, [schoolId]);
@@ -146,6 +153,17 @@ const SchoolSettingsPage = () => {
       for (const r of customRoles.filter((r) => r.name.trim())) {
         const row = { school_id: schoolId, name: r.name.trim(), areas: r.areas };
         fail(r.id ? await db.from("school_custom_roles").update(row).eq("id", r.id) : await db.from("school_custom_roles").insert(row));
+      }
+
+      if (attendanceEvents) {
+        const keepEvents = attendanceEvents.filter((e) => e.id).map((e) => e.id);
+        const { data: oldEvents } = await db.from("attendance_event_types").select("id").eq("school_id", schoolId);
+        const goneEvents = (oldEvents || []).map((r: any) => r.id).filter((id: string) => !keepEvents.includes(id));
+        if (goneEvents.length) fail(await db.from("attendance_event_types").delete().in("id", goneEvents));
+        for (const [i, e] of attendanceEvents.filter((e) => e.label.trim()).entries()) {
+          const row = { school_id: schoolId, label: e.label.trim(), kind: e.kind, category: e.category, sort_order: i };
+          fail(e.id ? await db.from("attendance_event_types").update(row).eq("id", e.id) : await db.from("attendance_event_types").insert(row));
+        }
       }
 
       invalidateSchoolGuidelines(schoolId);
@@ -218,6 +236,9 @@ const SchoolSettingsPage = () => {
           </div>
         )}
         {tab === "constraints" && <ConstraintsEditor value={constraints} onChange={touch(setConstraints)} />}
+        {tab === "attendance" && (attendanceEvents
+          ? <AttendanceEventsEditor value={attendanceEvents} onChange={touch(setAttendanceEvents)} />
+          : <Hint>רשימת אירועי הנוכחות עדיין לא זמינה בבית הספר הזה.</Hint>)}
         {tab === "imports" && <ImportsTab schoolId={schoolId} userId={profile.id} />}
         {tab === "names" && <DisplayNamesManager profile={profile} />}
       </div>

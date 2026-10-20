@@ -11,13 +11,27 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { action, schoolId, userId, context } = await req.json();
+    const { action, context } = await req.json();
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // The coordinator and school come from the caller's own session and
+    // profile - never from the request body, which exposed any school's data.
+    const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+    const { data: authData } = jwt ? await supabase.auth.getUser(jwt) : { data: { user: null } };
+    const userId = authData?.user?.id;
+    if (!userId) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const { data: me } = await supabase.from("profiles").select("school_id, is_approved").eq("id", userId).maybeSingle();
+    const schoolId = me?.is_approved ? me.school_id : null;
+    if (!schoolId) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     // Get coordinator's grade
     const { data: roleData } = await supabase

@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { FileText, Plus, Send, CheckCircle2, Clock, Users, AlertTriangle } from "lucide-react";
+import { FileText, Plus, Send, CheckCircle2, Clock, Users, AlertTriangle, Wand2 } from "lucide-react";
+import { ToastAction } from "@/components/ui/toast";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +25,10 @@ const ASSIGNMENT_TYPES = [
   { value: "exercise", label: "תרגיל" },
 ];
 
+// Types students solve inside the app, so they're empty until the teacher
+// adds questions (or an interactive task) in the Task Studio.
+const QUESTION_TYPES = ["quiz", "exam", "exercise"];
+
 const TeacherAssignmentsPage = () => {
   const { profile } = useOutletContext<{ profile: UserProfile }>();
   const navigate = useNavigate();
@@ -32,6 +37,8 @@ const TeacherAssignmentsPage = () => {
   const [classes, setClasses] = useState<{ id: string; grade: string; number: number }[]>([]);
   const [assignments, setAssignments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  // Question-type assignments that already have questions or an interactive task.
+  const [withContent, setWithContent] = useState<Set<string>>(new Set());
   const [showCreate, setShowCreate] = useState(false);
 
   // Create form
@@ -90,15 +97,27 @@ const TeacherAssignmentsPage = () => {
       .select("*, classes(grade, class_number)")
       .eq("teacher_id", profile.id)
       .order("created_at", { ascending: false });
+    const ids = (data || []).filter((a) => QUESTION_TYPES.includes(a.type)).map((a) => a.id);
+    if (ids.length) {
+      const [{ data: qs }, { data: tasks }] = await Promise.all([
+        supabase.from("task_questions").select("assignment_id").in("assignment_id", ids),
+        supabase.from("interactive_tasks").select("assignment_id").in("assignment_id", ids),
+      ]);
+      setWithContent(new Set([...(qs || []), ...(tasks || [])].map((r) => r.assignment_id as string)));
+    } else {
+      setWithContent(new Set());
+    }
     setAssignments(data || []);
     setLoading(false);
   };
+
+  const openStudio = (assignmentId: string) => navigate("/dashboard/task-studio", { state: { assignmentId } });
 
   const handleCreate = async () => {
     if (!newTitle || !newClassId || !newSubject) return;
     setCreating(true);
     try {
-      const { error } = await supabase.from("assignments").insert({
+      const { data: created, error } = await supabase.from("assignments").insert({
         teacher_id: profile.id,
         class_id: newClassId,
         subject: newSubject,
@@ -111,9 +130,17 @@ const TeacherAssignmentsPage = () => {
         allow_revision: newAllowRevision,
         school_id: profile.schoolId!,
         published: true,
-      });
+      }).select("id").single();
       if (error) throw error;
-      toast({ title: "המשימה נוצרה בהצלחה! ✅" });
+      if (QUESTION_TYPES.includes(newType)) {
+        toast({
+          title: "המשימה נוצרה! עכשיו מוסיפים לה שאלות",
+          description: "בלי שאלות לתלמידים אין מה לפתור.",
+          action: <ToastAction altText="הוסף שאלות בסטודיו" onClick={() => openStudio(created.id)}>הוסף שאלות</ToastAction>,
+        });
+      } else {
+        toast({ title: "המשימה נוצרה בהצלחה! ✅" });
+      }
       setShowCreate(false);
       setNewTitle(""); setNewDesc(""); setNewDueDate("");
       loadAssignments();
@@ -250,6 +277,11 @@ const TeacherAssignmentsPage = () => {
                           {ASSIGNMENT_TYPES.find(t => t.value === assignment.type)?.label}
                         </Badge>
                         <p className="font-heading font-bold text-sm truncate">{assignment.title}</p>
+                        {QUESTION_TYPES.includes(assignment.type) && !withContent.has(assignment.id) && (
+                          <Badge variant="outline" className="text-[10px] gap-1 bg-warning/15 text-warning border-warning/30">
+                            <AlertTriangle className="h-3 w-3" /> 0 שאלות
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <span>{assignment.subject}</span>
@@ -269,14 +301,21 @@ const TeacherAssignmentsPage = () => {
                         )}
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="font-heading text-xs"
-                      onClick={() => navigate("/dashboard/teacher-grades", { state: { classId: assignment.class_id, assignmentId: assignment.id } })}
-                    >
-                      צפה בהגשות
-                    </Button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {QUESTION_TYPES.includes(assignment.type) && !withContent.has(assignment.id) && (
+                        <Button size="sm" variant="outline" className="font-heading text-xs gap-1" onClick={() => openStudio(assignment.id)}>
+                          <Wand2 className="h-3.5 w-3.5" /> הוסף שאלות
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="font-heading text-xs"
+                        onClick={() => navigate(`/dashboard/assignments/${assignment.id}/submissions`)}
+                      >
+                        צפה בהגשות
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
