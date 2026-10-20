@@ -117,8 +117,12 @@ const HOURS = [
   req("י", "מדעי המחשב", 4, { block: 2, room: "מעבדת מחשבים", track: "מגמות" }),
 ];
 
-// Subjects with no real demo teacher get placeholder teachers ("לשיבוץ").
+// How many teachers each subject has (the builder needs every subject). Where
+// the demo school has fewer real teachers, the rest are placeholders
+// ("לשיבוץ"). Math and English need two: grade י learns them in ability groups,
+// both classes at once.
 const TEACHER_COUNTS = {
+  "מתמטיקה": 2, "אנגלית": 2,
   "לשון": 1, "ספרות": 1, "תנ״ך": 1, "היסטוריה": 1, "גאוגרפיה": 1, "אזרחות": 1,
   "מדעים": 1, "ערבית": 1, "חינוך גופני": 1, "אמנות": 1, "מדעי המחשב": 1,
   "פיזיקה": 1, "ביולוגיה": 1, "שעת חינוך": 1,

@@ -9,7 +9,7 @@ import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useSchoolDays } from "@/hooks/useSchoolDays";
-import { SUBJECTS, GRADES, type GradeLevel } from "@/lib/constants";
+import { SUBJECTS, GRADES, HEBREW_DAYS, type GradeLevel } from "@/lib/constants";
 import BellScheduleSetup from "@/components/timetable-builder/BellScheduleSetup";
 import RoomsManager from "@/components/timetable-builder/RoomsManager";
 import SubjectRequirementsEditor from "@/components/timetable-builder/SubjectRequirementsEditor";
@@ -481,7 +481,10 @@ const TimetableBuilderPage = () => {
         lastLessonByClassDay.set(k, { classId: s.class_id, day: s.day_of_week, lastLesson: s.lesson_number });
       }
     }
-    for (const { classId, lastLesson } of lastLessonByClassDay.values()) {
+    // Days the school made short on purpose (school rules) end early by design.
+    const shortDays = new Set(Object.keys(settingsRes.data?.rules?.shortDays || {}).map(Number));
+    for (const { classId, day, lastLesson } of lastLessonByClassDay.values()) {
+      if (shortDays.has(day)) continue;
       const endTime = endTimeByLesson.get(lastLesson);
       if (endTime && endTime < MIN_DAILY_END_TIME) {
         const cls = classList.find(c => c.id === classId);
@@ -490,7 +493,7 @@ const TimetableBuilderPage = () => {
           grade: cls?.grade ?? null,
           subject: "-",
           reason: cls
-            ? `יום הלימודים של כיתה ${cls.grade}'${cls.class_number} מסתיים ב-${endTime}, לפני השעה המינימלית ${MIN_DAILY_END_TIME} — כדאי להוסיף שעות שבועיות או לפזר טוב יותר בין הימים`
+            ? `ביום ${HEBREW_DAYS[day]} יום הלימודים של כיתה ${cls.grade}'${cls.class_number} מסתיים ב-${endTime}, לפני השעה המינימלית ${MIN_DAILY_END_TIME} — כדאי להוסיף שעות שבועיות או לפזר טוב יותר בין הימים`
             : `יום לימודים מסתיים לפני ${MIN_DAILY_END_TIME}`,
           severity: "warning",
         });

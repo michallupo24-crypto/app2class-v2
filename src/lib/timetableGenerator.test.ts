@@ -265,3 +265,22 @@ describe("generateTimetable - school and teacher rules", () => {
     expect(avg("מתמטיקה")).toBeLessThan(avg("אמנות"));
   });
 });
+
+describe("generateTimetable - rooms", () => {
+  it("puts general subjects in a regular room, the class's own first - never the gym", () => {
+    const input = baseInput();
+    input.requirements = [
+      { class_id: "c1", grade: "ז", subject: "לשון", weekly_hours: 4, block_size: 1, group_count: 1, preferred_room_type: null, is_grade_wide: false, track_group: null, track_kind: null, base_subject: null, group_label: null },
+      { class_id: "c1", grade: "ז", subject: "חינוך גופני", weekly_hours: 2, block_size: 1, group_count: 1, preferred_room_type: "אולם ספורט", is_grade_wide: false, track_group: null, track_kind: null, base_subject: null, group_label: null },
+    ];
+    input.eligibleTeachers = [];
+    input.rooms = [
+      { name: "אולם ספורט", room_type: "אולם ספורט", capacity: 2 },
+      { name: "חדר 2", room_type: "כיתה", capacity: 1 },
+      { name: "כיתה ז-1", room_type: "כיתה", capacity: 1 },
+    ];
+    const { slots } = generateTimetable(input);
+    for (const s of slots.filter(s => s.subject === "לשון")) expect(s.room).toBe("כיתה ז-1");
+    for (const s of slots.filter(s => s.subject === "חינוך גופני")) expect(s.room).toBe("אולם ספורט");
+  });
+});

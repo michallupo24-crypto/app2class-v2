@@ -407,6 +407,10 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
     const aRoom = a.preferredRoomType ? 1 : 0;
     const bRoom = b.preferredRoomType ? 1 : 0;
     if (aRoom !== bRoom) return bRoom - aRoom;
+    // Morning subjects next, while the first lessons of the day are still free.
+    const aMorning = rules.morningSubjects?.has(a.subject) ? 1 : 0;
+    const bMorning = rules.morningSubjects?.has(b.subject) ? 1 : 0;
+    if (aMorning !== bMorning) return bMorning - aMorning;
     const ta = teachersFor.get(key(a.class_id, a.subject))?.length ?? 0;
     const tb = teachersFor.get(key(b.class_id, b.subject))?.length ?? 0;
     if (ta !== tb) return ta - tb;
@@ -423,10 +427,23 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
     if (!roomsByType.has(r.room_type)) roomsByType.set(r.room_type, []);
     roomsByType.get(r.room_type)!.push(r.name);
   }
-  const allRoomNames = rooms.map(r => r.name);
+  // A subject with no required room type goes to a regular room - never a
+  // gym, lab or other room some subject requires (before, it took whichever
+  // room was free first, so Hebrew could land in the gym).
+  const specialTypes = new Set(requirements.map(r => r.preferred_room_type).filter((t): t is string => !!t));
+  const generalRoomNames = rooms.filter(r => !specialTypes.has(r.room_type)).map(r => r.name);
+  // A class's own room comes first when its name carries the class ("כיתה ז-1", "ז'1").
+  const homeRoomOf = (classId: string | null): string | null => {
+    const c = classId ? classesById.get(classId) : null;
+    if (!c) return null;
+    const labels = [`${c.grade}-${c.class_number}`, `${c.grade}'${c.class_number}`, `${c.grade}${c.class_number}`];
+    return generalRoomNames.find(n => labels.some(l => n.split(/\s+/).includes(l) || n.endsWith(l))) ?? null;
+  };
 
-  const findRoom = (preferredType: string | null, day: number, lessons: number[]): string | null => {
-    const candidates = preferredType ? (roomsByType.get(preferredType) || []) : allRoomNames;
+  const findRoom = (preferredType: string | null, day: number, lessons: number[], classId: string | null = null): string | null => {
+    let candidates = preferredType ? (roomsByType.get(preferredType) || []) : generalRoomNames;
+    const home = preferredType ? null : homeRoomOf(classId);
+    if (home) candidates = [home, ...candidates.filter(n => n !== home)];
     for (const room of candidates) {
       if (lessons.every(l => roomHasCapacity(room, day, l))) return room;
     }
@@ -438,8 +455,19 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
   // allows - e.g. 5 classes + one gym with capacity 5 all share that one
   // room, rather than requiring 5 distinct room instances. Returns null if
   // there isn't enough combined capacity across all matching rooms.
-  const assignRoomsForGroup = (preferredType: string | null, day: number, lessons: number[], count: number): (string | null)[] | null => {
-    if (!preferredType) return Array(count).fill(null);
+  const assignRoomsForGroup = (preferredType: string | null, day: number, lessons: number[], count: number, classIds: string[] = []): (string | null)[] | null => {
+    // No room type: each class in its own regular room (home room first),
+    // never two classes in one room. Running out just leaves the room unset.
+    if (!preferredType) {
+      const taken = new Set<string>();
+      return Array.from({ length: count }, (_, i) => {
+        const home = homeRoomOf(classIds[i] ?? null);
+        const pool = home ? [home, ...generalRoomNames.filter(n => n !== home)] : generalRoomNames;
+        const room = pool.find(r => !taken.has(r) && lessons.every(l => roomHasCapacity(r, day, l))) ?? null;
+        if (room) taken.add(room);
+        return room;
+      });
+    }
     const candidates = roomsByType.get(preferredType) || [];
     const assignment: (string | null)[] = [];
     const tentative = new Map<string, number>();
@@ -475,7 +503,7 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
         const lessons = idxRange.map(i => periods[i]);
         if (!dayAllows(day, lessons) || !subjectAllows(unit.subject, lessons)) continue;
 
-        const room = findRoom(unit.preferredRoomType, day, lessons);
+        const room = findRoom(unit.preferredRoomType, day, lessons, unit.class_id);
         if (unit.preferredRoomType && !room) continue; // a required room type is still a hard constraint
 
         if (!relaxed) {
@@ -691,7 +719,7 @@ export function generateTimetable(input: GenerateTimetableInput): GenerateTimeta
         // Classes sharing this grade-wide slot can share a room too, up to
         // its capacity (e.g. 5 classes of PE together in one gym) - only
         // opens a second room instance if the first one(s) don't have room.
-        const roomAssignments = assignRoomsForGroup(gw.preferredRoomType, day, lessons, gw.classIds.length);
+        const roomAssignments = assignRoomsForGroup(gw.preferredRoomType, day, lessons, gw.classIds.length, gw.classIds);
         if (!roomAssignments) continue;
         const roomByClass = new Map<string, string | null>();
         gw.classIds.forEach((cid, i) => roomByClass.set(cid, roomAssignments[i]));

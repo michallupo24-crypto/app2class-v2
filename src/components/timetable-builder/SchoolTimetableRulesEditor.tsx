@@ -105,7 +105,7 @@ export default function SchoolTimetableRulesEditor({ schoolId, canEdit }: { scho
 
   const LessonSelect = ({ value, onChange, placeholder }: { value: number | undefined; onChange: (v: string) => void; placeholder: string }) => (
     <Select value={value === undefined ? ANY : String(value)} onValueChange={onChange} disabled={!canEdit}>
-      <SelectTrigger className="h-9 w-[132px] text-sm"><SelectValue /></SelectTrigger>
+      <SelectTrigger className="h-9 w-[176px] text-sm"><SelectValue /></SelectTrigger>
       <SelectContent>
         <SelectItem value={ANY}>{placeholder}</SelectItem>
         {lessons.map(l => <SelectItem key={l} value={String(l)}>{labelOf(l)}</SelectItem>)}
