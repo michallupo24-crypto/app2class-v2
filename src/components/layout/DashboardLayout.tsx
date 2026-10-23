@@ -14,6 +14,7 @@ import { FontSizeToggle } from "@/components/FontSizeToggle";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import NotificationBell from "@/components/notifications/NotificationBell";
+import { WelcomePopup } from "@/components/WelcomePopup";
 
 // Which roles may open each role-specific page. Pages not listed are shared.
 // The sidebar already hides these links; this stops opening them by URL
@@ -129,6 +130,7 @@ const DashboardLayout = () => {
       >
         דלג לתוכן הראשי
       </a>
+      <WelcomePopup userId={profile.id} />
       <div className="min-h-screen flex w-full" dir="rtl">
         {/* Side menu: full on desktop, rail on tablet */}
         {!isMobile && (

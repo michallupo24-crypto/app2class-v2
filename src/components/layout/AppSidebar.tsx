@@ -299,7 +299,9 @@ export function AppSidebar({ profile, onLogout, mode, onToggle, onClose }: AppSi
                 type="button"
                 title={g.title}
                 aria-label={`${g.title} - פתיחת התפריט`}
-                onClick={() => { setFolded((f) => ({ ...f, [g.title]: false })); setFocusGroup(g.title); onToggle?.(); }}
+                // Opens the menu on this group alone - the others fold, so it is clear
+                // which sticker was clicked even when the whole menu fits on screen.
+                onClick={() => { setFolded(Object.fromEntries(groups.map((x) => [x.title, x.title !== g.title]))); setFocusGroup(g.title); onToggle?.(); }}
                 className={cn("relative flex-none w-[54px] h-[54px] rounded-[17px] flex items-center justify-center bg-card", !hasActive && CHIP_SHADOW)}
                 style={hasActive ? { boxShadow: ring(g.color) } : undefined}
               >
