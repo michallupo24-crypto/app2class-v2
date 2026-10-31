@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  ArrowRight, CheckCircle2, ChevronDown, Clock, FileText, Loader2, Save, ShieldAlert, Sparkles, Wand2, XCircle,
+  ArrowRight, BarChart3, CheckCircle2, ChevronDown, Clock, FileText, Loader2, Save, ShieldAlert, Sparkles, Users, Wand2, XCircle,
 } from "lucide-react";
 import type { UserProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,8 @@ import { useToast } from "@/hooks/use-toast";
 import { openStoredFile } from "@/lib/privateFiles";
 import { parseQuizAnswers, type QuizAnswer } from "@/lib/quizAnswers";
 import { displayName } from "@/lib/displayName";
+import { analyzeQuestions } from "@/lib/questionAnalytics";
+import QuestionAnalytics from "@/components/task-studio/QuestionAnalytics";
 
 // Per-assignment submissions view: who submitted, auto score, time on task and
 // what they answered, with a manual grade override. Replaces sending the
@@ -82,6 +84,9 @@ const AssignmentSubmissionsPage = () => {
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [questionCount, setQuestionCount] = useState<number | null>(null);
+  const [questionOrder, setQuestionOrder] = useState<Map<string, number>>(new Map());
+  const [misconceptions, setMisconceptions] = useState<Map<string, { label: string; count: number }[]>>(new Map());
+  const [view, setView] = useState<"students" | "questions">("students");
   const [hasInteractiveTask, setHasInteractiveTask] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -107,18 +112,31 @@ const AssignmentSubmissionsPage = () => {
       };
       setAssignment(asg);
 
-      const [{ data: students, error: sErr }, { data: subs, error: subErr }, { count: qCount }, { data: task }] = await Promise.all([
+      const [{ data: students, error: sErr }, { data: subs, error: subErr }, { data: questions }, { data: task }, { data: coach }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, display_name").eq("class_id", asg.classId).order("full_name"),
         supabase.from("submissions")
           .select("id, student_id, grade, status, feedback, content, file_url, attempt_number, time_spent_seconds, focus_violations, submitted_at, graded_by")
           .eq("assignment_id", asg.id),
-        supabase.from("task_questions").select("id", { count: "exact", head: true }).eq("assignment_id", asg.id),
+        supabase.from("task_questions").select("id, order_num").eq("assignment_id", asg.id),
         supabase.from("interactive_tasks").select("id").eq("assignment_id", asg.id).maybeSingle(),
+        // Best effort: only quizzes with the AI coach on have any.
+        supabase.from("question_misconceptions").select("question_id, misconception_label").eq("assignment_id", asg.id),
       ]);
       if (sErr) throw sErr;
       if (subErr) throw subErr;
-      setQuestionCount(qCount ?? 0);
+      setQuestionCount(questions?.length ?? 0);
+      setQuestionOrder(new Map((questions || []).map((q) => [q.id, q.order_num])));
       setHasInteractiveTask(!!task);
+
+      const coachBy = new Map<string, Map<string, number>>();
+      for (const m of coach || []) {
+        const labels = coachBy.get(m.question_id) ?? new Map<string, number>();
+        labels.set(m.misconception_label, (labels.get(m.misconception_label) ?? 0) + 1);
+        coachBy.set(m.question_id, labels);
+      }
+      setMisconceptions(new Map([...coachBy].map(([qid, labels]) => [
+        qid, [...labels].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count),
+      ])));
 
       const { data: progress } = task
         ? await supabase.from("interactive_task_progress")
@@ -188,6 +206,11 @@ const AssignmentSubmissionsPage = () => {
       toCheck: rows.filter((r) => r.status === "submitted" && r.grade == null).length,
     };
   }, [rows, assignment]);
+
+  const answered = useMemo(() => rows.filter((r) => r.quizAnswers?.length), [rows]);
+  const questionStats = useMemo(() => analyzeQuestions(
+    answered.map((r) => ({ studentId: r.studentId, name: r.name, answers: r.quizAnswers! })), questionOrder,
+  ), [answered, questionOrder]);
 
   const visible = rows.filter((r) =>
     filter === "all" ? true
@@ -279,6 +302,18 @@ const AssignmentSubmissionsPage = () => {
         <StatCard label="ממתינים לבדיקה" value={String(stats.toCheck)} />
       </div>
 
+      {answered.length > 0 && (
+        <Tabs value={view} onValueChange={(v) => setView(v as typeof view)}>
+          <TabsList className="grid grid-cols-2 w-full max-w-sm">
+            <TabsTrigger value="students" className="font-heading gap-1.5"><Users className="h-4 w-4" /> לפי תלמיד</TabsTrigger>
+            <TabsTrigger value="questions" className="font-heading gap-1.5"><BarChart3 className="h-4 w-4" /> ניתוח שאלות</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
+
+      {view === "questions" && answered.length > 0 ? (
+        <QuestionAnalytics stats={questionStats} studentCount={answered.length} misconceptions={misconceptions} />
+      ) : <>
       <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
         <TabsList className="grid grid-cols-3 w-full max-w-sm">
           <TabsTrigger value="all" className="font-heading">הכל ({rows.length})</TabsTrigger>
@@ -357,6 +392,7 @@ const AssignmentSubmissionsPage = () => {
           </CardContent></Card>
         )}
       </div>
+      </>}
     </motion.div>
   );
 };
